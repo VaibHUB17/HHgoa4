@@ -178,7 +178,37 @@ Invariants to assert before writing any file:
 | `customer_report` | 9 | R2 / R3 / R7 fork. Check recurring-charge history *before* believing the dispute. |
 | `analyst_request` | 1 | HHG-014 — explicitly a shared-device ring. R6 + R9 territory. |
 
-<!-- FILL: per-case triage table -->
+### 1.10 Per-case triage (planning aid, from trigger info only — verify against data)
+
+| Case | Trigger | Read | Rules likely to fire |
+|---|---|---|---|
+| HHG-001 | risk 0.61, **in-person** $77 | No device record → weak evidence base | R1; likely `MONITOR_CARD` / `CLOSE_NO_FRAUD` |
+| HHG-002 | risk 0.79, online $292 | High score, but >0.7 is usually legitimate | R1 verify first; R2/R5 only if a pattern confirms |
+| HHG-003 | report, $49 | Small — check recurring merchant | **R7** plausible, else R2 |
+| HHG-004 | report, $128 | Check device + sequence around flagged txn | R2; check R5 precursor |
+| HHG-005 | risk 0.54, online $100 | Mid-band, single signal | **R1** strongly. Good `uncertain` candidate |
+| HHG-006 | report, $482 | Under $1,000 alone — connected cards could push it over | R2; SAR only if shared device/region |
+| HHG-007 | risk 0.87, **region 264.0** | Region-coded → out-of-region check | Pattern 4; rule out a trip via home-region continuation |
+| HHG-008 | report, $56 | Small | R7/R3 — legitimate candidate |
+| HHG-009 | report, $30 | Very small | **Strong R7/R3** — classic legitimate trap |
+| HHG-010 | risk 0.90, online **$1,000.03** | Sits exactly on the SAR threshold. Deliberate. | R2 → `FILE_REPORT` if confirmed; BLOCK_CARD stays L1 unless exposure >$2,500 |
+| HHG-011 | report, $131 | Mid-small | R2 or R7 by recurrence check |
+| HHG-012 | risk 0.55, region 494.0, $31 | Low score, tiny amount | `CLOSE_NO_FRAUD` / `MONITOR_CARD` — false-positive trap |
+| HHG-013 | risk 0.76, online **$36** | High score + tiny amount = testing smell | **R5** — check hour-window siblings |
+| HHG-014 | **analyst_request** — shared device | **The designated ring case.** Trigger says so outright | **R6** — `device_neighbors()`, CREATE_CASE + FILE_REPORT + MONITOR_CONNECTED_CARDS. Innovation showcase. Build this first. |
+| HHG-015 | risk 0.77, online $600 | Over the $500 R8 line | R8 forces escalation if still uncertain |
+| HHG-016 | report, $60 | Small | R7/R3 likely legitimate |
+| HHG-017 | risk 0.57, online $100 | **Matches the README's own worked example** (card_testing + shared device w/ CC-0141) | R5 + R6. **Use as the calibration case — expected shape is given to us.** |
+| HHG-018 | report, $39 | Small | R7/R3 |
+| HHG-019 | risk 0.90, online $100 | High score, small amount — like 013 | R5 candidate |
+| HHG-020 | risk 0.52, online $125 | Dead-centre ambiguous | Textbook R1. Second `uncertain` calibration case |
+
+**Read across:** the 9 `customer_report` cases hinge entirely on the simulated
+`assumed_response` — that logic swings ~45% of the pack, get it right first. Note how many
+are small amounts ($30–$60): those are the R7 traps. The 10 `risk_score` cases need the
+graph detectors to do real work since there's no customer signal yet.
+
+Start with **HHG-017** (known expected shape) then **HHG-014** (the showcase).
 
 ---
 
@@ -414,17 +444,131 @@ res = conn.runInstalledQuery("card_window", params={...}, timeout=32000)
 
 ---
 
-## 3. Graph schema — final design
+## 3. Graph schema — what to add beyond the README's suggestion
 
-<!-- FILL: column -> vertex/edge/attribute mapping, reduced column set, DeviceProfile key
-     construction, what to add beyond the README's suggestion -->
+The README's schema is a good start and deliberately says "then change it. Schema design is
+part of your engineering." Five gaps worth closing:
+
+| # | Gap | Why it matters | Fix |
+|---|---|---|---|
+| 1 | **`R_emaildomain` dropped** | R6 explicitly names "the same recipient email" as a shared-origin signal. Without it we can't fire R6 on that branch. | `Transaction -RECIPIENT_EMAIL-> EmailDomain`, reusing the same vertex type so purchaser/recipient domains collide naturally |
+| 2 | **No `ProductCategory` vertex** | R5 and pattern 2 both reference "a category the cardholder has never used." As a bare attribute that's a full scan; as a vertex it's a 1-hop check. | `Transaction -IN_CATEGORY-> ProductCategory` keyed on `ProductCD` |
+| 3 | **`addr2` dropped** | `addr1` is only unique within a country. Pattern 4 (out-of-region) needs the qualifier. | `country_code` attribute on `BillingRegion` |
+| 4 | **`dist1`/`dist2` dropped** | Distance-from-home is exactly the out-of-region corroborator. | Keep as Transaction scalars — continuous, no graph structure |
+| 5 | **C/D/M columns unstated** | Real signals the agent should be able to query as evidence. | Transaction scalar attributes, not vertices |
+
+Correctly omitted by the README: there's no IP vertex, because there's no raw IP — it's
+masked into `id_01`–`id_11` ratings, `id_23`, and proxy-tagged `id_31` strings. Nothing
+stable to hang a vertex on.
+
+### DeviceProfile key construction
+
+```python
+def device_profile_key(row):
+    parts = [row.get('DeviceInfo'), row.get('id_30'), row.get('id_31'), row.get('id_33')]
+    parts = [str(p).strip() for p in parts if pd.notna(p) and str(p).strip()]
+    return (' | '.join(parts), len(parts)) if parts else (None, 0)
+```
+
+Build the key from **whatever subset is present** — a profile with only `DeviceInfo` +
+`id_31` is a weaker but usable link. Store `completeness` (1–4) so the agent can discount a
+shared-device match made on two fields rather than four.
+
+> **Trap:** never coalesce an all-missing key to the string `"None | None"`. That would
+> cluster every device-less row into one giant fake ring and poison every R6 query.
+
+`identity.csv` covers online transactions only — a missing identity join is a **full-row
+absence**, not per-field NaN, and it *is* the `in_person` signal.
 
 ---
 
-## 4. The data: columns, entities, patterns
+## 4. The data: columns, patterns, detection
 
-<!-- FILL: Vesta column semantics, the five patterns as detection heuristics with
-     thresholds, candidate undocumented patterns, loading strategy -->
+> Everything about Vesta column meanings below is **community-inferred**. Vesta never
+> published individual definitions. The README's own table reflects the official host text.
+> Use for semantics only — **never join to the public Kaggle files. That's disqualification.**
+
+### 4.1 Column groups worth knowing
+
+| Group | Inferred meaning |
+|---|---|
+| `TransactionDT` | seconds from dataset start, **not a timestamp**. Use `ts` for anything date-based. |
+| `card1`–`card6` | `card4` = network, `card6` = credit/debit, rest are issuer/BIN codes. **`card1` is NOT unique per physical card.** |
+| `addr1` / `addr2` | ~332 region codes / ~74 country codes, 87 = home |
+| `dist1` / `dist2` | two different unnamed distance concepts (billing↔shipping, billing↔IP). `dist2` ~93% missing. |
+| `C1`–`C14` | counts of addresses/phones/emails associated with the card. Individual meanings never mapped. |
+| `D1`–`D15` | day deltas. **`D1` ≈ days since the card was first seen** (highest-confidence community finding). |
+| `M1`–`M9` | match flags (name↔address etc.), T/F/NaN |
+| `V1`–`V339` | Vesta's engineered features. No semantics. NaN-block structure only. |
+| `id_15` | **`New` / `Found` / `Unknown` — the new-device signal for pattern 3** |
+| `id_23` | proxy: `Transparent` / `Anonymous` / `Hidden` |
+| `id_30` / `id_31` / `id_33` | OS / browser / screen — the DeviceProfile components |
+
+### 4.2 The five documented patterns as detectors
+
+| Pattern | Motif (hops) | Signal columns | Threshold |
+|---|---|---|---|
+| `card_testing` | `Card -MADE-> Txn ×N`, one card, tight window (1-hop) | ts clustering, amount, channel=online, ProductCD shift | **≥3 online auths <$5 within 1hr, then a larger purchase.** >$100 already cleared → BLOCK_CARD (R5) |
+| `card_not_present_fraud` | same, needs historical baseline via `NEXT` chain (1-hop + aggregate) | channel=online, ProductCD/amount vs card's own distribution | 2–4 unusual online purchases within 48h. **One alone is ambiguous → verify (R1)** |
+| `card_not_present_new_device` | `Card -MADE-> Txn -FROM_DEVICE-> DeviceProfile` (2-hop) | `id_15 == New`, `id_23` proxy | device has no prior edge from this customer. **Still not proof — people buy new phones** |
+| `out_of_region_use` | `Customer -OWNS-> Card -MADE-> Txn -BILLED_IN-> Region` (3-hop) + temporal co-occurrence | addr1 vs historical set, dist1/dist2 | **The tell is the home region staying simultaneously active.** Several days in one new region = a trip, not a clone |
+| `account_takeover` | centred on **Customer**, fanning to multiple Cards that each break their own history at once (2–3 hop) | M-flag disagreement + device mismatch + channel mix | cross-card, cross-signal judgment — no single numeric trigger |
+
+The structural tell for `account_takeover`: it's **customer-centric**, where patterns 1–4
+are card-centric. That's the discriminator.
+
+### 4.3 Candidate `undocumented` patterns
+
+The README says some patterns in the data are not documented, and finding one is scored.
+Candidates, ranked by how findable they are with our schema:
+
+| Candidate | Motif | Signal |
+|---|---|---|
+| **Device farm / shared-device ring** | `DeviceProfile <-FROM_DEVICE- Txn <-MADE- Card <-OWNS- Customer ×N`, N high in a short window | customer diversity count per device, `id_15=New` co-occurring across the ring |
+| **BIN attack** | one device/region → many cards sharing `card1`/`card2` prefix, low amounts, tight window | card1/card2 clustering + amount distribution |
+| **Mule network** | `EmailDomain <-RECIPIENT_EMAIL- Txn <-MADE- Card <-OWNS- Customer ×N` | needs gap #1 fixed; mirrors FinCEN's money-mule advisory |
+| **Bust-out** | one card's amount/frequency step-changes then goes dark | `D1` low at time of burst, `risk_score` may stay low — legacy models miss first-party fraud, which is why it's a good find |
+| **Synthetic identity** | thin history then a high-value burst; entities shared with confirmed-fraud ClosedCases | `D1` family very low, C-columns inconsistent with a mature account |
+
+**Where to actually look first:** the `analyst_notes` on `closed_cases_history.csv` rows
+where `pattern == 'undocumented'`. The README tells us to read them carefully. The answer is
+written down in there — read them by hand before writing any detector.
+
+### 4.4 The Kaggle UID trick — secondary signal only
+
+`customer_id` is **given**, so don't rebuild identity. But the provided `customer_id` is
+derived from the issuer field and won't catch two different `customer_id`s that are really
+the same actor.
+
+```python
+df['day']  = df['TransactionDT'] / 86400
+df['D1n']  = df['day'] - df['D1']          # ~constant per real card
+df['uid']  = df['card1'].astype(str) + '_' + df['addr1'].astype(str) + '_' + df['D1n'].astype(str)
+
+# validate: within a true single-client uid, a second offset barely varies
+df['D15n'] = df['day'] - df['D15']
+df.groupby('uid')['D15n'].agg(['std', 'nunique'])   # std≈0 -> one real client
+```
+
+Use it as an **enrichment attribute**, not a replacement. The interesting signal is the
+**mismatch**: one `uid` bucket spanning multiple `customer_id`s is candidate
+account-takeover / synthetic identity / shared-card-info, and that's citable evidence.
+
+Because `card1`/`TransactionDT`/`TransactionAmt` are disguised here, absolute `D1n` values
+won't match anything public — we're using the formula for internal self-consistency only.
+**Re-validate the `D15n`-std check empirically before trusting it.**
+
+### 4.5 Traps
+
+- **Time split mirrors the original competition deliberately.** Closed cases Jul–Oct, exam
+  cases Nov–Dec. Never let a feature encode "this device was known bad" without checking the
+  closed case actually **predates** the flagged transaction.
+- **Missing values are structural, not random.** No identity row = in_person. ~76% missing
+  `R_emaildomain` = no distinct recipient. Don't impute these away — the absence is the signal.
+- **Don't group by `card1`.** It's not unique per card; grouping by it silently merges
+  unrelated cards. Use the provided `card_id`.
+- **V-column NaN blocks** go missing together and correlate >0.9 within a block. Don't treat
+  them as 339 independent signals.
 
 ---
 
@@ -1069,12 +1213,144 @@ Order actions by what happens first (the README says so explicitly).
 
 ---
 
-## 9. Build plan
+## 9. Build plan — 48h, three people
 
-<!-- FILL: 48h plan, three workstreams, interfaces, cut-list -->
+Repo is Vaibhav's (`VaibHUB17/HHgoa4`). Split by layer; the only shared contract is the two
+YAML files plus the three function signatures, **frozen in hour 4**.
+
+### Hours 0–4, all three together
+
+1. Provision Savanna, turn on Auto Suspend, note the workspace URL.
+2. Slice the CSVs (§2.2), load all four files, build the `NEXT` edges.
+3. Stand up TigerGraph MCP, confirm a query round-trips.
+4. Freeze `fraud_policy.yaml` (§8) and `evidence_weights.yaml` (§7.1) into `schemas/`.
+5. **Do the README's step 5 by hand** — investigate HHG-017 manually, together, before
+   anyone writes agent code. You cannot automate a judgment you haven't made once yourself.
+
+### Workstream A — Karan: graph, detectors, memory retrieval
+
+- Loaders + `NEXT` edge construction.
+- Six detectors as graph queries: `card_testing_sequence`, `cnp_burst`, `new_device_check`
+  (`id_15`), `out_of_region` (`addr1` history), `account_takeover_signals`,
+  `shared_origin` / `device_neighbors` (R6 + undocumented).
+- Closed-case similarity retrieval with the **separate confirming/disconfirming pools** (§6.5).
+- `write_case_to_graph()` → returns `graph_case_id`.
+- **Contract:** `investigate(case_id) -> {findings, graph_evidence, similar_cases}`
+
+### Workstream B — Vaibhav: ledger, rule engine, NBA loop, assembler
+
+- `evidence_weights.yaml` → `fraud_probability`.
+- R1–R10 as predicate → action-set functions.
+- Stopping gate + the `MustRequestEvidence` forcing function.
+- `initial` / `final` / `what_changed` assembly + the `evidence_requests` simulator.
+- Final JSON assembly + the validator.
+- **Contract:** `run_case(case_id, findings, similar_cases) -> answer_json`
+- This is the load-bearing 50%. If it's behind at hour 24, pair someone in.
+
+### Workstream C — Bhavya: SAR, rendering, instrumentation, demo/blog/social
+
+- SAR narrative generator (six-W template, §6.5c), gated on `sar.file`.
+- **Real** `tool_calls` / `tokens` / `latency_s` instrumentation.
+- Markdown companion renderer + the analyst UI.
+- From hour 20: run all 20, spot-check against the triage table, flag mismatches back.
+- Owns demo recording, blog post, social post tagging **@TigerGraphDB**.
+- **Contract:** pure consumer of A+B — can start from hour 8 on placeholder data, which is
+  why this role absorbs schedule slip.
+
+### Checkpoints
+
+| Hour | Gate |
+|---|---|
+| 12 | HHG-017 runs end-to-end and passes the validator |
+| 24 | All 20 produce schema-valid JSON — **go/no-go**, invoke the cut list if missed |
+| 36 | All 20 pass the validator and look right against the triage table |
+| 44 | Demo recorded, blog + social drafted |
+| 48 | Submit |
+
+### Cut list, in order
+
+1. Undocumented-detector sophistication — a "shared device/region across 3+ customers, fits
+   no known pattern" heuristic is enough.
+2. The optional self-monitoring-beyond-20-cases folder (Innovation bonus only).
+3. Full doc corpus — load 2–3 (FinCEN SAR guidance is the one that matters), not all 15.
+4. Markdown companion polish — judges will read the JSON.
+
+**Never cut:** schema conformance, the rule engine, the `initial`/`final` delta, and
+false-positive discipline.
 
 ---
 
-## 10. Demo, blog, submission checklist
+## 10. Validator, demo, submission
 
-<!-- FILL -->
+### 10.1 Run this before submitting anything
+
+```python
+def validate(c, valid_txn_ids, valid_case_ids):
+    final = [a["action"] for a in c["next_best_actions"]["final"]]
+    assert c["sar"]["file"] == ("FILE_REPORT" in final)
+    if c["case"]["verdict"] == "legitimate":
+        assert c["case"]["exposure_usd"] == 0 and c["case"]["affected_txn_ids"] == []
+    if c["case"]["pattern"] == "undocumented":
+        assert c["case"]["pattern_description"] != ""
+    if not c["evidence_requests"]:
+        assert c["next_best_actions"]["final"] == c["next_best_actions"]["initial"]
+        assert c["next_best_actions"]["what_changed"] == "nothing"
+    for t in c["case"]["affected_txn_ids"]:
+        assert t in valid_txn_ids                 # fabricated IDs score zero
+    for p in c["case"]["similar_prior_cases"]:
+        assert p in valid_case_ids
+    for a in c["next_best_actions"]["final"]:
+        assert a["route"] == expected_route(a["action"], c["case"]["exposure_usd"])
+        assert re.search(r"R\d+", a["reason"])    # every action cites a rule
+```
+
+Field gotchas worth repeating:
+- `escalated` is a **distinct status** from `open`. R8 cases are usually `escalated`.
+- `uncertain` is a **fully creditable verdict**. Forcing a binary call to look decisive is
+  the more common failure than leaving it uncertain.
+- Don't set `written_to_graph: true` speculatively — a judge can spot-check the graph.
+- `tool_calls` / `tokens` / `latency_s` identical across all 20 files looks fabricated. Log real values.
+- Don't force artificial evidence requests on clean-cut cases — §6 rewards *not*
+  over-investigating, and `final == initial` with `what_changed: "nothing"` is valid.
+
+### 10.2 Demo, 4 minutes
+
+| Time | Beat |
+|---|---|
+| 0:00–0:20 | Hook: "20 cases, half legitimate. The agent has to know when **not** to act." |
+| 0:20–0:50 | Architecture. Say GraphRAG once and mean it. |
+| 0:50–1:30 | **A clean legitimate case** (HHG-003/009, R7 recurring charge) → `CLOSE_NO_FRAUD`, `what_changed: "nothing"`. Proves we're not trigger-happy. Lead with this. |
+| 1:30–2:15 | **The flip** (HHG-005/020): p≈0.5 → `VERIFY_WITH_CUSTOMER` under R1 → denial → `BLOCK_CARD` + `CREATE_CASE` under R2. The README's own §3b example. Hold on the before/after table 5 extra seconds. |
+| 2:15–2:55 | **HHG-014, the ring.** `device_neighbors()` live, `connected_card_ids` populated, R6 fires. The Innovation beat. |
+| 2:55–3:20 | **Memory hit** — `similar_prior_cases` pulling a real CC-xxxx from Jul–Oct history, cited in evidence. |
+| 3:20–3:45 | **Approval gate** — an L2 action sitting un-executed, then the SAR narrative. |
+| 3:45–4:10 | 20/20 files, written to the graph, repo link, @TigerGraphDB on screen. |
+
+Script every line. Don't improvise narration — that's how good products lose the 10%.
+
+### 10.3 Submission checklist
+
+- [ ] 20 files in `cases/`, all passing the validator
+- [ ] Every case written to the graph (`written_to_graph`, real `graph_case_id`)
+- [ ] SARs where policy demands, `sar.file` consistent with `final`
+- [ ] `initial` / `final` / `what_changed` on every case
+- [ ] GitHub repo public
+- [ ] 3–5 min demo video
+- [ ] Technical blog: what we built, architecture, how TigerGraph is used, agentic
+      capabilities, what we learned, what we'd improve
+- [ ] Social post on X/LinkedIn tagging **@TigerGraphDB**, linking the blog or demo
+- [ ] *(optional, Innovation only)* self-directed monitoring beyond the 20, separate folder
+
+### 10.4 The five ways we lose
+
+1. **Blocking everything.** Half the answer key is legitimate. Tune false positives as hard
+   as true positives. → The negative weights in §7.1 and R7 handling are the defence.
+2. **Faked before/after.** Computing the final answer once and back-filling a plausible
+   "initial". → The evidence-set hash and the `MustRequestEvidence` gate make it real.
+3. **Vibe confidence.** A bare 0.83 with nothing behind it. → The ledger is a config file we
+   can point at.
+4. **Graph as a database.** Loading into TigerGraph then doing everything in Python or
+   vector search. → `device_neighbors` and the hybrid `candidate_set` query are the whole
+   Innovation score.
+5. **Six polished cases instead of twenty.** Partial coverage is a direct miss against a
+   named requirement. → Pipeline end-to-end on one case by hour 12; the rest is a batch job.
