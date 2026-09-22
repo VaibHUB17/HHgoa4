@@ -109,6 +109,28 @@ toward fraud.
 
 ---
 
+## Status as of 22 Sept
+
+Scaffolding is done and tested — 94 tests passing. What exists:
+
+| Component | State |
+|---|---|
+| TigerGraph schema + 6 GSQL queries | written, **not yet run against a live instance** |
+| CSV loaders (3-tier, V-columns to parquet) | written, not yet run — no data downloaded |
+| 6 fraud-pattern detectors | done, 21 tests, 13 of them near-misses |
+| Policy engine R1–R10 + routing | done, 27 tests incl. boundary conditions |
+| Evidence ledger | done, calibrated against the brief's worked example |
+| LangGraph loop + approval interrupt | done, smoke-tested |
+| GraphRAG retrieval + two-pool memory | done, 15 tests |
+| SAR generator | done, FinCEN structure, hallucinated-ID guard |
+| Answer schema + validator | done |
+| Analyst UI | builds clean, renders, runs on fixtures |
+| Case runner CLI | in progress |
+
+**Blocking everything:** the dataset isn't downloaded, and there's no Savanna workspace.
+Until both exist, nothing runs end to end against real data. That's the first task for
+whoever reads this.
+
 ## Division of work
 
 Contracts are frozen first; then each stream is independent. Nobody waits on anybody.
