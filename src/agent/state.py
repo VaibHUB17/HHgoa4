@@ -28,6 +28,13 @@ class InvestigationState(TypedDict):
     # silently dropped between nodes and both rules stop firing.
     _customer_response: str | None
 
+    # True when the most recent `investigate` pass actually added something new to the
+    # ledger; False once a re-investigation pass returns an empty delta (deps.py's
+    # run_detectors dedups deterministic re-queries). need_more_evidence reads this to
+    # stop looping back to `investigate` once another pass cannot change p_fraud. Same
+    # declared-channel requirement as _customer_response above.
+    _ledger_grew_this_pass: bool
+
 
 @dataclass
 class RecommendationSnapshot:

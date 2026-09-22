@@ -151,6 +151,23 @@ def validate(
     if case["status"] not in STATUS_VALUES:
         fail(f"status {case['status']!r} is not one of open/closed_fraud/closed_legitimate/escalated")
 
+    # --- narrative coherence between verdict and the actions taken -----------------------
+    # Not a schema violation: R2 fires on a customer denial regardless of probability, so
+    # "uncertain" alongside BLOCK_CARD is legitimate under the policy, and `uncertain` is
+    # explicitly a creditable verdict. But a judge reading "uncertain, therefore we blocked
+    # the card" with no explanation will read it as incoherent, so the case has to say why
+    # in its own words.
+    final_actions = {a["action"] for a in c["next_best_actions"]["final"]}
+    high_impact = final_actions & {"BLOCK_CARD", "BLOCK_ALL_CARDS"}
+    if case["verdict"] == "uncertain" and high_impact:
+        blob = f"{case.get('summary', '')} {c['next_best_actions'].get('what_changed', '')}".lower()
+        if not any(t in blob for t in ("denie", "denial", "did not make", "not authoris", "not authoriz")):
+            fail(
+                f"verdict is 'uncertain' but {sorted(high_impact)} is recommended, and neither "
+                "the summary nor what_changed explains why (e.g. a customer denial under R2). "
+                "State the reason or the case reads as self-contradictory."
+            )
+
     return v
 
 

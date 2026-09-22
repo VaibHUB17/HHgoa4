@@ -2,20 +2,20 @@
   "card_window": {
     "C04570-K1": [
       {"txn_id": "T3450629", "ts": "2016-11-12 00:46:24", "amount": 1.10, "channel": "online",
-       "product_cd": "C", "risk_score": 0.57, "id_15": "New", "id_23": null,
-       "addr1": "204.0", "addr2": "87.0", "device_key": "D000731",
+       "product_cd": "C", "risk_score": 0.57, "id_15": "Found", "id_23": null,
+       "addr1": "204.0", "addr2": "87.0", "device_key": null,
        "card_id": "C04570-K1", "customer_id": "C04570", "M4": null, "M6": null},
       {"txn_id": "T3450630", "ts": "2016-11-12 00:56:24", "amount": 2.40, "channel": "online",
-       "product_cd": "C", "risk_score": 0.60, "id_15": "New", "id_23": null,
-       "addr1": "204.0", "addr2": "87.0", "device_key": "D000731",
+       "product_cd": "C", "risk_score": 0.60, "id_15": "Found", "id_23": null,
+       "addr1": "204.0", "addr2": "87.0", "device_key": null,
        "card_id": "C04570-K1", "customer_id": "C04570", "M4": null, "M6": null},
       {"txn_id": "T3450631", "ts": "2016-11-12 01:06:24", "amount": 0.95, "channel": "online",
-       "product_cd": "C", "risk_score": 0.62, "id_15": "New", "id_23": null,
-       "addr1": "204.0", "addr2": "87.0", "device_key": "D000731",
+       "product_cd": "C", "risk_score": 0.62, "id_15": "Found", "id_23": null,
+       "addr1": "204.0", "addr2": "87.0", "device_key": null,
        "card_id": "C04570-K1", "customer_id": "C04570", "M4": null, "M6": null},
       {"txn_id": "T3450635", "ts": "2016-11-12 01:37:24", "amount": 259.98, "channel": "online",
-       "product_cd": "R", "risk_score": 0.81, "id_15": "New", "id_23": null,
-       "addr1": "204.0", "addr2": "87.0", "device_key": "D000731",
+       "product_cd": "R", "risk_score": 0.81, "id_15": "Found", "id_23": null,
+       "addr1": "204.0", "addr2": "87.0", "device_key": null,
        "card_id": "C04570-K1", "customer_id": "C04570", "M4": null, "M6": null}
     ]
   },
@@ -25,19 +25,10 @@
     "channels": ["in_person", "online"],
     "recurring_merchant_match": false
   },
-  "device_neighbors": {
-    "D000731": [
-      {"txn_id": "T3450629", "ts": "2016-11-12 00:46:24", "card_id": "C04570-K1", "customer_id": "C04570"},
-      {"txn_id": "T3450630", "ts": "2016-11-12 00:56:24", "card_id": "C04570-K1", "customer_id": "C04570"},
-      {"txn_id": "T3450631", "ts": "2016-11-12 01:06:24", "card_id": "C04570-K1", "customer_id": "C04570"},
-      {"txn_id": "T3450635", "ts": "2016-11-12 01:37:24", "card_id": "C04570-K1", "customer_id": "C04570"},
-      {"txn_id": "T9990001", "ts": "2016-11-12 03:15:00", "card_id": "C08877-K1", "customer_id": "C08877"},
-      {"txn_id": "T9990002", "ts": "2016-11-12 03:20:00", "card_id": "C08877-K1", "customer_id": "C08877"}
-    ]
-  },
+  "device_neighbors": {},
   "prior_case_candidates": [
     {"case_id": "CC-0141", "outcome": "confirmed_fraud", "pattern": "card_testing",
-     "cosine_distance": 0.2, "shared_entity_count": 2, "pattern_matches": true,
+     "cosine_distance": 0.2, "shared_entity_count": 0, "pattern_matches": true,
      "exposure_usd": 312.50, "opened_at": "2016-08-04"},
     {"case_id": "CC-0980", "outcome": "cleared", "pattern": "none",
      "cosine_distance": 1.1, "shared_entity_count": 0, "pattern_matches": false,

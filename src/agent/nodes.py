@@ -94,6 +94,7 @@ def trigger(state: InvestigationState, deps: NodeDeps) -> dict:
         "approved": False,
         "graph_case_id": "",
         "written_to_graph": False,
+        "_ledger_grew_this_pass": True,
     }
 
 
@@ -101,6 +102,7 @@ def investigate(state: InvestigationState, deps: NodeDeps) -> dict:
     """Run detectors/graph queries (injected) and fold results into state.
     Read-only from the graph's perspective; no writes happen here.
     """
+    ledger_len_before = len(state["ledger"])
     result = deps.run_detectors(state["case_id"], state["trigger"])
     new_evidence = state["evidence"] + result.get("evidence", [])
     # ledger source defaults to the evidence ref that produced it, else the key itself
@@ -118,6 +120,13 @@ def investigate(state: InvestigationState, deps: NodeDeps) -> dict:
         "pattern": result.get("pattern", state["pattern"]),
         "affected_txn_ids": result.get("affected_txn_ids", state["affected_txn_ids"]),
         "exposure_usd": result.get("exposure_usd", state["exposure_usd"]),
+        # True only when this pass actually grew the ledger. deps.run_detectors is
+        # expected to dedup internally (a second call against a deterministic, already-
+        # queried snapshot has nothing new to add -- see deps.py's `_seen` guard), so a
+        # False here is the normal, expected outcome on any pass after the first, not an
+        # error. need_more_evidence uses this to stop looping once re-investigating stops
+        # producing anything new to feed the ledger.
+        "_ledger_grew_this_pass": len(new_ledger) > ledger_len_before,
     }
 
 
@@ -147,6 +156,14 @@ def need_more_evidence(state: InvestigationState) -> Literal["gather_more", "dec
     verification_settled is inferred here from whether the most recent evidence_requests
     entry was a customer_validation whose assumed_response already appears in the ledger
     (i.e. reassess has already run) — plain callers can also short-circuit via loops cap.
+
+    Also stops looping once a pass through `investigate` adds nothing new to the ledger
+    (state["_ledger_grew_this_pass"] is False). Re-running a deterministic detector layer
+    against the same snapshot a second time cannot change p_fraud -- the way to move the
+    probability further is request_evidence, not another investigate() pass -- so looping
+    back to `investigate` when it just returned an empty delta would only burn MAX_LOOPS
+    iterations for no reason. Only enforced once loops > 0 so the graph still gets its
+    first real investigate() pass regardless.
     """
     p = state["p_fraud"]
     indep = independent_evidence_count(item["source"] for item in state["ledger"])
@@ -156,6 +173,8 @@ def need_more_evidence(state: InvestigationState) -> Literal["gather_more", "dec
     if can_stop(p, indep, verification_settled):
         return "decide"
     if state["loops"] >= MAX_LOOPS:
+        return "decide"
+    if state["loops"] > 0 and not state.get("_ledger_grew_this_pass", True):
         return "decide"
     return "gather_more"
 
@@ -185,7 +204,7 @@ def request_evidence(state: InvestigationState, deps: NodeDeps) -> dict:
         return {}  # nothing to request; investigation can already stop
 
     if not already_requested:
-        request_type = "customer_validation" if p < 0.70 else "step_up_auth"
+        request_type = _choose_evidence_request_type(state)
         assumed_response = deps.request_evidence(request_type, state["case_id"])
         req = {
             "type": request_type,
@@ -207,18 +226,35 @@ def request_evidence(state: InvestigationState, deps: NodeDeps) -> dict:
 
 
 def reassess(state: InvestigationState, deps: NodeDeps) -> dict:
-    """Fold the assumed evidence-request response into the ledger and recompute."""
+    """Fold the assumed evidence-request response into the ledger and recompute.
+
+    Every evidence_request type this graph can issue must have a ledger key on the other
+    end of it -- a request whose answer cannot move p_fraud isn't evidence gathering, it's
+    a no-op with extra steps. customer_validation folds customer_denies/customer_confirms
+    (which also sets CaseState.customer_response for R2/R3 via _customer_response).
+    step_up_auth folds step_up_failed/step_up_passed/step_up_not_completed (see
+    config/evidence_weights.yaml) -- it does not set customer_response, since a step-up
+    result answers "who controls this session", not "did the cardholder authorize this
+    charge"; R2/R3 stay keyed to an actual customer_validation reply, as intended.
+    """
     if not state["evidence_requests"]:
         return {"loops": state["loops"] + 1}
     latest = state["evidence_requests"][-1]
     response_text = latest["assumed_response"].lower()
     key = None
-    customer_response: str | None = None
+    customer_response: str | None = state.get("_customer_response")
     if latest["type"] == "customer_validation":
         if "did not make" in response_text or "deny" in response_text or "not made" in response_text:
             key, customer_response = "customer_denies", "deny"
         elif "confirm" in response_text or "did make" in response_text or "i made" in response_text:
             key, customer_response = "customer_confirms", "confirm"
+    elif latest["type"] == "step_up_auth":
+        if "completed successfully" in response_text:
+            key = "step_up_passed"
+        elif "not completed" in response_text or "no valid" in response_text:
+            key = "step_up_failed"
+        elif "expired unanswered" in response_text:
+            key = "step_up_not_completed"
     new_ledger = state["ledger"]
     if key:
         new_ledger = state["ledger"] + [{"key": key, "source": f"evidence_request:{len(state['evidence_requests'])}"}]
@@ -286,6 +322,44 @@ def emit(state: InvestigationState, deps: NodeDeps) -> dict:
     src/answer/schema.py, reading this state as input.
     """
     return {}
+
+
+def _choose_evidence_request_type(state: InvestigationState) -> Literal["customer_validation", "step_up_auth"]:
+    """RESEARCH.md §7.4: the evidence-request type is chosen by what question is open,
+    not by where fraud_probability happens to sit. The 0.70 line belongs to R1 (may we
+    block on a single signal), not to this choice -- picking step_up_auth just because
+    p >= 0.70 makes R2/R3 structurally unreachable whenever a case starts above that
+    line, since only a customer_validation response ever folds a customer_denies/
+    customer_confirms key into the ledger (see reassess()).
+
+    customer_validation is the default: it resolves the R2/R3/R7 fork, which is the
+    single highest-leverage branch in the policy (deny -> BLOCK_CARD+CREATE_CASE,
+    confirm -> CLOSE_NO_FRAUD, recurring-match dispute -> R7's don't-block path). It is
+    the right call whenever the open question is "did the cardholder authorize this" --
+    which is true by default for any card-present-fraud-shaped case, and explicitly true
+    for card_testing (a stolen card is used without the holder's knowledge, so the
+    holder is exactly who can settle it).
+
+    step_up_auth is chosen only when the open question is device/session legitimacy
+    rather than authorization -- concretely: a new-device marker is present and no
+    denial has been recorded yet, so what's actually being tested is whether whoever is
+    driving this session can pass a live control check, not whether the cardholder
+    recognizes a transaction. A confirm/deny wouldn't settle that question either way.
+
+    Escalation (verdict uncertain AND exposure > $500) is not a request at all -- that's
+    R8's ESCALATE_TO_ANALYST, handled entirely by apply_rules()/_build_snapshot, not by
+    this function; this function only ever returns a request type.
+    """
+    ledger_keys = {item["key"] for item in state["ledger"]}
+    new_device_only = (
+        "new_device_marker" in ledger_keys
+        and "customer_denies" not in ledger_keys
+        and "customer_confirms" not in ledger_keys
+        and not (ledger_keys & {"card_testing_sequence", "shared_device_across_cards", "shared_region_cluster"})
+    )
+    if new_device_only:
+        return "step_up_auth"
+    return "customer_validation"
 
 
 # --- helpers -------------------------------------------------------------------------------

@@ -18,3 +18,15 @@ recurring_merchant_match:   { w: -0.25 }   # R7 disputed-but-legitimate
 cleared_precedent_match:    { w: -0.20 }   # a `cleared` ClosedCase matches on device/region
 in_character_for_customer:  { w: -0.20 }   # amount/product/region all inside baseline
 customer_confirms:          { w: -0.90 }   # R3 — effectively closes as legitimate
+
+# step_up_auth outcomes (src/agent/nodes.py reassess() / evidence_sim.py). Weighted well
+# below customer_denies/customer_confirms since a step-up result speaks only to who
+# currently controls the device/session, not to authorization the way a customer's own
+# deny/confirm does -- it must not be able to single-handedly cross the R1 0.70 block
+# line or the §6 0.85/0.15 stop lines the way the card_testing_sequence-alone band
+# (0.40-0.70, see ledger.py's calibration doc) already guards against for pattern
+# evidence alone. step_up_failed intentionally sits below new_device_marker+proxy_flag
+# combined (0.15+0.10=0.25) so it corroborates rather than dominates.
+step_up_failed:              { w: 0.20, req: "step-up auth not completed / no valid OTP confirmation" }
+step_up_not_completed:       { w: 0.05, req: "step-up auth request expired unanswered (weak, no signal either way)" }
+step_up_passed:              { w: -0.20 }   # exonerating: cardholder controls the device/session
