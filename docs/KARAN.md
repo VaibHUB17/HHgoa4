@@ -28,18 +28,41 @@ Sign up at https://savanna.tgcloud.io, create a workspace.
 overnight burns our free credits. It takes 1–2 minutes to resume — **resume it ten minutes
 before the demo, not at demo time.**
 
-Grab the workspace URL (`https://<workspace>.i.tgcloud.io`, not `savanna.tgcloud.io`) into
-`.env`.
+### Connection Settings (.env) — Pure TigerGraph Cloud (Savanna)
+We are running on TigerGraph Cloud (Savanna at https://tgcloud.io). No local Docker fallback.
 
-Then wire up TigerGraph MCP so the agent can call the graph as tools:
-
-```bash
-pip install tigergraph-mcp
-tigergraph-mcp --env-file .env -vv
+Here are the exact keys required in `.env`:
+```env
+# TigerGraph Cloud (Savanna)
+TG_HOST=https://YOUR-CLUSTER-URL.i.tgcloud.io
+TG_GRAPH=FraudInvestigation
+TG_USERNAME=tigergraph
+TG_PASSWORD=your_password
+TG_SECRET=YOUR_GSQL_SECRET
+TG_API_TOKEN=
+TG_TGCLOUD=true
 ```
 
-Worth knowing: `--allowed-tools read-only` restricts the investigation phase from mutating
-the graph. That's a nice thing to show a judge under "controls and permissions".
+**How to get these from tgcloud.io:**
+1. **TG_HOST**: Go to My Solutions / My Graphs → Click your solution → Copy URL (e.g. `https://fraud-detection-xxxx.i.tgcloud.io`). **Critical:** Do NOT include a trailing slash `/`.
+2. **TG_GRAPH**: The name of the graph you create in Savanna (e.g. `FraudInvestigation`).
+3. **TG_SECRET**: Under Solution Details / Security / GraphStudio, create and copy your GSQL Secret.
+4. **TG_USERNAME** & **TG_PASSWORD**: Your TigerGraph Cloud database user and password.
+5. **TG_TGCLOUD**: Set to `true`.
+
+### TigerGraph MCP Integration
+The agent interacts with the graph through the official TigerGraph MCP server (`tigergraph-mcp`).
+`src/graph/mcp.py` bridges MCP tools into our LangGraph pipeline.
+
+1. Test MCP configuration directly:
+```bash
+python -m src.graph.mcp --check
+```
+2. Run standalone MCP server:
+```bash
+tigergraph-mcp --env-file .env --allowed-tools read-only -vv
+```
+*`--allowed-tools read-only` ensures the investigation phase cannot mutate graph state, proving strict policy controls to judges.*
 
 ---
 
