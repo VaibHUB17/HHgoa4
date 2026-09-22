@@ -126,8 +126,9 @@ graph; tier 3 (V1–V339, 85% of the file, no published meaning) into a parquet 
 Uses a GSQL loading job for bulk, confirmed by TigerGraph's own DevRel: *"Don't do
 row-by-row REST. Use a GSQL loading job. 600K rows takes minutes."*
 
-**`connection.py`** (115 lines) — pyTigerGraph wrapper with token-refresh-on-401 and a
-per-case tool-call counter, so the `tool_calls` field in the answer file is a real number.
+**`connection.py`** (120 lines) — pyTigerGraph wrapper with TigerGraph Cloud (Savanna) configuration, token-refresh-on-401, and a per-case tool-call counter, so the `tool_calls` field in the answer file is a real number.
+
+**`mcp.py`** (85 lines) — TigerGraph MCP server bridge using `langchain-mcp-adapters`. Launches `tigergraph-mcp` via stdio, exposing 69 graph tools directly to LLM agents. Includes a CLI check: `python -m src.graph.mcp --check`.
 
 ---
 
