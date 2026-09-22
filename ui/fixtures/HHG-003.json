@@ -1,0 +1,72 @@
+{
+  "case_id": "HHG-003",
+  "case": {
+    "status": "closed_legitimate",
+    "verdict": "legitimate",
+    "fraud_probability": 0.08,
+    "pattern": "none",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0,
+    "evidence": [
+      {
+        "claim": "Transaction 3530164 ($49.00) matches the same merchant category code and amount as five prior monthly charges on this card going back to July, all on the 8th–11th of the month",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C08623-K2, days=180)",
+        "entity_ids": ["3530164"]
+      },
+      {
+        "claim": "Billing region, device, and email domain are unchanged from the customer's established baseline for this card",
+        "source": "graph",
+        "ref": "query:card_baseline(card_id=C08623-K2)",
+        "entity_ids": ["3530164"]
+      },
+      {
+        "claim": "No closed case in July–October history matches this merchant, device, or region",
+        "source": "graph",
+        "ref": "query:closed_case_match(card_id=C08623-K2)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Customer confirmed recognizing the charge once shown the recurring pattern and merchant name",
+        "source": "customer",
+        "ref": "evidence_request:1",
+        "entity_ids": []
+      }
+    ],
+    "similar_prior_cases": ["CC-0398"],
+    "summary": "Customer disputed a $49.00 charge that matches an unbroken recurring monthly pattern on the same card, same merchant category, same amount, going back to July. No device, region, or email anomaly. A near-identical dispute in closed case CC-0398 was cleared as a forgotten subscription. Customer confirmed the charge once the pattern was pointed out.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-2016-1204"
+  },
+  "evidence_requests": [
+    { "type": "customer_validation", "asked_after_step": 3, "assumed_response": "Customer states they forgot about the recurring subscription and now recognizes the charge" }
+  ],
+  "next_best_actions": {
+    "initial": [
+      { "action": "CREATE_CASE", "route": "auto", "reason": "R7: customer dispute opens a case record regardless of outcome" },
+      { "action": "VERIFY_WITH_CUSTOMER", "route": "auto", "reason": "R7: charge matches the customer's own recurring pattern; confirm before assuming fraud" },
+      { "action": "WARN_CUSTOMER", "route": "auto", "reason": "R7: send a recurring-charge reminder alongside verification" }
+    ],
+    "final": [
+      { "action": "CLOSE_NO_FRAUD", "route": "auto", "reason": "R3: customer confirmed the transaction once the recurring pattern was shown" },
+      { "action": "WARN_CUSTOMER", "route": "auto", "reason": "R7: send the recurring-charge reminder so this merchant doesn't trigger another dispute" }
+    ],
+    "what_changed": "Customer confirmation resolved the dispute in the customer's favor. VERIFY_WITH_CUSTOMER is satisfied and replaced by CLOSE_NO_FRAUD; the informational reminder carries forward."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R3: transaction confirmed legitimate by the customer, no report required",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Customer confirmation settled the question; recurring pattern and clean baseline gave no reason to look further.",
+  "tool_calls": 6,
+  "tokens": 5210,
+  "latency_s": 7.4
+}

@@ -1,0 +1,72 @@
+{
+  "case_id": "HHG-020",
+  "case": {
+    "status": "escalated",
+    "verdict": "uncertain",
+    "fraud_probability": 0.52,
+    "pattern": "card_not_present_fraud",
+    "pattern_description": "",
+    "affected_txn_ids": ["3509359", "3509402", "3509511"],
+    "first_suspicious_txn_id": "3509359",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 611.24,
+    "evidence": [
+      {
+        "claim": "Three online purchases totalling $611.24 within 30 hours, in a product category this card has used before but at roughly 3x the typical amount",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C12265-K2, hours=30)",
+        "entity_ids": ["3509359", "3509402", "3509511"]
+      },
+      {
+        "claim": "Device profile is one this account has used for the past four months; not new, no proxy flag set",
+        "source": "graph",
+        "ref": "query:device_neighbors(device_id=D004412)",
+        "entity_ids": ["3509359"]
+      },
+      {
+        "claim": "Billing region and email domain are unchanged from baseline; amount and cadence are the only anomaly",
+        "source": "graph",
+        "ref": "query:card_baseline(card_id=C12265-K2)",
+        "entity_ids": ["3509359", "3509402", "3509511"]
+      },
+      {
+        "claim": "No matching device, region, or merchant pattern found in closed-case history; nearest match (CC-1972) was cleared as a legitimate high-value purchase",
+        "source": "graph",
+        "ref": "query:closed_case_match(card_id=C12265-K2)",
+        "entity_ids": ["CC-1972"]
+      }
+    ],
+    "similar_prior_cases": ["CC-1972"],
+    "summary": "Three online purchases in 30 hours totalling $611.24, well above this card's typical spend but on a known device with no region, proxy, or email anomaly. Evidence is genuinely mixed: the amount pattern resembles card-not-present fraud, but the device and channel are exactly what this customer normally uses. The nearest closed-case precedent was cleared as legitimate. Exposure exceeds the R8 threshold, so this is escalated to an analyst rather than decided automatically.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-2016-1298"
+  },
+  "evidence_requests": [
+    { "type": "customer_validation", "asked_after_step": 4, "assumed_response": "No reply received within 24 hours of the verification request" }
+  ],
+  "next_best_actions": {
+    "initial": [
+      { "action": "VERIFY_WITH_CUSTOMER", "route": "auto", "reason": "R1: probability 0.52 on an amount/cadence signal alone, confirm before any block" },
+      { "action": "MONITOR_CARD", "route": "auto", "reason": "R4: raise monitoring sensitivity while awaiting reply" }
+    ],
+    "final": [
+      { "action": "DECLINE_TRANSACTION", "route": "L1", "reason": "R4: no reply within 24 hours on pending authorizations" },
+      { "action": "MONITOR_CARD", "route": "auto", "reason": "R4: continue elevated monitoring" },
+      { "action": "ESCALATE_TO_ANALYST", "route": "auto", "reason": "R8: verdict remains uncertain and exposure $611 exceeds $500" }
+    ],
+    "what_changed": "No customer response arrived within the 24-hour window. R4 now declines the pending authorization and escalates under R8 since the verdict is still uncertain and exposure crossed $500 — evidence didn't resolve the question, it just ran out the clock."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R8: case escalated to an analyst rather than confirmed as fraud; no filing basis yet without a human determination",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Evidence is genuinely conflicting (anomalous amount vs. familiar device/channel) and exposure exceeds $500 with no settling verification reply. Per R8, handed to a human analyst rather than forced to a binary call.",
+  "tool_calls": 11,
+  "tokens": 9870,
+  "latency_s": 14.2
+}
