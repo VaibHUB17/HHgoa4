@@ -1,0 +1,65 @@
+# Dataset — large, provided by organizers, never committed
+*.csv
+data/
+!data/.gitkeep
+
+# Derived data
+*.parquet
+*.feather
+artifacts/
+embeddings/
+
+# Screenshots / scratch
+*.jpeg
+*.jpg
+*.png
+!docs/**/*.png
+!docs/**/*.svg
+scratch/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# ML checkpoints
+*.pt
+*.pth
+*.ckpt
+models/*.bin
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+logs/
