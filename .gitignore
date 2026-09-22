@@ -5,6 +5,9 @@ data/*
 !data/.gitkeep
 !data/README.md
 
+# Test fixtures are ours (derived from the brief's own tables), not organizer data.
+!tests/fixtures/**/*.csv
+
 # Derived data
 *.parquet
 *.feather

@@ -22,6 +22,12 @@ class InvestigationState(TypedDict):
     graph_case_id: str             # set by write_case
     written_to_graph: bool         # set by write_case
 
+    # "deny" | "confirm" | None. Written by request_evidence, read by _build_snapshot to
+    # populate CaseState.customer_response, which is what R2 and R3 key off. Must stay
+    # declared here: LangGraph merges state per declared channel, so an undeclared key is
+    # silently dropped between nodes and both rules stop firing.
+    _customer_response: str | None
+
 
 @dataclass
 class RecommendationSnapshot:

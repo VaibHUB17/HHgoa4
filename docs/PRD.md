@@ -1,9 +1,33 @@
 # PRD — Agentic Fraud Investigation on TigerGraph
 
-**Deadline: 24 September 2026.** Confirmed by Devanshu (TigerGraph DevRel) on Discord.
-Today is the 22nd. Two days.
+**Deadline: 24 September 2026, 11:59 PM IST.**
+**One submission per team. No resubmissions.**
+
+Announced by Devanshu (TigerGraph DevRel) on Discord. Submission form:
+https://forms.gle/yxXzqSULGgZ9VUF56 — for HH Goa participants only, not the Agentic
+GraphRAG hackathon. Around 5–10 teams get selected, and he said it depends entirely on
+project quality.
 
 Team: Karan, Vaibhav, Bhavya. Repo: `VaibHUB17/HHgoa4`.
+
+## No-resubmission rule changes how we work
+
+We get one shot at the form, so nothing gets submitted until everything is ready at once.
+**Have all of this in hand before anyone opens the form:**
+
+- [ ] Public repo with all 20 answer files in `cases/`
+- [ ] Demo video link (3–5 min)
+- [ ] Blog post link
+- [ ] Social post link (X or LinkedIn, tagging @TigerGraphDB)
+
+Practical consequences:
+
+- **Freeze the repo an hour before submitting.** A last-minute push that breaks the build
+  cannot be undone after the form goes in.
+- **Run the validator on all 20 files as the final act**, not earlier. `python -m
+  src.answer.validator cases/` must exit clean.
+- **Check the repo is actually public** in an incognito window before submitting.
+- **One person submits**, with the other two having confirmed the four links work.
 
 ---
 
