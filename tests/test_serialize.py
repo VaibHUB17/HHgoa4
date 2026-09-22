@@ -101,7 +101,7 @@ class TestTokenBudgetTrimming:
         qb = QueryResult(ref="query:b()", rows=rows_b, entity_ids=[r["txn_id"] for r in rows_b], title="B")
         # A mild budget: block A's low-risk rows (0..~0.44) should be trimmed first,
         # before block B's uniformly high-risk (0.9) rows are touched at all.
-        text, trimmed = fit_to_budget("Header.", [qa, qb], max_tokens=130)
+        text, trimmed = fit_to_budget("Header.", [qa, qb], max_tokens=300)
         a_remaining = len(trimmed[0].rows)
         b_remaining = len(trimmed[1].rows)
         assert a_remaining < 10, "low-risk block should be trimmed first"
