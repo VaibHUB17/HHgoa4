@@ -25,7 +25,7 @@ it works right now with nothing set up.
 python -m pytest tests/ -q
 ```
 ```
-105 passed in 1.22s
+125 passed in 4.51s
 ```
 
 Now run a real investigation:
@@ -51,8 +51,20 @@ HHG-017.json: OK
 1 file(s) checked, 0 total violation(s)
 ```
 
-Three fixture cases exist — `HHG-017` (fraud), `HHG-003` (legitimate), `HHG-020`
-(uncertain). Run all three to see the different outcomes.
+All 20 cases have offline fixtures, so the full pipeline runs today:
+
+```bash
+python -m src.agent.run --all --offline \
+  --data-dir tests/fixtures --fixture-dir tests/fixtures/offline --out /tmp/out
+```
+```
+Aggregate by verdict: fraud=1, legitimate=10, uncertain=9
+```
+
+You'll get a summary table and a loud warning on every case. **The warning is correct** —
+these fixtures are fabricated by us, not organizer data, and the validator deliberately
+rejects any answer file built from them. See "the synthetic-data guard" in
+[05-whats-left.md](05-whats-left.md).
 
 ## See the thing that earns 25% of the grade
 
@@ -99,13 +111,25 @@ Turn on **Auto Suspend** immediately (Workspace → Edit → Advanced Settings) 
 burns the free credits. It takes 1–2 min to resume, so wake it ten minutes before the demo,
 not at demo time.
 
-**Step 3 — load the graph.**
+**Step 3 — create the schema and install the queries.**
+
+```bash
+python -m scripts.setup_graph --check    # connection only, changes nothing
+python -m scripts.setup_graph            # create schema + install queries + verify
+```
+
+The GSQL has never run on a live instance, so budget an hour for this rather than ten
+minutes. The script reports the exact statement the engine rejected instead of failing
+vaguely. Nested subqueries inside `POST-ACCUM`/`FOREACH` are the usual incompatibility and
+vary by GSQL version.
+
+**Step 4 — load the graph.**
 
 ```bash
 python -m src.graph.load --data-dir ./data
 ```
 
-**Step 4 — run for real.**
+**Step 5 — run for real.**
 
 ```bash
 python -m src.agent.run --all
@@ -127,8 +151,9 @@ make ui          # start the console
 **`FileNotFoundError: case_pack.csv not found in .../data`** — expected until the dataset
 is downloaded. Add `--data-dir tests/fixtures` to use the case list extracted from the brief.
 
-**`offline fixture missing for case HHG-0XX`** — only 3 of 20 offline fixtures exist. Use
-`--case` with one of HHG-017 / HHG-003 / HHG-020, or run against real data.
+**"generated from synthetic fixtures" from the validator** — working as intended. Offline
+fixtures are fabricated; the guard stops them passing as submission-ready. Run against the
+real dataset to get clean output.
 
 **401 from TigerGraph mid-session** — tokens expire after about an hour.
 `connection.py` retries automatically; if it doesn't, regenerate the secret.

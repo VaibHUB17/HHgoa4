@@ -5,6 +5,7 @@
 | Component | State |
 |---|---|
 | TigerGraph schema + 6 GSQL queries | written, **never run on a live instance** |
+| One-command graph setup | `python -m scripts.setup_graph` — creates schema, installs queries, verifies |
 | CSV loaders | written, **never run** — no dataset |
 | 6 pattern detectors | done, 21 tests |
 | Policy engine R1–R10 | done, 27 tests, boundaries verified |
@@ -12,16 +13,35 @@
 | LangGraph loop + approval gate | done, before/after delta verified working |
 | Case memory (two-pool retrieval) | done, 15 tests |
 | SAR generator | done, FinCEN structure |
-| Answer schema + validator | done, 15 tests |
+| Answer schema + validator | done |
+| ML scaffold | features, time-split training, calibration, 13 tests |
 | Analyst UI | builds, renders, runs on fixtures |
-| Runner CLI | done, works offline |
-| **20 answer files** | **not produced — blocked on data** |
-| Demo video | not started |
-| Blog post | not started |
-| Social post | not started |
+| Runner CLI | done, **all 20 cases run clean offline** |
+| Blog post | drafted — `docs/BLOG.md` |
+| Demo script | drafted — `docs/DEMO_SCRIPT.md` |
+| Social post | drafted — `docs/SOCIAL.md` |
+| **20 real answer files** | **not produced — blocked on data** |
+| Demo video | not recorded |
 
-105 tests pass. The pipeline runs end to end. But it has only ever seen three hand-built
-fixture cases, never the real dataset, and never a real TigerGraph.
+**125 tests pass. All 20 cases run end to end and emit schema-valid answer files** with
+zero violations other than the deliberate synthetic-data stamp.
+
+But everything so far has run against **fabricated fixtures**, never the real dataset and
+never a live TigerGraph. The fixtures exist so the pipeline can be exercised and demoed
+today; they are not evidence that the answers are right.
+
+## The synthetic-data guard — read this
+
+`tests/fixtures/offline/*.json` are **fabricated by us**, not organizer data. Every one
+carries `"_synthetic": true`, and there are three layers stopping them reaching a
+submission:
+
+1. The runner stamps any answer file built from them with `"_synthetic_source": true`
+2. It prints a loud warning to stderr naming the case
+3. **The validator fails any file carrying that stamp**
+
+So if you run `python -m src.answer.validator cases/` and see "generated from synthetic
+fixtures", that is the guard working correctly. Regenerate against real data.
 
 ## Two things block everything
 
@@ -57,27 +77,38 @@ Files: `config/`, `src/policy/`, `src/agent/`, `src/answer/`
 
 ### Bhavya — ML, calibration, case memory
 
-1. **Read the `undocumented` analyst notes by hand.** Filter
-   `closed_cases_history.csv` to `pattern == 'undocumented'` and read them. Finding an
+**The scaffold is already built** so you don't spend your time on plumbing. `src/ml/` has
+feature extraction, training with a time-based split, calibration with reliability curves,
+and the prediction interface. 13 tests, all passing with no dataset present. See
+`docs/ML_QUICKSTART.md` for the commands.
+
+What's left is the thinking:
+
+1. **Read the `undocumented` analyst notes by hand.** Run
+   `python notebooks/explore_closed_cases.py` — it prints them for you. Finding an
    undocumented pattern is explicitly scored, and the mechanism is described in those notes
    in a human's own words. This needs a person, not a model. Probably the highest
    value-per-hour task in the project.
-2. **Baseline classifier first**, then the GNN. Logistic regression or gradient boosting on
-   per-case features (exposure, n_txns, time span, connected cards, shared device, region
-   diversity). An hour's work, immediately usable.
-3. **Calibrate it** — Platt scaling or isotonic, then plot a reliability curve.
-   `fraud_probability` is scored for calibration, not accuracy. A model that's 85% accurate
-   but always says 0.95 scores worse than one that's 80% accurate and honestly says 0.6.
-4. **Split by time, not randomly.** Closed cases are Jul–Oct, exam cases Nov–Dec. A random
-   split leaks the future and your validation score will lie to you.
-5. **Watch the 5:1 imbalance.** Report precision/recall on the *cleared* class specifically.
-6. Then the GNN if steps 1–5 are done: per-case subgraph, GraphSAGE or GAT, PyTorch
-   Geometric.
+2. **Run the baseline** once data lands, look at the reliability curve, decide whether the
+   features are carrying signal. Add features if not — the extractor is yours to extend.
+3. **Then the GNN.** `train.py` has the seam marked with a docstring explaining what to
+   implement (per-case subgraph, GraphSAGE or GAT, PyTorch Geometric). Deliberately left
+   unimplemented — it's yours to build, and `torch` is intentionally not in
+   `requirements.txt` yet.
 
-Hand back: `prior_probability(case_features) -> float` — Vaibhav folds it into the ledger
-as one more weighted signal.
+Two things the scaffold already enforces, so you don't have to remember them:
+- **The split is by time, not random.** A random split needs an explicit flag and prints a
+  warning explaining why it's wrong. Closed cases are Jul–Oct, exam cases Nov–Dec.
+- **Calibration is scored, not accuracy.** A model that's 85% accurate but always says 0.95
+  scores worse than one that's 80% accurate and honestly says 0.6.
 
-Files: `src/ml/` (yours to create), `notebooks/`
+Also watch the 5:1 imbalance — check precision/recall on the *cleared* class specifically,
+since half the exam cases are legitimate.
+
+Hand back: `prior_probability(case_features) -> float`. It returns `None` when no model is
+trained, so the ledger omits the signal rather than consuming a fabricated one.
+
+Files: `src/ml/`, `notebooks/`
 
 ### Karan — graph, TigerGraph, demo
 

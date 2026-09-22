@@ -1,0 +1,31 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C13487-K1": [
+      {"txn_id": "T3478561", "ts": "2016-11-22 20:11:00", "amount": 214.40, "channel": "online",
+       "product_cd": "R", "risk_score": 0.68, "id_15": "New", "id_23": "Anonymous",
+       "addr1": "220.0", "addr2": "87.0", "device_key": "D001177",
+       "card_id": "C13487-K1", "customer_id": "C13487", "M4": "F", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["W", "C"],
+    "regions": ["220.0"],
+    "channels": ["in_person", "online"],
+    "recurring_merchant_match": false
+  },
+  "device_neighbors": {
+    "D001177": [
+      {"txn_id": "T3478561", "ts": "2016-11-22 20:11:00", "card_id": "C13487-K1", "customer_id": "C13487"},
+      {"txn_id": "T3475920", "ts": "2016-11-20 14:02:10", "card_id": "C06210-K1", "customer_id": "C06210"},
+      {"txn_id": "T3476302", "ts": "2016-11-21 09:47:55", "card_id": "C09144-K2", "customer_id": "C09144"},
+      {"txn_id": "T3479011", "ts": "2016-11-23 06:33:40", "card_id": "C06210-K1", "customer_id": "C06210"}
+    ]
+  },
+  "prior_case_candidates": [
+    {"case_id": "CC-0141", "outcome": "confirmed_fraud", "pattern": "card_not_present_new_device",
+     "cosine_distance": 0.2, "shared_entity_count": 1, "pattern_matches": true,
+     "exposure_usd": 1450.00, "opened_at": "2016-08-04"}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C13171-K2": [
+      {"txn_id": "T3558054", "ts": "2016-12-20 03:08:56", "amount": 55.68, "channel": "online",
+       "product_cd": "C", "risk_score": 0.19, "id_15": "Found", "id_23": null,
+       "addr1": "325.0", "addr2": "87.0", "device_key": "D004902",
+       "card_id": "C13171-K2", "customer_id": "C13171", "M4": "T", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["C", "W"],
+    "regions": ["325.0"],
+    "channels": ["online", "in_person"],
+    "recurring_merchant_match": true
+  },
+  "device_neighbors": {},
+  "prior_case_candidates": [
+    {"case_id": "CC-2114", "outcome": "cleared", "pattern": "none",
+     "cosine_distance": 0.3, "shared_entity_count": 0, "pattern_matches": false,
+     "exposure_usd": 0.0, "opened_at": "2016-08-02"}
+  ]
+}

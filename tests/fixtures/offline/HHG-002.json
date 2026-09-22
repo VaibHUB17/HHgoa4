@@ -1,0 +1,28 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C11891-K1": [
+      {"txn_id": "T3478760", "ts": "2016-11-20 11:05:00", "amount": 64.20, "channel": "online",
+       "product_cd": "W", "risk_score": 0.22, "id_15": "Found", "id_23": null,
+       "addr1": "310.0", "addr2": "87.0", "device_key": "D002210",
+       "card_id": "C11891-K1", "customer_id": "C11891", "M4": "T", "M6": "T"},
+      {"txn_id": "T3478782", "ts": "2016-11-22 23:27:07", "amount": 292.36, "channel": "online",
+       "product_cd": "W", "risk_score": 0.79, "id_15": "Found", "id_23": null,
+       "addr1": "310.0", "addr2": "87.0", "device_key": "D002210",
+       "card_id": "C11891-K1", "customer_id": "C11891", "M4": "T", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["W", "H"],
+    "regions": ["310.0"],
+    "channels": ["online", "in_person"],
+    "recurring_merchant_match": false
+  },
+  "device_neighbors": {},
+  "prior_case_candidates": [
+    {"case_id": "CC-1187", "outcome": "cleared", "pattern": "none",
+     "cosine_distance": 0.7, "shared_entity_count": 0, "pattern_matches": false,
+     "exposure_usd": 0.0, "opened_at": "2016-09-02"}
+  ]
+}

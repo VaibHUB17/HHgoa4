@@ -411,6 +411,23 @@ def main(argv: list[str] | None = None) -> int:
     for row in rows:
         case_id = row["case_id"]
         answer = run_case(case_id, row, deps)
+
+        # Safety guard: a fixture marked `_synthetic: true` (tests/fixtures/offline/*.json)
+        # must never produce an answer file indistinguishable from real organizer output.
+        # Stamp it and warn loudly so this can't slip into a submission unnoticed.
+        offline_fetch = getattr(deps, "tool_call_counter", None)
+        if offline_fetch is not None and getattr(offline_fetch, "is_synthetic", lambda _cid: False)(case_id):
+            answer["_synthetic_source"] = True
+            print(
+                f"\n{'!' * 70}\n"
+                f"!! SYNTHETIC FIXTURE WARNING -- case {case_id}\n"
+                f"!! This answer file was generated from a SYNTHETIC test fixture,\n"
+                f"!! not the organizer's real dataset. It is stamped _synthetic_source:\n"
+                f"!! true and MUST NOT be submitted.\n"
+                f"{'!' * 70}\n",
+                file=sys.stderr,
+            )
+
         violations = validate(answer, valid_txn_ids=None, valid_case_ids=valid_case_ids)
         out_path = out_dir / f"{case_id}.json"
         with open(out_path, "w", encoding="utf-8") as f:

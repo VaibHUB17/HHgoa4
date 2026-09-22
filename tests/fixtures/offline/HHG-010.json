@@ -1,0 +1,33 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C10434-K1": [
+      {"txn_id": "T3506700", "ts": "2016-12-01 20:05:00", "amount": 1000.03, "channel": "online",
+       "product_cd": "R", "risk_score": 0.82, "id_15": "New", "id_23": "Anonymous",
+       "addr1": "402.0", "addr2": "87.0", "device_key": "D008820",
+       "card_id": "C10434-K1", "customer_id": "C10434", "M4": "F", "M6": "T"},
+      {"txn_id": "T3506725", "ts": "2016-12-02 18:18:27", "amount": 1000.03, "channel": "online",
+       "product_cd": "R", "risk_score": 0.90, "id_15": "New", "id_23": "Anonymous",
+       "addr1": "402.0", "addr2": "87.0", "device_key": "D008820",
+       "card_id": "C10434-K1", "customer_id": "C10434", "M4": "F", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["W", "C"],
+    "regions": ["402.0"],
+    "channels": ["in_person", "online"],
+    "recurring_merchant_match": false
+  },
+  "device_neighbors": {
+    "D008820": [
+      {"txn_id": "T3506725", "ts": "2016-12-02 18:18:27", "card_id": "C10434-K1", "customer_id": "C10434"},
+      {"txn_id": "T3504410", "ts": "2016-12-01 11:47:05", "card_id": "C03390-K1", "customer_id": "C03390"}
+    ]
+  },
+  "prior_case_candidates": [
+    {"case_id": "CC-0141", "outcome": "confirmed_fraud", "pattern": "card_not_present_new_device",
+     "cosine_distance": 0.22, "shared_entity_count": 1, "pattern_matches": true,
+     "exposure_usd": 1450.00, "opened_at": "2016-08-04"}
+  ]
+}

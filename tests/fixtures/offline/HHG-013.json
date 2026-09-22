@@ -1,0 +1,41 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C07671-K2": [
+      {"txn_id": "T3526810", "ts": "2016-12-09 05:20:29", "amount": 1.20, "channel": "online",
+       "product_cd": "C", "risk_score": 0.71, "id_15": "Found", "id_23": null,
+       "addr1": "158.0", "addr2": "87.0", "device_key": "D009944",
+       "card_id": "C07671-K2", "customer_id": "C07671", "M4": null, "M6": null},
+      {"txn_id": "T3526815", "ts": "2016-12-09 05:26:29", "amount": 2.05, "channel": "online",
+       "product_cd": "C", "risk_score": 0.73, "id_15": "Found", "id_23": null,
+       "addr1": "158.0", "addr2": "87.0", "device_key": "D009944",
+       "card_id": "C07671-K2", "customer_id": "C07671", "M4": null, "M6": null},
+      {"txn_id": "T3526821", "ts": "2016-12-09 05:33:29", "amount": 0.85, "channel": "online",
+       "product_cd": "C", "risk_score": 0.74, "id_15": "Found", "id_23": null,
+       "addr1": "158.0", "addr2": "87.0", "device_key": "D009944",
+       "card_id": "C07671-K2", "customer_id": "C07671", "M4": null, "M6": null},
+      {"txn_id": "T3526826", "ts": "2016-12-09 05:39:29", "amount": 35.66, "channel": "online",
+       "product_cd": "R", "risk_score": 0.76, "id_15": "Found", "id_23": null,
+       "addr1": "158.0", "addr2": "87.0", "device_key": "D009944",
+       "card_id": "C07671-K2", "customer_id": "C07671", "M4": null, "M6": null}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["W", "C"],
+    "regions": ["158.0"],
+    "channels": ["in_person", "online"],
+    "recurring_merchant_match": false
+  },
+  "device_neighbors": {
+    "D009944": [
+      {"txn_id": "T3526826", "ts": "2016-12-09 05:39:29", "card_id": "C07671-K2", "customer_id": "C07671"},
+      {"txn_id": "T3525011", "ts": "2016-12-07 22:14:02", "card_id": "C01920-K1", "customer_id": "C01920"}
+    ]
+  },
+  "prior_case_candidates": [
+    {"case_id": "CC-0141", "outcome": "confirmed_fraud", "pattern": "card_testing",
+     "cosine_distance": 0.15, "shared_entity_count": 1, "pattern_matches": true,
+     "exposure_usd": 312.50, "opened_at": "2016-08-04"}
+  ]
+}

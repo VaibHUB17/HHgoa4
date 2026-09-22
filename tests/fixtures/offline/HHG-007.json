@@ -1,0 +1,40 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C09933-K2": [
+      {"txn_id": "T3514920", "ts": "2016-12-04 22:10:00", "amount": 34.50, "channel": "in_person",
+       "product_cd": "W", "risk_score": 0.12, "id_15": null, "id_23": null,
+       "addr1": "150.0", "addr2": "87.0", "device_key": null,
+       "card_id": "C09933-K2", "customer_id": "C09933", "M4": "T", "M6": "T"},
+      {"txn_id": "T3514948", "ts": "2016-12-05 03:46:14", "amount": 111.92, "channel": "in_person",
+       "product_cd": "W", "risk_score": 0.87, "id_15": null, "id_23": null,
+       "addr1": "264.0", "addr2": "87.0", "device_key": null,
+       "card_id": "C09933-K2", "customer_id": "C09933", "M4": "T", "M6": "T"},
+      {"txn_id": "T3514955", "ts": "2016-12-05 08:02:40", "amount": 89.15, "channel": "in_person",
+       "product_cd": "W", "risk_score": 0.66, "id_15": null, "id_23": null,
+       "addr1": "150.0", "addr2": "87.0", "device_key": null,
+       "card_id": "C09933-K2", "customer_id": "C09933", "M4": "T", "M6": "T"},
+      {"txn_id": "T3514961", "ts": "2016-12-05 14:30:00", "amount": 203.60, "channel": "in_person",
+       "product_cd": "W", "risk_score": 0.71, "id_15": null, "id_23": null,
+       "addr1": "264.0", "addr2": "87.0", "device_key": null,
+       "card_id": "C09933-K2", "customer_id": "C09933", "M4": "T", "M6": "T"},
+      {"txn_id": "T3514967", "ts": "2016-12-05 15:05:10", "amount": 58.40, "channel": "in_person",
+       "product_cd": "W", "risk_score": 0.74, "id_15": null, "id_23": null,
+       "addr1": "301.0", "addr2": "87.0", "device_key": null,
+       "card_id": "C09933-K2", "customer_id": "C09933", "M4": "T", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["W"],
+    "regions": ["150.0"],
+    "channels": ["in_person"],
+    "recurring_merchant_match": false
+  },
+  "device_neighbors": {},
+  "prior_case_candidates": [
+    {"case_id": "CC-0733", "outcome": "confirmed_fraud", "pattern": "out_of_region_use",
+     "cosine_distance": 0.18, "shared_entity_count": 1, "pattern_matches": true,
+     "exposure_usd": 421.30, "opened_at": "2016-08-11"}
+  ]
+}
