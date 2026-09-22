@@ -1,0 +1,18 @@
+{
+  "card_window": {
+    "C12265-K2": [
+      {"txn_id": "T3509359", "ts": "2016-12-03 12:04:26", "amount": 125.08, "channel": "online",
+       "product_cd": "H", "risk_score": 0.52, "id_15": "Found", "id_23": null,
+       "addr1": "440.0", "addr2": "87.0", "device_key": "D007733",
+       "card_id": "C12265-K2", "customer_id": "C12265", "M4": "T", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["W", "C"],
+    "regions": ["440.0"],
+    "channels": ["in_person", "online"],
+    "recurring_merchant_match": false
+  },
+  "device_neighbors": {},
+  "prior_case_candidates": []
+}

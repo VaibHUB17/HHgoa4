@@ -1,0 +1,22 @@
+{
+  "card_window": {
+    "C08623-K2": [
+      {"txn_id": "T3530164", "ts": "2016-12-10 14:58:00", "amount": 49.00, "channel": "online",
+       "product_cd": "S", "risk_score": 0.31, "id_15": "Found", "id_23": null,
+       "addr1": "330.0", "addr2": "87.0", "device_key": "D004521",
+       "card_id": "C08623-K2", "customer_id": "C08623", "M4": "T", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["S", "W"],
+    "regions": ["330.0"],
+    "channels": ["in_person", "online"],
+    "recurring_merchant_match": true
+  },
+  "device_neighbors": {},
+  "prior_case_candidates": [
+    {"case_id": "CC-2671", "outcome": "cleared", "pattern": "none",
+     "cosine_distance": 0.4, "shared_entity_count": 1, "pattern_matches": false,
+     "exposure_usd": 0.0, "opened_at": "2016-07-22"}
+  ]
+}
