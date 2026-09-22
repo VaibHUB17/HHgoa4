@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 640" width="900" height="640" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#3a4658"/>
+    </marker>
+    <marker id="aS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="aF" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#f2578a"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="640" fill="#10151c"/>
+
+  <text x="32" y="40" fill="#e7ebf0" font-size="19" font-weight="600">Fraud investigation agent — one case, end to end</text>
+  <text x="32" y="61" fill="#8d99ab" font-size="12.5">The loop exists so the recommendation can change when evidence arrives. That change is the point.</text>
+
+  <!-- row 1 -->
+  <rect x="32" y="92" width="176" height="56" rx="6" fill="#171e28" stroke="#2a3341"/>
+  <text x="46" y="115" fill="#e7ebf0" font-size="13" font-weight="600">1 · Trigger</text>
+  <text x="46" y="134" fill="#8d99ab" font-size="11">a row from case_pack.csv</text>
+  <path d="M208 120 H268" stroke="#3a4658" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <rect x="268" y="84" width="216" height="72" rx="6" fill="#171e28" stroke="#2a3341"/>
+  <text x="282" y="106" fill="#e7ebf0" font-size="13" font-weight="600">2 · Ask the graph</text>
+  <text x="282" y="124" fill="#8d99ab" font-size="10.5">card_window · device_neighbors</text>
+  <text x="282" y="139" fill="#8d99ab" font-size="10.5">customer_baseline · prior_cases</text>
+  <text x="282" y="151" fill="#2dd4bf" font-size="10">TigerGraph via MCP</text>
+  <path d="M484 120 H544" stroke="#3a4658" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <rect x="544" y="84" width="212" height="72" rx="6" fill="#171e28" stroke="#2a3341"/>
+  <text x="558" y="106" fill="#e7ebf0" font-size="13" font-weight="600">3 · Detect and score</text>
+  <text x="558" y="124" fill="#8d99ab" font-size="10.5">six pattern detectors feed a</text>
+  <text x="558" y="139" fill="#8d99ab" font-size="10.5">weighted evidence ledger</text>
+  <text x="558" y="151" fill="#e8a53d" font-size="10">p = sigmoid(-1.8 + 4.1 x sum w)</text>
+
+  <path d="M650 156 V196" stroke="#3a4658" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- decision -->
+  <path d="M650 196 L788 244 L650 292 L512 244 Z" fill="#171e28" stroke="#3a4658"/>
+  <text x="650" y="236" fill="#e7ebf0" font-size="12.5" font-weight="600" text-anchor="middle">Enough to act?</text>
+  <text x="650" y="253" fill="#8d99ab" font-size="10" text-anchor="middle">p at or past 0.85 / 0.15</text>
+  <text x="650" y="267" fill="#8d99ab" font-size="10" text-anchor="middle">and 2+ independent sources</text>
+
+  <!-- no branch -->
+  <path d="M512 244 H360 V312" stroke="#2dd4bf" stroke-width="1.8" fill="none" marker-end="url(#aS)"/>
+  <text x="428" y="236" fill="#2dd4bf" font-size="11" font-weight="600">no</text>
+
+  <rect x="222" y="312" width="276" height="56" rx="6" fill="#171e28" stroke="#2dd4bf"/>
+  <text x="236" y="334" fill="#2dd4bf" font-size="12.5" font-weight="600">5 · Snapshot "initial"</text>
+  <text x="236" y="353" fill="#8d99ab" font-size="10.5">run R1-R10, freeze the recommendation</text>
+  <path d="M360 368 V404" stroke="#2dd4bf" stroke-width="1.8" fill="none" marker-end="url(#aS)"/>
+
+  <rect x="222" y="404" width="276" height="64" rx="6" fill="#171e28" stroke="#2a3341"/>
+  <text x="236" y="426" fill="#e7ebf0" font-size="12.5" font-weight="600">6 · Ask for evidence</text>
+  <text x="236" y="444" fill="#8d99ab" font-size="10.5">customer_validation or step_up_auth</text>
+  <text x="236" y="459" fill="#8d99ab" font-size="10.5">reply simulated, assumption recorded</text>
+  <path d="M360 468 V504" stroke="#2dd4bf" stroke-width="1.8" fill="none" marker-end="url(#aS)"/>
+
+  <rect x="222" y="504" width="276" height="52" rx="6" fill="#171e28" stroke="#2a3341"/>
+  <text x="236" y="526" fill="#e7ebf0" font-size="12.5" font-weight="600">7 · Fold the reply in, re-score</text>
+  <text x="236" y="544" fill="#e8a53d" font-size="10.5">p moves — this is what makes final differ</text>
+
+  <!-- yes branch skips the loop -->
+  <path d="M788 244 H836 V590 H834" stroke="#3a4658" stroke-width="1.5" fill="none"/>
+  <path d="M836 590 H774" stroke="#3a4658" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="798" y="236" fill="#8d99ab" font-size="11">yes</text>
+
+  <!-- loop rejoins -->
+  <path d="M498 530 H540 V590 H548" stroke="#2dd4bf" stroke-width="1.8" fill="none" marker-end="url(#aS)"/>
+
+  <!-- row 3 -->
+  <rect x="548" y="562" width="226" height="56" rx="6" fill="#171e28" stroke="#f2578a"/>
+  <text x="562" y="584" fill="#f2578a" font-size="12.5" font-weight="600">8 · Snapshot "final"</text>
+  <text x="562" y="602" fill="#8d99ab" font-size="10.5">R1-R10 again — initial differs from final</text>
+  <path d="M548 590 H500" stroke="#f2578a" stroke-width="1.8" fill="none" marker-end="url(#aF)"/>
+
+  <rect x="264" y="562" width="236" height="56" rx="6" fill="#171e28" stroke="#2a3341"/>
+  <text x="278" y="584" fill="#e7ebf0" font-size="12.5" font-weight="600">9 · Approval gate</text>
+  <text x="278" y="602" fill="#8d99ab" font-size="10.5">auto executes · L1/L2 waits for a human</text>
+  <path d="M264 590 H216" stroke="#3a4658" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <rect x="32" y="552" width="184" height="76" rx="6" fill="#171e28" stroke="#2a3341"/>
+  <text x="46" y="574" fill="#e7ebf0" font-size="12.5" font-weight="600">10 · Write</text>
+  <text x="46" y="591" fill="#8d99ab" font-size="10.5">SAR when policy demands</text>
+  <text x="46" y="606" fill="#8d99ab" font-size="10.5">Case written back to the graph</text>
+  <text x="46" y="621" fill="#2dd4bf" font-size="10.5">cases/HHG-0xx.json</text>
+
+  <!-- pulses along the evidence loop -->
+  <circle r="4" fill="#2dd4bf">
+    <animateMotion dur="7s" repeatCount="indefinite" path="M512 244 H360 V312"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="7s" repeatCount="indefinite"/>
+  </circle>
+  <circle r="4" fill="#2dd4bf">
+    <animateMotion dur="7s" begin="1.2s" repeatCount="indefinite" path="M360 368 V404"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="7s" begin="1.2s" repeatCount="indefinite"/>
+  </circle>
+  <circle r="4" fill="#2dd4bf">
+    <animateMotion dur="7s" begin="2.2s" repeatCount="indefinite" path="M360 468 V504"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="7s" begin="2.2s" repeatCount="indefinite"/>
+  </circle>
+  <circle r="4" fill="#f2578a">
+    <animateMotion dur="7s" begin="3.4s" repeatCount="indefinite" path="M498 530 H540 V590 H548"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="7s" begin="3.4s" repeatCount="indefinite"/>
+  </circle>
+
+  <path d="M650 196 L788 244 L650 292 L512 244 Z" fill="none" stroke="#2dd4bf" stroke-width="1.5" opacity="0">
+    <animate attributeName="opacity" values="0;0.65;0" dur="3.5s" repeatCount="indefinite"/>
+  </path>
+</svg>

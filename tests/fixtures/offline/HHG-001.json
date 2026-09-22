@@ -1,0 +1,32 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C12382-K1": [
+      {"txn_id": "T3514010", "ts": "2016-12-04 09:12:03", "amount": 42.50, "channel": "in_person",
+       "product_cd": "W", "risk_score": 0.11, "id_15": null, "id_23": null,
+       "addr1": "444.0", "addr2": "87.0", "device_key": null,
+       "card_id": "C12382-K1", "customer_id": "C12382", "M4": "T", "M6": "T"},
+      {"txn_id": "T3514030", "ts": "2016-12-05 01:55:28", "amount": 77.07, "channel": "in_person",
+       "product_cd": "W", "risk_score": 0.61, "id_15": null, "id_23": null,
+       "addr1": "444.0", "addr2": "87.0", "device_key": null,
+       "card_id": "C12382-K1", "customer_id": "C12382", "M4": "T", "M6": "T"},
+      {"txn_id": "T3514041", "ts": "2016-12-05 19:20:11", "amount": 25.10, "channel": "in_person",
+       "product_cd": "W", "risk_score": 0.09, "id_15": null, "id_23": null,
+       "addr1": "444.0", "addr2": "87.0", "device_key": null,
+       "card_id": "C12382-K1", "customer_id": "C12382", "M4": "T", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["W"],
+    "regions": ["444.0"],
+    "channels": ["in_person"],
+    "recurring_merchant_match": false
+  },
+  "device_neighbors": {},
+  "prior_case_candidates": [
+    {"case_id": "CC-0512", "outcome": "cleared", "pattern": "none",
+     "cosine_distance": 0.9, "shared_entity_count": 0, "pattern_matches": false,
+     "exposure_usd": 0.0, "opened_at": "2016-08-19"}
+  ]
+}

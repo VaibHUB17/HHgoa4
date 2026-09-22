@@ -204,3 +204,41 @@ def test_unknown_case_id_exits_nonzero(tmp_path):
         ]
     )
     assert rc != 0
+
+
+# ---------------------------------------------------------------------------
+# synthetic-fixture safety guard: a synthetic-sourced answer file must never
+# pass validation, so it can never be mistaken for real organizer output.
+# ---------------------------------------------------------------------------
+
+
+def test_synthetic_sourced_answer_file_fails_validation():
+    answer = run_case("HHG-017", {r["case_id"]: r for r in load_case_pack(_FIXTURE_DIR)}["HHG-017"], offline_deps(_FIXTURE_DIR))
+    assert validate(answer) == [], "sanity check: a normal answer must validate clean first"
+
+    answer["_synthetic_source"] = True
+    violations = validate(answer)
+    assert any(
+        "generated from synthetic fixtures" in v for v in violations
+    ), f"synthetic_source stamp must be flagged as a violation, got: {violations}"
+
+
+def test_cli_stamps_synthetic_source_for_synthetic_fixture(tmp_path):
+    """A fixture marked `_synthetic: true` (as every fixture under tests/fixtures/offline/
+    other than the three original calibration fixtures now is) must make run.py stamp
+    `_synthetic_source: true` on the emitted answer file, which the validator then rejects
+    -- exercised here against HHG-014 (the shared-device ring fixture) rather than the
+    original three fixtures, since those are relied on by other tests to validate clean."""
+    rc = main(
+        [
+            "--case", "HHG-014",
+            "--offline",
+            "--data-dir", str(_FIXTURE_DIR.parent),
+            "--fixture-dir", str(_FIXTURE_DIR),
+            "--out", str(tmp_path),
+        ]
+    )
+    assert rc != 0, "a synthetic-sourced answer file must fail validation (non-zero exit)"
+    with open(tmp_path / "HHG-014.json", "r", encoding="utf-8") as f:
+        answer = json.load(f)
+    assert answer.get("_synthetic_source") is True

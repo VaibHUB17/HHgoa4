@@ -33,6 +33,14 @@ def validate(
     def fail(msg: str) -> None:
         v.append(msg)
 
+    # --- synthetic-fixture guard -------------------------------------------------------
+    # An answer file stamped _synthetic_source (src/agent/run.py, set when the offline
+    # fixture behind it carries `_synthetic: true`) was built from fabricated test data,
+    # never the organizer's real dataset. It must fail validation outright so it can
+    # never pass as submission-ready.
+    if c.get("_synthetic_source") is True:
+        fail("generated from synthetic fixtures — regenerate against the real dataset before submitting")
+
     # --- top level shape -------------------------------------------------------------
     for key in (
         "case_id", "case", "evidence_requests", "next_best_actions", "sar",

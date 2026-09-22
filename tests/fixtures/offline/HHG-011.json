@@ -1,0 +1,24 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C11923-K2": [
+      {"txn_id": "T3583368", "ts": "2016-12-29 06:27:44", "amount": 131.30, "channel": "online",
+       "product_cd": "H", "risk_score": 0.33, "id_15": "Found", "id_23": null,
+       "addr1": "137.0", "addr2": "87.0", "device_key": "D007321",
+       "card_id": "C11923-K2", "customer_id": "C11923", "M4": "T", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["H", "W"],
+    "regions": ["137.0"],
+    "channels": ["online", "in_person"],
+    "recurring_merchant_match": true
+  },
+  "device_neighbors": {},
+  "prior_case_candidates": [
+    {"case_id": "CC-2671", "outcome": "cleared", "pattern": "none",
+     "cosine_distance": 0.5, "shared_entity_count": 0, "pattern_matches": false,
+     "exposure_usd": 0.0, "opened_at": "2016-07-22"}
+  ]
+}

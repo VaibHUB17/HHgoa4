@@ -26,3 +26,9 @@ pypdf>=4.3
 
 # Dev
 pytest>=8.0
+
+# ML (src/ml/, notebooks/explore_closed_cases.py) — baseline model + calibration.
+# GNN work (train.py's GNN_STUB) intentionally does NOT add torch/torch-geometric here.
+scikit-learn>=1.4
+matplotlib>=3.8
+joblib>=1.3

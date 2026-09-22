@@ -483,6 +483,16 @@ class _OfflineFetch:
         self._count(case_id)
         return self._load(case_id).get("device_neighbors", {}).get(device_key, [])
 
+    def is_synthetic(self, case_id: str) -> bool:
+        """True when the loaded fixture is marked `_synthetic: true` (see tests/fixtures/
+        offline/*.json's `_synthetic`/`_warning` keys) -- run.py uses this to stamp
+        answer files so a synthetic-sourced file can never be mistaken for one built
+        from the organizer's real dataset."""
+        try:
+            return bool(self._load(case_id).get("_synthetic", False))
+        except FileNotFoundError:
+            return False
+
     def prior_case_candidates(self, case_id: str) -> list[ClosedCaseCandidate]:
         self._count(case_id)
         raw = self._load(case_id).get("prior_case_candidates", [])

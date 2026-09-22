@@ -1,0 +1,24 @@
+{
+  "_synthetic": true,
+  "_warning": "Synthetic test fixture. NOT organizer data. Answer files generated from this must never be submitted.",
+  "card_window": {
+    "C03042-K1": [
+      {"txn_id": "T3464869", "ts": "2016-11-17 19:03:36", "amount": 599.94, "channel": "online",
+       "product_cd": "H", "risk_score": 0.77, "id_15": "Found", "id_23": null,
+       "addr1": "356.0", "addr2": "87.0", "device_key": "D003390",
+       "card_id": "C03042-K1", "customer_id": "C03042", "M4": "T", "M6": "T"}
+    ]
+  },
+  "customer_baseline": {
+    "products": ["W", "C"],
+    "regions": ["356.0"],
+    "channels": ["in_person", "online"],
+    "recurring_merchant_match": false
+  },
+  "device_neighbors": {},
+  "prior_case_candidates": [
+    {"case_id": "CC-1187", "outcome": "cleared", "pattern": "none",
+     "cosine_distance": 0.9, "shared_entity_count": 0, "pattern_matches": false,
+     "exposure_usd": 0.0, "opened_at": "2016-09-02"}
+  ]
+}
