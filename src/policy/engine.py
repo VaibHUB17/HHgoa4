@@ -29,6 +29,13 @@ _L1_FIXED_ACTIONS = {"DECLINE_TRANSACTION"}
 _L2_FIXED_ACTIONS = {"BLOCK_ALL_CARDS", "FILE_REPORT"}
 
 ALL_ACTIONS = _AUTO_ACTIONS | _L1_FIXED_ACTIONS | _L2_FIXED_ACTIONS | {"BLOCK_CARD"}
+
+# Probability thresholds, straight from the brief. Named so the policy's numbers appear
+# once each and a reader can grep for where a decision boundary comes from.
+R1_BLOCK_GUARD = 0.70           # R1: below this on a single signal, verify before blocking
+CASE_CREATION_THRESHOLD = 0.30  # §3a: open a case at or above this
+STOP_HIGH = 0.85                # §6: stop, with >= 2 independent evidence pieces
+STOP_LOW = 0.15                 # §6: stop, with >= 2 independent evidence pieces
 assert len(ALL_ACTIONS) == 14, "the policy defines exactly 14 action identifiers"
 
 
@@ -273,6 +280,29 @@ def apply_rules(s: CaseState) -> list[dict]:
     ordered_actions = apply_r10(ordered_actions, s)
     if "BLOCK_CARD" in ordered_actions and "BLOCK_ALL_CARDS" not in reasons:
         reasons.setdefault("BLOCK_CARD", []).append("R10")
+
+    # --- terminal fallback: never hand back an empty recommendation --------------------
+    # R1-R10 are written as triggers for something being wrong, so a case that is simply
+    # fine matches none of them and would otherwise produce no action at all. That is not
+    # a valid answer: the bank asked what to do, and "nothing" is not an instruction. The
+    # policy already has the right verbs for this, so pick the one the evidence supports.
+    if not ordered_actions:
+        if s.fraud_probability <= STOP_LOW:
+            # Settled: low probability on adequate evidence. Close it (§3a: a case is only
+            # opened at >= 0.30, so there is nothing to keep open here).
+            ordered_actions = ["CLOSE_NO_FRAUD"]
+            reasons["CLOSE_NO_FRAUD"] = ["R3"]
+        elif s.fraud_probability < CASE_CREATION_THRESHOLD:
+            # Below the case-creation line but not settled low enough to close outright.
+            # Keep watching rather than acting or walking away.
+            ordered_actions = ["MONITOR_CARD"]
+            reasons["MONITOR_CARD"] = ["R4"]
+        else:
+            # At or above 0.30 with nothing else triggered: open the case (§3a) and keep
+            # the card under watch while it is worked.
+            ordered_actions = ["CREATE_CASE", "MONITOR_CARD"]
+            reasons["CREATE_CASE"] = ["R8"]
+            reasons["MONITOR_CARD"] = ["R4"]
 
     return [
         {"action": a, "reason_rules": reasons.get(a, [])}
