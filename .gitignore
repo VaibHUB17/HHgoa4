@@ -1,6 +1,8 @@
 # Dataset — large, provided by organizers, never committed.
 # The directory and its instructions are tracked; the data itself is not.
 *.csv
+*.zip
+HHGOA_IEEE_Dataset/
 data/*
 !data/.gitkeep
 !data/README.md

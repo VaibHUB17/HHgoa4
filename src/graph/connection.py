@@ -51,23 +51,33 @@ def _counter_increment(case_id: str | None) -> None:
 
 
 def get_conn(force_new: bool = False) -> tg.TigerGraphConnection:
-    """Return a cached, authenticated TigerGraphConnection, creating one if needed.
+    """Return a cached, authenticated TigerGraph Cloud (Savanna) connection.
 
-    Host/graph come from TG_HOST / TG_GRAPHNAME. Auth prefers TG_API_TOKEN if set
-    (Savanna-style long-lived token); otherwise falls back to TG_USERNAME/TG_PASSWORD
-    and mints a token via getToken(createSecret()), matching RESEARCH.md §2.6/§5.2's
-    documented auth precedence (API token > JWT > user/pass -- JWT is not wired here
-    since none of the four required env vars name it).
+    Reads TigerGraph Cloud configuration strictly from environment (.env):
+      - TG_HOST: Cloud solution endpoint (e.g. https://your-workspace.i.tgcloud.io)
+      - TG_GRAPH: Target graph name in Savanna (or TG_GRAPHNAME)
+      - TG_USERNAME: User name (default: tigergraph)
+      - TG_PASSWORD: Password for the cloud instance
+      - TG_SECRET: GSQL Secret generated for the graph on Savanna
+      - TG_API_TOKEN: Long-lived API token (if provided directly)
+      - TG_TGCLOUD: True
     """
     global _conn
     with _conn_lock:
         if _conn is not None and not force_new:
             return _conn
 
-        host = os.environ["TG_HOST"]
-        graphname = os.environ["TG_GRAPHNAME"]
+        host = (os.environ.get("TG_HOST") or os.environ.get("TIGERGRAPH_HOST", "")).rstrip("/")
+        if not host:
+            raise KeyError("TG_HOST must be set in .env (e.g. https://<workspace>.i.tgcloud.io)")
+
+        graphname = os.environ.get("TG_GRAPH") or os.environ.get("TG_GRAPHNAME")
+        if not graphname:
+            raise KeyError("TG_GRAPH must be set in .env (e.g. FraudInvestigation)")
+
         username = os.environ.get("TG_USERNAME", "tigergraph")
         password = os.environ.get("TG_PASSWORD", "tigergraph")
+        secret = os.environ.get("TG_SECRET")
         api_token = os.environ.get("TG_API_TOKEN")
 
         conn = tg.TigerGraphConnection(
@@ -75,15 +85,19 @@ def get_conn(force_new: bool = False) -> tg.TigerGraphConnection:
             graphname=graphname,
             username=username,
             password=password,
+            tgCloud=True,
         )
 
         if api_token:
             conn.apiToken = api_token
-        else:
-            secret = conn.createSecret()
+        elif secret:
             token = conn.getToken(secret)
-            # pyTigerGraph returns (token, expiration) or just token depending on version.
             conn.apiToken = token[0] if isinstance(token, tuple) else token
+        else:
+            raise ValueError(
+                "TigerGraph Cloud requires either TG_SECRET (to generate a session token) "
+                "or TG_API_TOKEN set in .env."
+            )
 
         _conn = conn
         return _conn
