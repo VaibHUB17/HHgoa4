@@ -1,0 +1,14 @@
+# rag.yaml — embedding provider config. Dimension MUST match the GSQL vector attribute
+# (schema.gsql: ClosedCase.notesEmb / PolicyChunk.textEmb DIMENSION=1536).
+# If EMBED_PROVIDER=local (no OPENAI_API_KEY), dimension is 384 (all-MiniLM-L6-v2) and
+# the GSQL vector attributes must be re-altered to match before upserting.
+openai:
+  model: text-embedding-3-small
+  dimension: 1536
+local:
+  model: all-MiniLM-L6-v2
+  dimension: 384
+cache_dir: embeddings
+batch_size: 64
+max_retries: 4
+retry_base_delay_s: 1.0

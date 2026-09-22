@@ -1,0 +1,72 @@
+# fraud_policy.yaml — exact identifiers, do not rename
+# Source: RESEARCH.md §8, verbatim (frozen contract).
+actions:
+  ALLOW_TRANSACTION:       { route: auto }
+  DECLINE_TRANSACTION:     { route: L1 }
+  MONITOR_CARD:            { route: auto }
+  MONITOR_CONNECTED_CARDS: { route: auto }
+  WARN_CUSTOMER:           { route: auto }
+  VERIFY_WITH_CUSTOMER:    { route: auto }
+  STEP_UP_AUTH:            { route: auto }
+  BLOCK_CARD:
+    route_by_exposure: { "<=2500": L1, ">2500": L2 }
+  BLOCK_ALL_CARDS:         { route: L2, guard: "R10" }
+  GENERATE_REPORT:         { route: auto }
+  CREATE_CASE:             { route: auto }
+  FILE_REPORT:             { route: L2 }
+  ESCALATE_TO_ANALYST:     { route: auto }
+  CLOSE_NO_FRAUD:          { route: auto }
+
+rules:
+  R1:
+    predicate: "single_signal AND fraud_probability < 0.70"
+    actions: [VERIFY_WITH_CUSTOMER, STEP_UP_AUTH]     # pick one by context
+    note: "must precede any block"
+  R2:
+    predicate: "customer_validation requested AND response == deny"
+    actions: [BLOCK_CARD, CREATE_CASE]
+    add_if: { when: "exposure_usd > 1000 OR shared_device_profile OR other_card_fraud",
+              add: [FILE_REPORT] }
+  R3:
+    predicate: "response == confirm"
+    actions: [CLOSE_NO_FRAUD]
+  R4:
+    predicate: "no_reply_within_24h"
+    actions: [MONITOR_CARD, DECLINE_TRANSACTION]
+    add_if: { when: "exposure_usd > 500", add: [ESCALATE_TO_ANALYST] }
+  R5:
+    predicate: "3+ sub-$5 online auths within 1hr on one card, then a larger purchase"
+    actions: [DECLINE_TRANSACTION, STEP_UP_AUTH]
+    override: { when: "purchase > $100 already cleared", actions: [BLOCK_CARD] }
+  R6:
+    predicate: "shared device_profile OR billing_region OR recipient_email across cards in one window"
+    actions: [CREATE_CASE, FILE_REPORT, MONITOR_CONNECTED_CARDS]
+    must: "name the shared element explicitly in evidence"
+  R7:
+    predicate: "dispute matches the customer's own recurring pattern (merchant, amount, monthly)"
+    actions: [CREATE_CASE, VERIFY_WITH_CUSTOMER, WARN_CUSTOMER]
+    forbid: [BLOCK_CARD, DECLINE_TRANSACTION]
+  R8:
+    predicate: "verdict == uncertain AND exposure_usd > 500, OR evidence conflicts"
+    actions: [ESCALATE_TO_ANALYST]
+  R9:
+    predicate: "fits none of the 5 patterns AND coordinated/repeated abuse across customers"
+    actions: [CREATE_CASE, FILE_REPORT, ESCALATE_TO_ANALYST]
+    pattern: undocumented
+    must: "pattern_description, 2-3 sentences"
+  R10:
+    predicate: "BLOCK_ALL_CARDS proposed"
+    guard: "2+ cards confirmed fraud OR credentials confirmed compromised"
+    else: "downgrade to BLOCK_CARD on the specific card"
+
+case_lifecycle:
+  create_case_when: "fraud_probability >= 0.30 OR evidence_requested OR customer_disputes"
+  sar_trigger: "verdict in (fraud, strongly_suspected) AND
+                (exposure_usd > 1000 OR shared_device_or_region_or_other_customer_fraud
+                 OR pattern == undocumented)"
+
+stopping_criteria:
+  stop_high: { p_gte: 0.85, min_independent_evidence: 2 }
+  stop_low: { p_lte: 0.15, min_independent_evidence: 2 }
+  verification_settled: true
+  fallback: "further steps unlikely to change the decision; state in stop_reason"

@@ -1,0 +1,20 @@
+# evidence_weights.yaml
+# Source: RESEARCH.md §7.1, verbatim (frozen contract).
+# fraud_probability = sigmoid(sum of weights of present evidence keys), clipped [0,1].
+card_testing_sequence:      { w: 0.35, req: "3+ sub-$5 online auths <1hr + larger purchase, one card" }  # R5
+shared_device_across_cards: { w: 0.30, req: "DeviceProfile on 2+ customers/cards" }                      # R6
+customer_denies:            { w: 0.30 }                                                                   # R2
+shared_region_cluster:      { w: 0.25, req: "addr1 cluster across many cards, short window" }            # R6
+cnp_burst_pattern:          { w: 0.20, req: "2-4 unusual online purchases <48h, category mismatch" }
+out_of_region_pattern:      { w: 0.20, req: "addr1 outside customer's historical set, multi-day" }
+multi_region_clone_cluster: { w: 0.15, req: "2+ distinct new billing regions interleaved with home-region activity in one window; corroborates out_of_region_pattern, combined <= card_testing_sequence" }
+closed_case_match:          { w: 0.20, req: "device/region/email matches a confirmed_fraud ClosedCase" }
+new_device_marker:          { w: 0.15, req: "id_15 == New for this customer/card" }
+proxy_flag:                 { w: 0.10, req: "id_23 in (anonymous, hidden)" }
+risk_score_alone:           { w: 0.05, note: "policy §0 says it is not a verdict" }
+
+# negative / exonerating — as important as the positives
+recurring_merchant_match:   { w: -0.25 }   # R7 disputed-but-legitimate
+cleared_precedent_match:    { w: -0.20 }   # a `cleared` ClosedCase matches on device/region
+in_character_for_customer:  { w: -0.20 }   # amount/product/region all inside baseline
+customer_confirms:          { w: -0.90 }   # R3 — effectively closes as legitimate
