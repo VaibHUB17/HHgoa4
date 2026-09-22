@@ -1,0 +1,130 @@
+// queries.gsql
+// Installed queries for the HHgoa4 fraud-investigation agent.
+// Source: RESEARCH.md §2.4 (four core queries) + §6.2 (similar_prior_cases) + §6.5b
+// (write_case_to_graph).
+//
+// VERSION WARNING (RESEARCH.md §2.4): "nested subqueries inside POST-ACCUM/FOREACH are
+// the single most likely thing to need reshaping between GSQL syntax versions. Test these
+// early, not on demo day. Check with `SHOW QUERY <name>` after a trial install." All four
+// traversal queries below are written SYNTAX v2 as RESEARCH.md specifies; the two vector
+// queries are SYNTAX v3 (v2 does not support vectorSearch). Do not mix syntax versions
+// inside one query -- GSQL will refuse to compile it.
+
+// ---------------------------------------------------------------------------
+// 1. card_window -- the card-testing (R5) and cnp_burst detector's input.
+// VERSION WARNING: SYNTAX v2. Re-validate against the provisioned GSQL version before
+// the demo; v2/v3 ORDER BY and ACCUM placement inside a single-hop SELECT have shifted
+// across TigerGraph releases historically (RESEARCH.md §2.4).
+// ---------------------------------------------------------------------------
+CREATE QUERY card_window(VERTEX<Card> card_id, DATETIME anchor, INT hours) SYNTAX v2 {
+  seed = {card_id};
+  txns = SELECT t FROM seed:c -(MADE:e)- Transaction:t
+         WHERE abs(datetime_diff(t.ts, anchor)) <= hours * 3600
+         ORDER BY t.ts ASC;
+  PRINT txns[txns.txn_id, txns.ts, txns.amount, txns.channel,
+             txns.product_cd, txns.risk_score];
+}
+
+// ---------------------------------------------------------------------------
+// 2. device_neighbors -- shared-device ring query (R6, HHG-014, shared_origin detector).
+// VERSION WARNING: SYNTAX v2. Multi-hop chained SELECTs (dev -> txns -> cards -> custs
+// and -> cases) are exactly the shape RESEARCH.md flags as syntax-fragile; confirm with
+// SHOW QUERY device_neighbors after install.
+// ---------------------------------------------------------------------------
+CREATE QUERY device_neighbors(VERTEX<DeviceProfile> device_id) SYNTAX v2 {
+  dev   = {device_id};
+  txns  = SELECT t  FROM dev   -(DEVICE_OF:e)-  Transaction:t;
+  cards = SELECT c  FROM txns:t -(MADE_BY:e2)-  Card:c;
+  custs = SELECT cu FROM cards:c -(OWNED_BY:e3)- Customer:cu;
+  cases = SELECT cc FROM cards:c -(HAS_CASE:e4)- ClosedCase:cc;
+  PRINT cards, custs, cases[cases.case_id, cases.outcome, cases.pattern];
+}
+
+// ---------------------------------------------------------------------------
+// 3. customer_baseline -- is this transaction out of character? (cnp_burst,
+// out_of_region, account_takeover all read this).
+// VERSION WARNING: SYNTAX v2. GSQL has no PERCENTILE_CONT -- percentiles/baselines are
+// computed client-side in patterns.py from the raw @@amounts list this query returns.
+// ---------------------------------------------------------------------------
+CREATE QUERY customer_baseline(VERTEX<Customer> customer_id) SYNTAX v2 {
+  SetAccum<STRING> @@regions, @@products, @@channels;
+  SumAccum<INT>    @@n;
+  ListAccum<DOUBLE> @@amounts;
+  cust = {customer_id};
+  txns = SELECT t FROM cust -(OWNS:e1)- Card:c -(MADE:e2)- Transaction:t
+         ACCUM @@n += 1, @@amounts += t.amount,
+               @@products += t.product_cd, @@channels += t.channel;
+  regs = SELECT r FROM txns:t -(REGION_OF:e3)- BillingRegion:r
+         ACCUM @@regions += r.region_id;
+  PRINT @@n, @@amounts, @@products, @@channels, @@regions;
+}
+
+// ---------------------------------------------------------------------------
+// 4. prior_cases_for_entities -- case memory retrieval by shared structure
+// (card / device / region), used to populate similar_prior_cases and to feed R6.
+// VERSION WARNING: SYNTAX v2. Four chained SELECT...ACCUM blocks writing into one
+// @@cases SetAccum is the pattern RESEARCH.md calls out as needing a reshape check.
+// ---------------------------------------------------------------------------
+CREATE QUERY prior_cases_for_entities(SET<VERTEX<Card>> cards,
+                                      SET<VERTEX<DeviceProfile>> devs,
+                                      SET<VERTEX<BillingRegion>> regs) SYNTAX v2 {
+  SetAccum<VERTEX<ClosedCase>> @@cases;
+  c1 = SELECT cc FROM cards -(HAS_CASE:e1)-       ClosedCase:cc ACCUM @@cases += cc;
+  c2 = SELECT cc FROM cards -(CONNECTED_FROM:e2)- ClosedCase:cc ACCUM @@cases += cc;
+  c3 = SELECT cc FROM devs  -(DEVICE_OF:e3)- Transaction:t  -(INVOLVED_IN:e4)- ClosedCase:cc
+       ACCUM @@cases += cc;
+  c4 = SELECT cc FROM regs  -(REGION_OF:e5)- Transaction:t2 -(INVOLVED_IN:e6)- ClosedCase:cc
+       ACCUM @@cases += cc;
+  result = {@@cases};
+  PRINT result[result.case_id, result.outcome, result.pattern,
+               result.exposure_usd, result.opened_at];
+}
+
+// ---------------------------------------------------------------------------
+// 5. similar_prior_cases -- hybrid graph-filter-then-vector-rank retrieval (RESEARCH.md
+// §6.2). Structural candidate set first (closed cases reachable from this device's
+// cards), then vectorSearch restricted to that candidate_set in the same round trip.
+// VERSION WARNING: SYNTAX v3 is REQUIRED here -- vectorSearch() and the pattern-matching
+// FROM clause syntax ((d:DeviceProfile {id: dev})<-[:FROM_DEVICE]-...) do not exist in
+// v2. UNCERTAIN: not verified against a live TigerGraph 4.2 instance; if the workspace
+// is pre-4.2 this query will not compile at all (RESEARCH.md's fallback is external
+// FAISS/Chroma with a two-round-trip ANN-then-WHERE-IN pattern).
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY similar_prior_cases(VERTEX<DeviceProfile> dev,
+                                            LIST<float> qvec, INT k) SYNTAX v3 {
+  MapAccum<Vertex, Float> @@dist;
+
+  // 1. structural: closed cases reachable from this device's cards
+  c1 = SELECT cc
+       FROM (d:DeviceProfile {id: dev})<-[:FROM_DEVICE]-(:Transaction)
+            <-[:MADE]-(:Card)<-[:ON_CARD]-(cc:ClosedCase);
+
+  // 2. vector rank *within* that candidate set only -- one round trip, not two
+  v = vectorSearch({ClosedCase.notesEmb}, qvec, k,
+                   {candidate_set: c1, distance_map: @@dist});
+  PRINT v WITH VECTOR;
+  PRINT @@dist;
+}
+
+// ---------------------------------------------------------------------------
+// 6. write_case_to_graph -- writes our own investigation back into the graph, same
+// vertex/edge shape as ClosedCase ingestion (RESEARCH.md §6.5b), so future retrieval
+// needs no separate code path. Targets the Case vertex (not ClosedCase) to keep
+// bank-historical and agent-written records distinguishable by type -- see schema.gsql.
+// VERSION WARNING: SYNTAX v3, for consistency with the notes_vec / LIST<float> param
+// and to allow future upgrade to writing Case.notesEmb directly in the same job.
+// UNCERTAIN: INSERT INTO statements inside a v3 query follow the same syntax as v2 in
+// TigerGraph's documented examples, but this has not been run against a live instance.
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY write_case_to_graph(
+    STRING case_id, STRING customer_id, STRING card_id, DATETIME opened_at,
+    STRING status, STRING verdict, STRING outcome, STRING pattern, STRING first_txn,
+    LIST<STRING> txn_ids, FLOAT exposure, LIST<STRING> connected_cards,
+    STRING actions_taken, BOOL report_filed, STRING analyst_notes) SYNTAX v3 {
+  INSERT INTO Case VALUES (case_id, customer_id, card_id, status, verdict, outcome,
+      pattern, first_txn, txn_ids.size(), exposure, actions_taken, report_filed,
+      analyst_notes, opened_at, now());
+  FOREACH t IN txn_ids         DO INSERT INTO CASE_INVOLVES     VALUES (case_id, t); END;
+  INSERT INTO CASE_ON_CARD VALUES (case_id, card_id);
+  FOREACH c IN connected_cards  DO INSERT INTO CASE_CONNECTED_TO VALUES (case_id, c); END;
+}

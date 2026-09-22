@@ -1,0 +1,153 @@
+// schema.gsql
+// FraudGraph DDL for the HHgoa4 fraud-investigation agent.
+// Source: RESEARCH.md §2.3 (base DDL) + §3 (ProductCategory, RECIPIENT_EMAIL,
+// country_code, dist1/dist2 + selected C/D/M scalars) + §6.2 (vector attributes).
+//
+// Run with: gsql schema.gsql   (or conn.gsql(open("schema.gsql").read()) from pyTigerGraph)
+// Idempotent-ish: CREATE GRAPH is left to the operator since a workspace may already
+// own the graph name. DROP statements are NOT included on purpose — never destroy data
+// implicitly. Re-running CREATE VERTEX/EDGE on an existing schema is a no-op error in
+// GSQL, which is the desired "tell me if I drifted" behavior here.
+
+CREATE VERTEX Customer (
+    PRIMARY_ID customer_id STRING
+)
+
+CREATE VERTEX Card (
+    PRIMARY_ID card_id STRING,
+    card4 STRING,          // network: visa / mastercard / american express / discover
+    card6 STRING           // credit / debit
+)
+
+// Tier 1 (structure) + Tier 2 (scalar evidence) columns live on Transaction.
+// Tier 3 (V1-V339) is deliberately NOT here — see load.py, it goes to a parquet sidecar.
+// C/D/M columns kept are the ones cited as evidence-bearing in RESEARCH.md §4.1/§4.2:
+// D1 (days since card first seen, highest-confidence community finding), C1/C2 (address/
+// identity counts), M4/M6 (match flags commonly referenced for account_takeover).
+// The full C1-C14/D1-D15/M1-M9 set is available in txn_slim.csv and can be added as
+// attributes later without a data reload; we keep the graph schema to the columns the
+// detectors in patterns.py actually read, per the "V-columns have no confirmed semantics,
+// don't put 339 unusable attributes in the graph" reasoning in RESEARCH.md §2.2/§2.3.
+CREATE VERTEX Transaction (
+    PRIMARY_ID txn_id STRING,
+    ts DATETIME,
+    amount DOUBLE,
+    product_cd STRING,
+    channel STRING,             // in_person | online
+    risk_score DOUBLE,
+    dist1 DOUBLE,
+    dist2 DOUBLE,
+    C1 DOUBLE,
+    C2 DOUBLE,
+    D1 DOUBLE,
+    D15 DOUBLE,
+    M4 STRING,
+    M6 STRING,
+    id_15 STRING,                // New | Found | Unknown -- new-device signal (pattern 3)
+    id_23 STRING                 // proxy: Transparent | Anonymous | Hidden
+)
+
+CREATE VERTEX DeviceProfile (
+    PRIMARY_ID device_key STRING,
+    completeness INT             // 1-4, count of non-null components used to build device_key
+                                  // (RESEARCH.md §3: never coalesce an all-missing key to
+                                  // "None | None" -- rows with no identity record get no
+                                  // DeviceProfile vertex at all, see load.py)
+)
+
+CREATE VERTEX EmailDomain (
+    PRIMARY_ID domain STRING
+)
+
+CREATE VERTEX BillingRegion (
+    PRIMARY_ID region_id STRING,     // addr1
+    country_code STRING              // addr2; 87 = home country per README
+)
+
+CREATE VERTEX ProductCategory (
+    PRIMARY_ID product_cd STRING     // ProductCD: W, C, H, R, S
+)
+
+// ClosedCase: bank's finished investigations, Jul-Oct. The agent's starting memory.
+CREATE VERTEX ClosedCase (
+    PRIMARY_ID case_id STRING,
+    customer_id STRING,
+    card_id STRING,
+    outcome STRING,               // confirmed_fraud | cleared
+    pattern STRING,
+    first_fraud_txn_id STRING,
+    n_txns INT,
+    exposure_usd DOUBLE,
+    actions_taken STRING,
+    report_filed BOOL,
+    analyst_notes STRING,
+    opened_at DATETIME,
+    closed_at DATETIME
+)
+
+// Case: our own agent-written cases, same shape as ClosedCase so retrieval code
+// (similar_prior_cases, prior_cases_for_entities) needs no separate path. Distinguished
+// from ClosedCase by vertex type, not a flag, so a later investigation can tell "bank
+// historical record" from "our own output" while still traversing both uniformly if needed.
+CREATE VERTEX Case (
+    PRIMARY_ID case_id STRING,
+    customer_id STRING,
+    card_id STRING,
+    status STRING,                 // open | closed_fraud | closed_legitimate | escalated
+    verdict STRING,                // fraud | legitimate | uncertain
+    outcome STRING,                // confirmed_fraud | cleared | pending (mirrors ClosedCase.outcome shape)
+    pattern STRING,
+    first_fraud_txn_id STRING,
+    n_txns INT,
+    exposure_usd DOUBLE,
+    actions_taken STRING,
+    report_filed BOOL,
+    analyst_notes STRING,
+    opened_at DATETIME,
+    closed_at DATETIME
+)
+
+CREATE DIRECTED EDGE OWNS            (FROM Customer, TO Card)              WITH REVERSE_EDGE="OWNED_BY"
+CREATE DIRECTED EDGE MADE            (FROM Card, TO Transaction)           WITH REVERSE_EDGE="MADE_BY"
+CREATE DIRECTED EDGE FROM_DEVICE     (FROM Transaction, TO DeviceProfile)  WITH REVERSE_EDGE="DEVICE_OF"
+CREATE DIRECTED EDGE PURCHASER_EMAIL (FROM Transaction, TO EmailDomain)    WITH REVERSE_EDGE="EMAIL_OF"
+CREATE DIRECTED EDGE RECIPIENT_EMAIL (FROM Transaction, TO EmailDomain)    WITH REVERSE_EDGE="RECIPIENT_OF"
+CREATE DIRECTED EDGE BILLED_IN       (FROM Transaction, TO BillingRegion)  WITH REVERSE_EDGE="REGION_OF"
+CREATE DIRECTED EDGE IN_CATEGORY     (FROM Transaction, TO ProductCategory) WITH REVERSE_EDGE="CATEGORY_OF"
+CREATE DIRECTED EDGE NEXT            (FROM Transaction, TO Transaction)    // time-ordered within a card; derived, see load.py
+
+CREATE DIRECTED EDGE INVOLVES        (FROM ClosedCase, TO Transaction)     WITH REVERSE_EDGE="INVOLVED_IN"
+CREATE DIRECTED EDGE ON_CARD         (FROM ClosedCase, TO Card)            WITH REVERSE_EDGE="HAS_CASE"
+CREATE DIRECTED EDGE CONNECTED_TO    (FROM ClosedCase, TO Card)            WITH REVERSE_EDGE="CONNECTED_FROM"
+
+// Same edge shapes for our own Case vertices, so write_case_to_graph() and the retrieval
+// queries can treat Case exactly like ClosedCase (separate reverse-edge names to avoid
+// GSQL "reverse edge already defined" collisions on a shared name).
+CREATE DIRECTED EDGE CASE_INVOLVES     (FROM Case, TO Transaction) WITH REVERSE_EDGE="INVOLVED_IN_CASE"
+CREATE DIRECTED EDGE CASE_ON_CARD      (FROM Case, TO Card)        WITH REVERSE_EDGE="HAS_OPEN_CASE"
+CREATE DIRECTED EDGE CASE_CONNECTED_TO (FROM Case, TO Card)        WITH REVERSE_EDGE="CONNECTED_FROM_CASE"
+
+// Document grounding (RESEARCH.md §6.3) -- policy chunked by rule so a citable unit
+// exists per Rn, plus regulatory reference summaries. Not required by the task prompt's
+// file list but the vector SCHEMA_CHANGE JOB below targets PolicyChunk.textEmb, so the
+// vertex must exist for that job to compile.
+CREATE VERTEX PolicyChunk (
+    PRIMARY_ID chunk_id STRING,
+    rule_id STRING,
+    text STRING,
+    citation STRING
+)
+
+// ---------------------------------------------------------------------------
+// Vector attributes (RESEARCH.md §6.2). Requires TigerGraph 4.2+.
+// UNCERTAINTY: not verified against a live instance -- SCHEMA_CHANGE JOB syntax for
+// ALTER VERTEX ... ADD VECTOR ATTRIBUTE is taken from RESEARCH.md's own "verified syntax"
+// claim (docs.tigergraph.com/gsql-ref/4.2/vector/). If the provisioned workspace is
+// pre-4.2, this job will fail to compile; RESEARCH.md's fallback is an external FAISS/
+// Chroma store keyed by vertex id (two round trips instead of one candidate_set query).
+// ---------------------------------------------------------------------------
+CREATE GLOBAL SCHEMA_CHANGE JOB add_embeddings {
+  ALTER VERTEX ClosedCase   ADD VECTOR ATTRIBUTE notesEmb(DIMENSION=1536, METRIC="COSINE");
+  ALTER VERTEX PolicyChunk  ADD VECTOR ATTRIBUTE textEmb(DIMENSION=1536, METRIC="COSINE");
+}
+RUN GLOBAL SCHEMA_CHANGE JOB add_embeddings

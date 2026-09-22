@@ -1,0 +1,28 @@
+# Core
+pandas>=2.2
+numpy>=1.26
+pyyaml>=6.0
+python-dotenv>=1.0
+
+# TigerGraph
+pyTigerGraph>=1.8
+tigergraph-mcp>=0.1
+
+# Agent
+langgraph>=0.2
+langchain-core>=0.3
+langchain-mcp-adapters>=0.1
+
+# Embeddings / LLM — optional, code degrades gracefully without them
+openai>=1.40
+tiktoken>=0.7
+
+# Parquet sidecar for the V-columns
+pyarrow>=16.0
+
+# Docs
+requests>=2.32
+pypdf>=4.3
+
+# Dev
+pytest>=8.0

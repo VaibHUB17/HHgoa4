@@ -1,7 +1,9 @@
-# Dataset — large, provided by organizers, never committed
+# Dataset — large, provided by organizers, never committed.
+# The directory and its instructions are tracked; the data itself is not.
 *.csv
-data/
+data/*
 !data/.gitkeep
+!data/README.md
 
 # Derived data
 *.parquet
