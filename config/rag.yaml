@@ -1,7 +1,18 @@
 # rag.yaml — embedding provider config. Dimension MUST match the GSQL vector attribute
 # (schema.gsql: ClosedCase.notesEmb / PolicyChunk.textEmb DIMENSION=1536).
-# If EMBED_PROVIDER=local (no OPENAI_API_KEY), dimension is 384 (all-MiniLM-L6-v2) and
-# the GSQL vector attributes must be re-altered to match before upserting.
+# Provider chosen by EMBED_PROVIDER env var (gemini|openai|local), not by key presence
+# alone -- see resolve_config() in src/rag/embed.py.
+# gemini uses output_dimensionality=1536 (verified live 2026-09-24 -- see project notes);
+# gemini-embedding-001 does NOT auto-normalize at non-3072 dims (measured norm 0.6935 on
+# a real call), so embed.py must L2-normalize before upsert. -002 is NOT a substitute:
+# it aggregates multiple inputs into one vector, wrong shape for embedding 5,565 distinct
+# closed-case notes individually.
+# If EMBED_PROVIDER=local (no key needed), dimension is 384 (all-MiniLM-L6-v2) and the
+# GSQL vector attributes must be re-altered to match before upserting.
+gemini:
+  model: gemini-embedding-001
+  dimension: 1536
+  normalize: true
 openai:
   model: text-embedding-3-small
   dimension: 1536

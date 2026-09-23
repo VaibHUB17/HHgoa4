@@ -36,6 +36,13 @@ except ImportError:
     OpenAI = None  # type: ignore
 
 try:
+    from google import genai  # type: ignore
+    from google.genai import types as genai_types  # type: ignore
+except ImportError:
+    genai = None  # type: ignore
+    genai_types = None  # type: ignore
+
+try:
     from sentence_transformers import SentenceTransformer  # type: ignore
 except ImportError:
     SentenceTransformer = None  # type: ignore
@@ -61,21 +68,29 @@ class EmbedderConfig:
 
 
 def resolve_config(cfg_path: Path | str = _CONFIG_PATH, force_provider: str | None = None) -> EmbedderConfig:
-    """Pick openai (has OPENAI_API_KEY and the SDK importable) unless local is forced
-    or unavailable, in which case fall back to sentence-transformers. Dimension always
-    comes from the yaml block matching the chosen provider, never hardcoded here.
+    """Provider selection order: force_provider arg > EMBED_PROVIDER env var > key-presence
+    autodetect (gemini, then openai, then local). Explicit EMBED_PROVIDER always wins over
+    autodetect -- this was a real bug: the old version only ever checked OPENAI_API_KEY, so
+    setting EMBED_PROVIDER=gemini in .env silently did nothing. Dimension always comes from
+    the yaml block matching the chosen provider, never hardcoded here.
     """
     raw = _load_config(cfg_path)
-    provider = force_provider
+    provider = force_provider or os.environ.get("EMBED_PROVIDER")
     if provider is None:
-        has_key = bool(os.environ.get("OPENAI_API_KEY"))
-        provider = "openai" if (has_key and OpenAI is not None) else "local"
+        if os.environ.get("GEMINI_API_KEY") and genai is not None:
+            provider = "gemini"
+        elif os.environ.get("OPENAI_API_KEY") and OpenAI is not None:
+            provider = "openai"
+        else:
+            provider = "local"
+    if provider == "gemini" and (genai is None or not os.environ.get("GEMINI_API_KEY")):
+        provider = "local"
     if provider == "openai" and (OpenAI is None or not os.environ.get("OPENAI_API_KEY")):
         provider = "local"
     if provider == "local" and SentenceTransformer is None:
         raise RuntimeError(
-            "No embedding provider available: OPENAI_API_KEY unset/openai package missing, "
-            "and sentence-transformers is not installed."
+            "No embedding provider available: requested/autodetected provider's key or "
+            "SDK is missing, and sentence-transformers is not installed as a fallback."
         )
     section = raw[provider]
     return EmbedderConfig(
@@ -144,6 +159,55 @@ def _embed_batch_openai(texts: Sequence[str], cfg: EmbedderConfig) -> list[list[
     raise RuntimeError(f"OpenAI embedding call failed after {cfg.max_retries} retries") from last_exc
 
 
+_gemini_client_cache: "genai.Client | None" = None
+
+
+def _gemini_client() -> "genai.Client":
+    global _gemini_client_cache
+    if _gemini_client_cache is None:
+        _gemini_client_cache = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    return _gemini_client_cache
+
+
+def _l2_normalize(vec: list[float]) -> list[float]:
+    norm = sum(v * v for v in vec) ** 0.5
+    if norm == 0.0:
+        return vec
+    return [v / norm for v in vec]
+
+
+def _embed_batch_gemini(
+    texts: Sequence[str], cfg: EmbedderConfig, task_type: str = "RETRIEVAL_DOCUMENT"
+) -> list[list[float]]:
+    """gemini-embedding-001, NOT -002: -001 embeds each input in the list elementwise and
+    supports `task_type` (asymmetric retrieval -- RETRIEVAL_DOCUMENT for corpus text like
+    closed-case analyst_notes / policy chunks, RETRIEVAL_QUERY for the live case's query
+    text); -002 collapses multiple inputs into one aggregated embedding, wrong shape here.
+
+    Verified live (2026-09-24): output_dimensionality=1536 returns exactly 1536-d, but the
+    raw vector is NOT unit-norm at non-3072 dimensions (measured 0.6935 on a real call) --
+    -001 does not auto-normalize the way -002 does, so this function normalizes explicitly
+    before returning. Skipping this would silently corrupt cosine similarity in TigerGraph's
+    vector search.
+    """
+    client = _gemini_client()
+    last_exc: Exception | None = None
+    for attempt in range(cfg.max_retries):
+        try:
+            resp = client.models.embed_content(
+                model=cfg.model,
+                contents=list(texts),
+                config=genai_types.EmbedContentConfig(
+                    task_type=task_type, output_dimensionality=cfg.dimension
+                ),
+            )
+            return [_l2_normalize(list(e.values)) for e in resp.embeddings]
+        except Exception as exc:
+            last_exc = exc
+            time.sleep(cfg.retry_base_delay_s * (2 ** attempt))
+    raise RuntimeError(f"Gemini embedding call failed after {cfg.max_retries} retries") from last_exc
+
+
 def _embed_batch_local(texts: Sequence[str], cfg: EmbedderConfig) -> list[list[float]]:
     model = _local_model_cache.get(cfg.model)
     if model is None:
@@ -153,7 +217,9 @@ def _embed_batch_local(texts: Sequence[str], cfg: EmbedderConfig) -> list[list[f
     return [v.tolist() for v in vecs]
 
 
-def _embed_batch(texts: Sequence[str], cfg: EmbedderConfig) -> list[list[float]]:
+def _embed_batch(texts: Sequence[str], cfg: EmbedderConfig, task_type: str = "RETRIEVAL_DOCUMENT") -> list[list[float]]:
+    if cfg.provider == "gemini":
+        return _embed_batch_gemini(texts, cfg, task_type=task_type)
     if cfg.provider == "openai":
         return _embed_batch_openai(texts, cfg)
     return _embed_batch_local(texts, cfg)
@@ -167,15 +233,24 @@ def embed_texts(
     texts: Sequence[str],
     cfg: EmbedderConfig | None = None,
     use_cache: bool = True,
+    task_type: str = "RETRIEVAL_DOCUMENT",
 ) -> list[list[float]]:
     """Embed a list of texts, batched with retry, using the disk cache when possible.
 
     Empty/whitespace-only strings embed to a zero vector rather than hitting the API --
     closed-case analyst_notes can be blank and that shouldn't crash a batch.
+
+    `task_type` only affects the gemini provider (asymmetric retrieval: RETRIEVAL_DOCUMENT
+    for corpus text you're indexing, RETRIEVAL_QUERY for the live case text you're searching
+    with -- mixing these silently degrades retrieval quality, per Gemini's own docs). It's
+    folded into the cache key so a RETRIEVAL_DOCUMENT embedding of some text can never be
+    served back as a RETRIEVAL_QUERY embedding of the same text -- they are different
+    vectors even for identical input. Ignored by openai/local, which have no task_type.
     """
     cfg = cfg or resolve_config()
     cache = _load_cache(cfg) if use_cache else {}
-    keys = [_text_key(t) for t in texts]
+    effective_task = task_type if cfg.provider == "gemini" else "_"
+    keys = [_text_key(f"{effective_task}||{t}") for t in texts]
 
     to_embed_idx = [i for i, k in enumerate(keys) if k not in cache]
     zero_vec = [0.0] * cfg.dimension
@@ -187,7 +262,7 @@ def embed_texts(
     for start in range(0, len(to_embed_idx), cfg.batch_size):
         batch_idx = to_embed_idx[start:start + cfg.batch_size]
         batch_texts = [texts[i] for i in batch_idx]
-        vectors = _embed_batch(batch_texts, cfg)
+        vectors = _embed_batch(batch_texts, cfg, task_type=task_type)
         for i, vec in zip(batch_idx, vectors):
             cache[keys[i]] = vec
 

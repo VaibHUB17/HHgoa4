@@ -1,4 +1,54 @@
-# Karan — graph, data, detectors
+# Karan — submission readiness (queue updated 2026-09-24)
+
+**Read this section first — your scope changed.** Since you haven't been reachable, all the
+coding work below (Savanna setup, schema, loading, queries, detectors) has been
+consolidated into `docs/VAIBHAV.md` so it happens in one place without duplicated or
+conflicting effort — see its P0 section, which absorbs everything in Parts 1–5 of this file.
+The technical content below is kept as reference/backup, not deleted — if you do pick this
+back up, coordinate with Vaibhav on what's already done before touching `src/graph/` or
+`src/detectors/` so work doesn't collide.
+
+**Your active queue now is submission readiness** — the things that are genuinely nobody's
+job until someone claims them, and that don't block on anything except the real answer
+files existing (which P0 in `docs/VAIBHAV.md` produces):
+
+1. **UI verification in an actual browser.** `handover/05-whats-left.md` flags this
+   explicitly: nobody has looked at the UI in a browser — it builds and the DOM has the
+   right content, but the visual layout at 390px (mobile), 768px (tablet), and 1440px
+   (desktop) has never been checked. Run `cd ui && npm install && npm run dev`, open
+   http://localhost:3000, and actually look at it at all three widths. Fix anything broken;
+   flag anything you're unsure about rather than shipping it silently wrong.
+2. **Demo video (3–5 min).** Not recorded yet. Show the agent working end to end on at
+   least one case — the before/after next-best-action change is the single most
+   important beat to include (it's 25% of the rubric), plus one legitimate case being
+   correctly cleared (proves the agent doesn't just block everything). `docs/DEMO_SCRIPT.md`
+   has a draft outline — use it, don't start from a blank page.
+3. **Blog post — finalize with real data.** `docs/BLOG.md` is drafted but needs real
+   numbers and screenshots once `cases/` has genuine output from a live TigerGraph run,
+   not fixture placeholders. Don't publish until P0 in `docs/VAIBHAV.md` is confirmed green.
+4. **Social post.** Publish on X or LinkedIn, must tag **@TigerGraphDB**, link to the blog
+   post or demo. `docs/SOCIAL.md` has a draft.
+5. **The submission form — do NOT touch this until two things are both true.**
+   https://forms.gle/yxXzqSULGgZ9VUF56 is a **no-resubmission** form: submitting early on a
+   stale understanding of the deadline is unrecoverable, and worse than any other mistake
+   in this document. Wait until:
+   (a) P0 through P3 in `docs/VAIBHAV.md` are all green, **and**
+   (b) the extended deadline is confirmed **in writing, directly from Devanshu** — every
+   doc in this repo still says 24 Sept 11:59 PM IST, and the extension mentioned in this
+   session's chat has not been independently verified anywhere. Get that confirmation
+   before this item becomes actionable at all.
+   Once both hold: **one person submits** (team lead), after the other two confirm all four
+   links (repo, video, blog, social) actually work.
+
+None of these five block on you personally doing the coding work — they're yours to own in
+parallel with whatever's happening in `docs/VAIBHAV.md`. If you come back before the
+technical work is done, the highest-value thing to pick up is verifying `device_neighbors`
+against the live graph (Part 4 below, the HHG-014 ring story) since that's the single
+query most likely to need a live-instance fix, per its own version-trap note.
+
+---
+
+## Reference — original scope, kept for continuity if you pick graph work back up
 
 You own TigerGraph and everything that reads from it.
 
