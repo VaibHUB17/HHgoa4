@@ -1,12 +1,5 @@
 ## Status update from Bhavya, 2026-09-24 — read this first
 
-**Timeline note:** the deadline has been extended (confirmed by the team, not just an
-assumption) — so what follows is written for maximum quality, not minimum viable. The
-phase ordering below is still sequential, but that's because each phase genuinely depends
-on the one before it (you can't embed into a schema that doesn't exist yet), not because
-of a same-day deadline. Take the time to do each phase right rather than rushing to the
-next one — a live TigerGraph run that actually works beats a fast one that half-works.
-
 Real dataset is in `data/`. Real work happened since the last version of this doc. Written
 as phases with hard gates because you're reading this cold — do them in order, don't skip
 ahead, each phase assumes the one before it is actually green, not "probably fine."
