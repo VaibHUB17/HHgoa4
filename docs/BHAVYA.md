@@ -49,41 +49,55 @@ Join to `transactions.csv` on the txn_ids to get features per case.
 
 ---
 
-## Task 1 — the GNN / classifier
+## Task 1 — skip the GNN. Devanshu answered this directly.
 
-You wanted to train a GNN on this. Go ahead. Two honest notes before you start:
+**Status: dropped, not deferred.** This was re-scoped on 2026-09-24 after re-reading the
+actual Discord thread. Another participant (Melichior) asked the problem-setter this exact
+question — train a GNN on `closed_cases_history.csv`, worried about it overfitting since the
+closed cases are the only labelled rows. Devanshu's answer, verbatim:
 
-- **There is no ML criterion in the rubric.** It scores investigation accuracy, next-best
-  action, explainability, agentic design, innovation, demo. A model helps only insofar as it
-  makes the *probability* better calibrated, which feeds accuracy.
-- **Calibration matters more than accuracy here.** The answer file has a
-  `fraud_probability` field and the README says it's "scored for calibration." A model that
-  is 85% accurate but always outputs 0.95 or 0.05 scores *worse* than one that's 80%
-  accurate and honestly says 0.6 when it's unsure. So: fit the model, then
-  **Platt-scale or isotonic-calibrate it on a held-out split**, and check a reliability
-  curve. That calibration step is the part that actually earns marks.
+> "On the GNN: I would skip it. It just gives you another score like risk_score, and we
+> don't score a model, we score the investigation and the reasoning. Use TigerGraph's
+> built-in graph algorithms (community detection, similarity, PageRank, callable from GSQL)
+> plus vector search over the closed-case notes so the agent retrieves similar past cases as
+> memory. That gives you pattern learning without overfitting, and it's explainable."
 
-Suggested order — ship the simple one first, then upgrade:
+That's not a hint, it's the judge telling you what he wants to see instead. Building a GNN
+now would spend hours reproducing something the person scoring the submission already said
+he doesn't want, on a deadline that's today. **Don't build `src/ml/train.py`'s GNN seam.**
 
-1. **Baseline (do this first, it takes an hour).** Logistic regression or gradient boosting
-   on per-case features: exposure, n_txns, time span, count of connected cards, channel mix,
-   whether a device profile is shared, region diversity. Calibrate it. This alone is a
-   usable `prior_probability()`.
-2. **Then the GNN, if the baseline is done and checkpoints are green.** Build a per-case
-   subgraph (Customer / Card / Transaction / DeviceProfile / BillingRegion) and train a
-   GraphSAGE or GAT node/graph classifier over the closed cases. PyTorch Geometric or DGL.
-   The genuine advantage over the baseline is that it sees *structure* — a card two hops
-   from a known-fraud device — which flat features can't express.
+The calibrated baseline (logistic regression / gradient boosting over per-case features,
+Platt/isotonic calibrated, time-split) is still worth keeping — it's cheap, it's a legitimate
+`prior_probability()` signal, and unlike a GNN it's not what Devanshu waved off. But it's now
+**optional polish, not your main task.** Don't run it before real answer files exist; the
+evidence ledger works without it (`prior_probability()` returns `None` when no model is
+trained, and the ledger just omits that signal).
 
-**Important split rule:** the closed cases run July–October, the exam cases November–December.
-Split your train/validation **by time**, not randomly. A random split leaks future
-information and will make your validation score look far better than reality. The original
-Kaggle competition had exactly this trap and it's mirrored here deliberately.
+Your main task is now the thing Devanshu actually named: **graph algorithms + vector search
+over case memory.** That's Task 1a/1b below.
 
-**Watch the class imbalance:** 4,665 vs 900 is roughly 5:1. Don't let the model learn
-"always say fraud" — that's the exact failure mode that loses this hackathon, since half the
-exam cases are legitimate. Report precision/recall on the *cleared* class specifically, not
-just overall accuracy.
+### Task 1a — TigerGraph's built-in graph algorithms
+
+`RESEARCH.md` §2.5 already has the calls written — this is execution, not design:
+
+```python
+feat = conn.gds.featurizer()
+feat.runAlgorithm("tg_louvain", params={"v_type": ["Card", "DeviceProfile"],
+                                        "e_type": ["FROM_DEVICE", "DEVICE_OF"]})
+feat.runAlgorithm("tg_connected_components", params={...})
+feat.runAlgorithm("tg_jaccard_nbor_ss", params={"source": card_id, "e_type": "MADE", "top_k": 10})
+```
+
+Louvain / connected components over Card–DeviceProfile finds **device rings** — this is the
+HHG-014 story (the analyst-flagged shared-device case) and it's where the Innovation score
+actually lives, per Devanshu's own words ("pattern learning without overfitting, and it's
+explainable"). Needs a live TigerGraph connection — coordinate with Karan on timing, this
+can't run until the graph is loaded.
+
+### Task 1b — vector search over the closed-case notes
+
+This is Task 2 below (case memory). Same thing Devanshu is describing — don't treat it as
+separate work from the embeddings task you were already assigned.
 
 ---
 
@@ -136,6 +150,37 @@ The 9 undocumented cases fall into two distinct operational fraud typologies:
 
 These findings directly populate the `pattern: "undocumented"` and `pattern_description` fields for relevant exam cases.
 
+**Re-verified against the real dataset on 2026-09-24** (this was written before real data
+existed): pulled `analyst_notes` for all 9 real `undocumented` rows straight from
+`data/closed_cases_history.csv`. Both mechanisms above are confirmed word-for-word in the
+real notes, not hallucinated. Safe to keep exactly as written.
+
+---
+
+## Task 0 — `card_id` derivation was wrong on 10/20 real cases. Fixed.
+
+Not part of your original scope, but it was the single highest-risk unverified assumption
+in the whole pipeline (per `handover/06-decisions-and-gotchas.md`) and it directly touches
+your case-memory retrieval, so it got fixed today rather than left for Karan to find later.
+
+`src/graph/load.py`'s `derive_card_id()` ranked each customer's distinct `(card1..card6)`
+tuples by **first-seen timestamp**. Checked against all 20 real `card_id` values in
+`data/case_pack.csv`: **wrong on 10/20 (50%)**. It always promoted the customer's
+heaviest-used card to `K1`, because that card naturally appears earliest — backwards.
+
+Fixed to rank by **ascending transaction count** (the customer's *least*-used card tuple is
+`K1`), ties broken by first-seen ts. Re-checked against all 20 real cases: **19/20 correct**.
+One known exception is documented in the code comment (`HHG-006`/`C07297` — two
+fully-populated card tuples close in count, ground truth goes the other direction; no rule
+found yet reconciles both that case and the other 19). If you're deriving a card_id for a
+customer and it lands in that shape (two tuples, no blank fields, counts within ~2x of each
+other), don't trust the K-number — check `case_pack.csv` / `closed_cases_history.csv`
+directly for that customer instead.
+
+This matters for you specifically because `similar_cases()`'s structural-match signal
+(shared card/device/region between the new case and a closed case) is keyed on `card_id` —
+a wrong card_id would have silently broken structural matching on half the exam cases.
+
 ---
 
 ## Files you own
@@ -157,9 +202,8 @@ the other directories at the same time.
 
 ```bash
 python -m venv .venv && .venv\Scripts\activate     # Windows
-pip install pandas scikit-learn matplotlib
-# later, for the GNN:
-pip install torch torch-geometric
+pip install -r requirements.txt   # or: uv sync (pyproject.toml/uv.lock already committed)
+# GNN dropped (see Task 1 above) -- no torch/torch-geometric needed.
 ```
 
 Data goes in `data/` (gitignored — the CSVs are ~700MB, never commit them).
@@ -176,11 +220,64 @@ print(cc[cc.pattern == 'undocumented'].analyst_notes.tolist())   # read these
 
 ---
 
+## API keys — do you need `.env.example`'s paid model fields filled in?
+
+Checked `src/rag/embed.py` and `src/graph/schema.gsql` directly rather than guessing:
+
+- `src/graph/schema.gsql` hardcodes `ClosedCase.notesEmb` and `PolicyChunk.textEmb` as
+  `VECTOR ATTRIBUTE ... DIMENSION=1536`. That number is **not** read from config — it's a
+  literal in the GSQL schema-change job.
+- `src/rag/embed.py` auto-picks OpenAI `text-embedding-3-small` (1536-d) if
+  `OPENAI_API_KEY` is set, otherwise silently falls back to local `sentence-transformers`
+  `all-MiniLM-L6-v2` (**384-d**).
+
+Those two facts collide: if you don't set `OPENAI_API_KEY`, the code will produce 384-d
+vectors and try to upsert them into a 1536-d schema attribute — that fails at write time,
+not at embed time, so you'd only find out after Karan's schema is already live. **This is
+not a "pick whichever free API you like" situation** — the dimension is load-bearing.
+
+**Decision: use `OPENAI_API_KEY` if there's any credit on the account, full stop.**
+5,565 short `analyst_notes` rows at `text-embedding-3-small` pricing is on the order of a
+few cents. Zero code changes, zero schema changes, matches what's already wired up.
+
+If there's truly no OpenAI credit anywhere on the team, the fallback is **not** "pick a
+different paid provider and point it at the same field" — Groq and OpenRouter are chat/LLM
+endpoints, not confirmed to serve `text-embedding-3-small`-compatible embeddings at 1536-d.
+The actual fallback already built into the code is local `sentence-transformers`
+(384-d) — but then **someone has to change `DIMENSION=1536` to `DIMENSION=384` in both
+lines of `src/graph/schema.gsql` before the schema is created**, and it has to happen
+before Karan runs `scripts.setup_graph`, not after. Coordinate this with him explicitly;
+don't just switch providers on your end and assume it'll work.
+
+**Separately — the `tokens: 0` gap (SAR/summary prose, not embeddings):** this is a
+different need with a different fix. Groq's free tier is fine here specifically because
+it's OpenAI-API-compatible — the `openai` package already in `pyproject.toml` works against
+it with just a `base_url` override, no new dependency. This is Vaibhav's/whoever wires the
+narrative generator's call to make, not yours, and it must never touch verdict/action/
+probability logic — prose only.
+
+---
+
 ## If you're short on time
 
 Cut in this order:
-1. The GNN (keep the calibrated baseline)
-2. Fancy features (exposure + n_txns + shared-device count gets most of the signal)
+1. The calibrated baseline model entirely (`prior_probability` returning `None` is fine —
+   the ledger already handles that gracefully)
+2. Fancy features on the baseline, if you keep it at all
 
-**Don't cut:** the two-pool retrieval, the calibration step, or reading the undocumented
-notes. Those three are the ones tied to actual scored criteria.
+**Don't cut:** the two-pool retrieval, the graph algorithms (Louvain/connected-components
+for device rings — this is Devanshu's own stated Innovation angle), or the undocumented
+notes (already done, just don't delete it). Those are the ones tied to actual scored
+criteria and to what the judge explicitly said he wants to see.
+
+## Order of operations, today
+
+1. Coordinate with Karan: is Savanna up yet? `src/agent/deps.py`'s `offline_deps()` only
+   reads pre-fabricated JSON fixtures — there is no path from real CSVs to real answer
+   files without a live TigerGraph connection. This blocks everything below.
+2. Decide the embedding provider (above) *before* Karan runs `scripts.setup_graph` — the
+   vector dimension is baked into the schema at creation time.
+3. Once the graph is loaded: run `embed_closed_cases()`, upsert into `ClosedCase.notesEmb`.
+4. Run the Louvain/connected-components featurizer calls (Task 1a) over Card–DeviceProfile,
+   confirm `device_neighbors`-style queries surface real rings (this is the HHG-014 proof).
+5. Only then, if time remains: the calibrated baseline model.

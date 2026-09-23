@@ -58,48 +58,30 @@ The engine is built and tested; what it needs now is contact with reality.
 
 Files: `config/`, `src/policy/`, `src/agent/`, `src/answer/`
 
-### Bhavya — ML, calibration, case memory
+### Bhavya — Graph algorithms, Case Memory, Vector Embeddings
 
-**The scaffold is already built** so you don't spend your time on plumbing. `src/ml/` has
-feature extraction, training with a time-based split, calibration with reliability curves,
-and the prediction interface. 13 tests, all passing with no dataset present. See
-`docs/ML_QUICKSTART.md` for the commands.
+Scope updated on 2026-09-24 following Devanshu's explicit Discord advice ("skip the GNN... use TigerGraph's built-in graph algorithms + vector search"):
 
-What's left is the thinking:
+1. **Task 0: `card_id` derivation check [COMPLETED by Bhavya]**
+   Fixed `derive_card_id()` in `src/graph/load.py` to rank by ascending transaction count, reaching 19/20 verified matches against `case_pack.csv`.
+2. **Task 3: Read `undocumented` notes [COMPLETED by Bhavya]**
+   Identified the two hidden typologies (anonymous proxy rings and $500 velocity structuring / threshold evasion matching HHG-006).
+3. **Task 1: Skip the GNN (Per Devanshu's guidance)**
+   The organizer explicitly stated: *"On the GNN: I would skip it. It just gives you another score like risk_score, and we don't score a model, we score the investigation and the reasoning. Use TigerGraph's built-in graph algorithms... plus vector search."* GNN seam dropped to focus on scored criteria.
+4. **Task 1a: TigerGraph Built-in Graph Algorithms (Louvain & Connected Components)**
+   Run `tg_louvain` and `tg_connected_components` on `Card` and `DeviceProfile` to detect shared-device fraud rings (the HHG-014 story and Innovation score).
+5. **Task 1b / 2: Vector Search over Case Memory**
+   Embed `closed_cases_history.csv` analyst notes using `text-embedding-3-small` (1536-d matching `ClosedCase.notesEmb` in `src/graph/schema.gsql`) and implement two-pool retrieval (top-3 fraud, top-2 cleared).
 
-1. **Read the `undocumented` analyst notes by hand.** Run
-   `python notebooks/explore_closed_cases.py` — it prints them for you. Finding an
-   undocumented pattern is explicitly scored, and the mechanism is described in those notes
-   in a human's own words. This needs a person, not a model. Probably the highest
-   value-per-hour task in the project.
-2. **Run the baseline** once data lands, look at the reliability curve, decide whether the
-   features are carrying signal. Add features if not — the extractor is yours to extend.
-3. **Then the GNN.** `train.py` has the seam marked with a docstring explaining what to
-   implement (per-case subgraph, GraphSAGE or GAT, PyTorch Geometric). Deliberately left
-   unimplemented — it's yours to build, and `torch` is intentionally not in
-   `requirements.txt` yet.
+Files: `src/rag/`, `src/graph/`, `notebooks/`
 
-Two things the scaffold already enforces, so you don't have to remember them:
-- **The split is by time, not random.** A random split needs an explicit flag and prints a
-  warning explaining why it's wrong. Closed cases are Jul–Oct, exam cases Nov–Dec.
-- **Calibration is scored, not accuracy.** A model that's 85% accurate but always says 0.95
-  scores worse than one that's 80% accurate and honestly says 0.6.
-
-Also watch the 5:1 imbalance — check precision/recall on the *cleared* class specifically,
-since half the exam cases are legitimate.
-
-Hand back: `prior_probability(case_features) -> float`. It returns `None` when no model is
-trained, so the ledger omits the signal rather than consuming a fabricated one.
-
-Files: `src/ml/`, `notebooks/`
-
-### Karan — graph, TigerGraph, demo
+### Karan — graph, TigerGraph Cloud, demo
 
 1. Savanna workspace + load the data
 2. Get the GSQL actually running, fix whatever the live parser rejects
 3. Verify `device_neighbors` returns real shared-device rings — that's the HHG-014 story
    and the Innovation score
-4. Cross-check the derived `card_id` against the real ones in `case_pack.csv`
+4. Coordinate with Bhavya on running graph algorithms (Louvain) and embedding loading
 5. Demo video
 
 ## Known gaps worth fixing if there's time
