@@ -32,8 +32,13 @@ def analyze_device_ring_community(card_id: str, device_key: str | None = None) -
     Runs WCC over the Card-Transaction-DeviceProfile subgraph and returns the
     component statistics (community ID, connected card count).
     """
-    conn = get_conn()
     try:
+        # get_conn() has to sit inside the guard: a suspended or out-of-credit Savanna
+        # workspace raises here, before any query runs. With the connection opened outside
+        # the try, an infrastructure outage crashed the whole investigation instead of
+        # degrading to "no community evidence", which is the behaviour this function's
+        # own contract promises.
+        conn = get_conn()
         res = conn.runInstalledQuery(
             "tg_wcc",
             params={

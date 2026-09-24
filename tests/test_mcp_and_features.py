@@ -1,6 +1,8 @@
 """Tests for MCP routing, graph algorithm community detection, and document GraphRAG grounding."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from src.agent.deps import agentic_deps, offline_deps
 from src.graph.algorithms import analyze_device_ring_community
@@ -8,6 +10,10 @@ from src.graph.mcp import mcp_run_installed_query
 from src.rag.policy_docs import chunk_policy_rules
 
 
+@pytest.mark.skipif(
+    not Path("data/case_pack.csv").exists(),
+    reason="needs the organizer dataset in data/ (gitignored, ~700MB)",
+)
 def test_agentic_deps_factory():
     """Verify agentic_deps returns valid NodeDeps with callable run_detectors."""
     deps = agentic_deps("data")
