@@ -98,6 +98,7 @@ def trigger(state: InvestigationState, deps: NodeDeps) -> dict:
         "evidence": evidence,
         "ledger": [{"key": "customer_denies", "source": "trigger:customer_report"}] if reported else [],
         "_customer_response": "deny" if reported else None,
+        "txn_timestamps": {},
         "p_fraud": 0.0,
         "pattern": "none",
         "affected_txn_ids": [],
@@ -135,6 +136,7 @@ def investigate(state: InvestigationState, deps: NodeDeps) -> dict:
         "pattern": result.get("pattern", state["pattern"]),
         "affected_txn_ids": result.get("affected_txn_ids", state["affected_txn_ids"]),
         "exposure_usd": result.get("exposure_usd", state["exposure_usd"]),
+        "txn_timestamps": {**state.get("txn_timestamps", {}), **result.get("txn_timestamps", {})},
         # True only when this pass actually grew the ledger. deps.run_detectors is
         # expected to dedup internally (a second call against a deterministic, already-
         # queried snapshot has nothing new to add -- see deps.py's `_seen` guard), so a

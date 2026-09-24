@@ -176,7 +176,7 @@ def _default_render(facts: SarFacts, subjects: list[str], dates: list[str]) -> s
         )
     if facts.prior_case_ids:
         why_parts.append(
-            f"Similar activity was previously confirmed as fraud in case(s) {', '.join(facts.prior_case_ids)}."
+            f"Related prior investigations reviewed as case memory: {', '.join(facts.prior_case_ids)}."
         )
     why_parts.append(f"Total exposure identified: ${facts.exposure_usd:,.2f}.")
     if facts.actions_taken:

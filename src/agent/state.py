@@ -14,6 +14,7 @@ class InvestigationState(TypedDict):
     pattern: str
     affected_txn_ids: list[str]
     exposure_usd: float
+    txn_timestamps: dict           # txn_id -> ts for this card's transactions (SAR dates)
     snapshots: list[dict]          # RecommendationSnapshot.__dict__ entries, initial / final
     prior_cases: list[str]
     evidence_requests: list[dict]
