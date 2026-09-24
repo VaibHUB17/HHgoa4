@@ -1,5 +1,11 @@
 <!-- Placeholders: [BLOG_LINK] and [DEMO_LINK] need real URLs once the blog is published
-     and the demo video is uploaded. -->
+     and the demo video is uploaded.
+
+     [VERIFY] "shared-device ring across two different customers" in the LinkedIn draft below
+     was corrected to reflect the live run: HHG-014's ring spans 18 distinct customers' cards
+     on one device, confirmed by TigerGraph's tg_wcc algorithm, not just two. Re-check this
+     number against cases/HHG-014.json before publishing, since another agent is fixing a
+     policy bug on this branch concurrently and the case set may be regenerated. -->
 
 # Social drafts
 
@@ -24,9 +30,9 @@ uncertainty instead of scoring a single number: it queries the graph for evidenc
 verification when one signal isn't enough, and changes its recommendation when the answer comes
 back — recording both the before and the after.
 
-The graph is what makes it possible. Three of five known fraud patterns, including a shared-device
-ring across two different customers, only show up in a two-hop query — invisible to any model
-scoring one transaction at a time.
+The graph is what makes it possible. One case starts from an analyst's note about a shared device —
+a two-hop query turns up 18 customers' cards on the same device fingerprint, confirmed by graph
+community detection, invisible to any model scoring one transaction at a time.
 
 Write-up and demo: [BLOG_LINK] [DEMO_LINK]
 

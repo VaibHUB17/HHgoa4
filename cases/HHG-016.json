@@ -3,7 +3,7 @@
   "case": {
     "status": "open",
     "verdict": "uncertain",
-    "fraud_probability": 0.5112,
+    "fraud_probability": 0.3804,
     "pattern": "card_not_present_new_device",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -29,6 +29,14 @@
         "entity_ids": [
           "T3534820"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker indicates a potential shared device that could be linked to other compromised cards or customers.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-016)",
+        "entity_ids": [
+          "C09988-K1"
+        ]
       }
     ],
     "similar_prior_cases": [
@@ -38,15 +46,15 @@
       "CC-0534",
       "CC-0620"
     ],
-    "summary": "Case HHG-016 remains uncertain with a fraud probability of 0.51, as the cardholder's denial of the $59.67 transaction on card C09988-K1 and the use of a new device were insufficient to confirm fraud, particularly after the customer failed to reply to the validation request within the 24-hour window. The final decision to BLOCK_CARD was executed via route L1 under rules R2 and R10, while a second action to CREATE_CASE was taken via the auto route under rule R2. These actions were selected because the lack of customer response did not alter the initial probability, leaving the case below the 0.85 threshold for automatic confirmation but high enough to warrant precautionary escalation.",
+    "summary": "Case HHG-016 regarding customer C09988 and card C09988-K1 remains uncertain with a fraud probability of 0.38, as the step-up authentication request expired unanswered within the window. The key evidence includes the customer's dispute of the $59.67 charge on transaction T3534820 and the detection of one online transaction from a device marked 'New' for this account. The final actions consist of CREATE_CASE (auto, R8) and MONITOR_CARD (auto, R4), which were chosen because the lack of a step-up response raised the probability from 0.33 to 0.38, necessitating escalation per policy.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-016"
   },
   "evidence_requests": [
     {
-      "type": "customer_validation",
+      "type": "step_up_auth",
       "asked_after_step": 3,
-      "assumed_response": "No reply received from the customer within the 24-hour window."
+      "assumed_response": "Step-up authentication request expired unanswered within the window."
     }
   ],
   "next_best_actions": {
@@ -64,17 +72,17 @@
     ],
     "final": [
       {
-        "action": "BLOCK_CARD",
-        "route": "L1",
-        "reason": "R2, R10"
-      },
-      {
         "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R2"
+        "reason": "R8"
+      },
+      {
+        "action": "MONITOR_CARD",
+        "route": "auto",
+        "reason": "R4"
       }
     ],
-    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.51); actions are unchanged from the initial recommendation."
+    "what_changed": "The assumed step up auth response (Step-up authentication request expired unanswered within the window.) raised fraud probability from 0.33 to 0.38, changing the recommended actions."
   },
   "sar": {
     "file": false,
@@ -84,8 +92,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.51 (uncertain); further steps are unlikely to change the decision.",
+  "stop_reason": "Evidence request settled the question: probability reached 0.38 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 923,
-  "latency_s": 2.646
+  "tokens": 886,
+  "latency_s": 10.01
 }

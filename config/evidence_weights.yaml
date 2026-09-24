@@ -4,6 +4,14 @@
 card_testing_sequence:      { w: 0.35, req: "3+ sub-$5 online auths <1hr + larger purchase, one card" }  # R5
 shared_device_across_cards: { w: 0.30, req: "DeviceProfile on 2+ customers/cards" }                      # R6
 customer_denies:            { w: 0.30 }                                                                   # R2
+# A customer_report trigger disputing a charge, before any validation reply comes back.
+# A dispute is real signal (someone is asking the bank to look) but it is weaker than a
+# denial: the customer hasn't been asked a direct "did you make this?" yet, and disputes
+# also cover the R7 exonerating case (their own recurring charge). Set well below
+# customer_denies (0.30) so a bare dispute alone cannot single-handedly cross the R1 0.70
+# block line or the section-6 0.85 stop line; it should only nudge probability alongside
+# other corroborating evidence, never substitute for an actual deny/confirm/no_reply.
+customer_disputes:          { w: 0.12 }                                                                   # R7 / pre-validation signal
 shared_region_cluster:      { w: 0.25, req: "addr1 cluster across many cards, short window" }            # R6
 cnp_burst_pattern:          { w: 0.20, req: "2-4 unusual online purchases <48h, category mismatch" }
 out_of_region_pattern:      { w: 0.20, req: "addr1 outside customer's historical set, multi-day" }
@@ -30,3 +38,10 @@ customer_confirms:          { w: -0.90 }   # R3 — effectively closes as legiti
 step_up_failed:              { w: 0.20, req: "step-up auth not completed / no valid OTP confirmation" }
 step_up_not_completed:       { w: 0.05, req: "step-up auth request expired unanswered (weak, no signal either way)" }
 step_up_passed:              { w: -0.20 }   # exonerating: cardholder controls the device/session
+
+# Mined from closed_cases_history.csv pattern=="undocumented" and outcome=="cleared" rows
+# (src/detectors/patterns.py proxy-device-ring / exonerating detectors). Append-only.
+proxy_device_ring:              { w: 0.30, req: "denied online purchase from a New+proxied device also reported by 2+ other cardholders in 30d; CC-2649/2971/2985/3035" }
+travel_consistent_with_history: { w: -0.25 }  # 716/900 (80%) of cleared cases: confirmed travel to the billing region
+new_device_otherwise_in_character: { w: -0.20 }  # 158/900 (18%) of cleared cases: confirmed purchase from a new phone, in-baseline otherwise
+amount_unusual_but_isolated:    { w: -0.10 }  # 26/900 (3%) of cleared cases: unusual amount, no other signal, consistent with stated intent

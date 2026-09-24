@@ -15,7 +15,7 @@
     "exposure_usd": 599.94,
     "evidence": [
       {
-        "claim": "1 online transaction(s) on card C03042-K1 from a device marked 'New' for this account (id_15=New)",
+        "claim": "1 online transaction(s) on card C03042-K1 -- T3464869 ($599.94) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C03042-K1)",
         "entity_ids": [
@@ -23,7 +23,7 @@
         ]
       },
       {
-        "claim": "Card C03042-K1 billed in region(s) ['327.0'] outside its historical region set ['123.0', '126.0', '143.0', '170.0', '177.0', '184.0', '204.0', '225.0', '231.0', '264.0', '272.0', '299.0', '315.0', '325.0', '330.0', '337.0', '387.0', '433.0', '472.0', '476.0', '485.0'], with home-region activity interleaved within 24h -- the card cannot physically be in both places, consistent with a clone rather than a trip",
+        "claim": "Card C03042-K1 billed in region(s) ['327.0'] outside its historical region set ['123.0', '126.0', '143.0', '170.0', '177.0', '184.0', '204.0', '225.0', '231.0', '264.0', '272.0', '299.0', '315.0', '325.0', '330.0', '337.0', '387.0', '433.0', '472.0', '476.0', '485.0']. Transaction T3464869 ($599.94, region 327.0) sits only 22.9h from T3462404 ($550.01, region 299.0, the cardholder's own historical region) -- no traveler can be billed in two regions 22.9h apart, so this reads as the card being used in two places at once (a clone) rather than one cardholder traveling",
         "source": "graph",
         "ref": "query:customer_baseline + card_window(card_id=C03042-K1)",
         "entity_ids": [
@@ -39,7 +39,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device and out-of-region markers suggest a potential shared device or coordinated attack that may involve other cards.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The combination of a new device and out-of-region activity suggests the device may be shared with other compromised cards, warranting a check for connected accounts.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-015)",
         "entity_ids": [
@@ -54,7 +54,7 @@
       "CC-0034",
       "CC-0684"
     ],
-    "summary": "Case HHG-015 resulted in an uncertain verdict with a fraud probability of 0.46, driven by transaction 3464869 for $599.94 on card C03042-K1 which triggered a real-time score of 0.77. Key evidence indicates the transaction originated from a device marked 'New' (id_15=New) and was billed in region 327.0, which is outside the card's historical region set, creating a physical impossibility consistent with a clone. An evidence request for step-up authentication was issued but expired unanswered within the window, a factor that raised the fraud probability from 0.41 to 0.46. Consequently, the final action taken was ESCALATE_TO_ANALYST (auto, R8), as the lack of customer verification prevented a definitive resolution under Fraud Policy R1.",
+    "summary": "Case HHG-015 remains uncertain with a fraud probability of 0.46 after the step-up authentication request expired unanswered, which raised the risk score from 0.41. The key evidence indicates that transaction T3464869 for $599.94 on card C03042-K1 originated from a new device in region 327.0, a location outside the cardholder's historical regions, and occurred only 22.9 hours after transaction T3462404 in region 299.0, suggesting a potential clone rather than travel. Because the alert rests on a single unconfirmed signal, Fraud Policy R1 requires customer verification before a card block, and the agent expanded the investigation to check for shared-device connections. The final action is ESCALATE_TO_ANALYST (auto, R8), as the lack of a response to the authentication request prevented a definitive resolution.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-015"
   },
@@ -92,6 +92,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.46 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 1097,
-  "latency_s": 4.44
+  "tokens": 1220,
+  "latency_s": 11.687
 }

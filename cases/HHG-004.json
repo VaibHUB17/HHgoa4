@@ -3,7 +3,7 @@
   "case": {
     "status": "open",
     "verdict": "uncertain",
-    "fraud_probability": 0.3154,
+    "fraud_probability": 0.2128,
     "pattern": "card_not_present_new_device",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -41,7 +41,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with a cleared precedent match suggests the device may be shared with other compromised accounts, warranting a check for connected cards.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker indicates a potential shared device that could be linked to other compromised cards.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-004)",
         "entity_ids": [
@@ -56,24 +56,19 @@
       "CC-0696",
       "CC-0308"
     ],
-    "summary": "Case HHG-004 remains uncertain with a fraud probability of 0.32, as the customer validation request yielded no reply within the 24-hour window, leaving the dispute regarding transaction T3583227 unresolved. Key evidence includes the cardholder's denial of the $128.33 charge and two online transactions on card C08106-K1 from a device marked 'New', which structurally matches cleared case CC-0696. Although the lack of customer response did not alter the probability, the final actions include BLOCK_CARD under route L1 citing rules R2 and R10, alongside CREATE_CASE under the auto route citing rule R2. These actions were selected because the new device marker combined with the cleared precedent match warranted escalation despite the evidence staying below the 0.85 fraud threshold.",
+    "summary": "Investigation of HHG-004 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-004"
   },
   "evidence_requests": [
     {
-      "type": "customer_validation",
+      "type": "step_up_auth",
       "asked_after_step": 3,
-      "assumed_response": "No reply received from the customer within the 24-hour window."
+      "assumed_response": "Step-up authentication request expired unanswered within the window."
     }
   ],
   "next_best_actions": {
     "initial": [
-      {
-        "action": "CREATE_CASE",
-        "route": "auto",
-        "reason": "R8"
-      },
       {
         "action": "MONITOR_CARD",
         "route": "auto",
@@ -82,17 +77,12 @@
     ],
     "final": [
       {
-        "action": "BLOCK_CARD",
-        "route": "L1",
-        "reason": "R2, R10"
-      },
-      {
-        "action": "CREATE_CASE",
+        "action": "MONITOR_CARD",
         "route": "auto",
-        "reason": "R2"
+        "reason": "R4"
       }
     ],
-    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.32); actions are unchanged from the initial recommendation."
+    "what_changed": "The assumed step up auth response (Step-up authentication request expired unanswered within the window.) raised fraud probability from 0.18 to 0.21, changing the recommended actions."
   },
   "sar": {
     "file": false,
@@ -102,8 +92,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.32 (uncertain); further steps are unlikely to change the decision.",
+  "stop_reason": "Evidence request settled the question: probability reached 0.21 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 1033,
-  "latency_s": 5.693
+  "tokens": 174,
+  "latency_s": 3.843
 }

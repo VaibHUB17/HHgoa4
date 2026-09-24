@@ -38,7 +38,7 @@
       "CC-0526",
       "CC-0726"
     ],
-    "summary": "Investigation of HHG-013 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
+    "summary": "Case HHG-013 resulted in an uncertain verdict with a fraud probability of 0.27, triggered by a real-time model score of 0.76 on transaction 3526826 for $35.66 on card C07671-K2. The key evidence identified a card-not-present transaction from a device marked 'New' (id_15=New), leading the agent to investigate the shared-device neighborhood for potential links to other compromised accounts. Although initial actions included VERIFY_WITH_CUSTOMER and STEP_UP_AUTH under route auto and rule R1, the step-up authentication request expired unanswered, which increased the fraud probability from 0.23 to 0.27. Consequently, the final action was set to MONITOR_CARD under route auto and rule R4, as the lack of customer response prevented a definitive resolution.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-013"
   },
@@ -81,6 +81,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.27 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 170,
-  "latency_s": 4.538
+  "tokens": 856,
+  "latency_s": 4.014
 }

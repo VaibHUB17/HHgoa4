@@ -81,10 +81,15 @@ def _now_iso() -> str:
 def trigger(state: InvestigationState, deps: NodeDeps) -> dict:
     """Seed state from the case_pack trigger row. Pure, no side effects.
 
-    A customer_report trigger *is* the cardholder disputing the charge ("I never made this
-    purchase"), so it enters the ledger as customer_denies from the start -- that is what
-    makes R2 (deny -> block) and R7 (a disputed charge matching their own recurring
-    pattern -> don't block) reachable for the report-triggered cases.
+    A customer_report trigger is the cardholder DISPUTING the charge ("I never made this
+    purchase") -- they're asking the bank to look, which is not the same as the bank
+    asking "did you make this?" and the customer answering "no". It folds in as
+    `customer_disputes` evidence (weaker than a denial -- see evidence_weights.yaml) so
+    R7 (a disputed charge matching their own recurring pattern -> don't block) can still
+    fire on it. It must NOT set `_customer_response`/`customer_denies`: R2 only fires on
+    an actual denial recorded by reassess() after a real customer_validation reply, or
+    the very first node would permanently convict every reported case before any
+    evidence request goes out (see README R2 vs R4).
     """
     trig = state.get("trigger", {}) or {}
     reported = trig.get("trigger_type") == "customer_report"
@@ -96,8 +101,8 @@ def trigger(state: InvestigationState, deps: NodeDeps) -> dict:
     }] if reported else []
     return {
         "evidence": evidence,
-        "ledger": [{"key": "customer_denies", "source": "trigger:customer_report"}] if reported else [],
-        "_customer_response": "deny" if reported else None,
+        "ledger": [{"key": "customer_disputes", "source": "trigger:customer_report"}] if reported else [],
+        "_customer_response": None,
         "txn_timestamps": {},
         "p_fraud": 0.0,
         "pattern": "none",
@@ -253,12 +258,15 @@ def reassess(state: InvestigationState, deps: NodeDeps) -> dict:
 
     Every evidence_request type this graph can issue must have a ledger key on the other
     end of it -- a request whose answer cannot move p_fraud isn't evidence gathering, it's
-    a no-op with extra steps. customer_validation folds customer_denies/customer_confirms
-    (which also sets CaseState.customer_response for R2/R3 via _customer_response).
-    step_up_auth folds step_up_failed/step_up_passed/step_up_not_completed (see
-    config/evidence_weights.yaml) -- it does not set customer_response, since a step-up
-    result answers "who controls this session", not "did the cardholder authorize this
-    charge"; R2/R3 stay keyed to an actual customer_validation reply, as intended.
+    a no-op with extra steps. customer_validation folds customer_denies/customer_confirms/
+    a no-reply (which also sets CaseState.customer_response for R2/R3/R4 via
+    _customer_response -- ALWAYS from the actual simulated reply, never left stale: a
+    no-reply must land as "no_reply" so R4 can fire, not silently keep whatever value
+    trigger()/a prior pass left behind). step_up_auth folds step_up_failed/step_up_passed/
+    step_up_not_completed (see config/evidence_weights.yaml) -- it does not set
+    customer_response, since a step-up result answers "who controls this session", not
+    "did the cardholder authorize this charge"; R2/R3/R4 stay keyed to an actual
+    customer_validation reply, as intended.
     """
     if not state["evidence_requests"]:
         return {"loops": state["loops"] + 1}
@@ -271,6 +279,11 @@ def reassess(state: InvestigationState, deps: NodeDeps) -> dict:
             key, customer_response = "customer_denies", "deny"
         elif "confirm" in response_text or "did make" in response_text or "i made" in response_text:
             key, customer_response = "customer_confirms", "confirm"
+        else:
+            # No reply within the window (evidence_sim.py's no-clean-signal branch) --
+            # this must overwrite any stale _customer_response (e.g. a customer_disputes
+            # dispute recorded at trigger time is not a denial) so R4 becomes reachable.
+            key, customer_response = None, "no_reply"
     elif latest["type"] == "step_up_auth":
         if "completed successfully" in response_text:
             key = "step_up_passed"
@@ -422,6 +435,11 @@ def _build_snapshot(state: InvestigationState, phase: str) -> RecommendationSnap
             r.get("type") == "customer_validation" for r in state["evidence_requests"]
         ),
         customer_response=state.get("_customer_response"),
+        # R4: a customer_validation reply that resolved to "no_reply" (reassess()) is
+        # exactly the "no reply within 24 hours" the rule fires on -- this field was
+        # previously never set anywhere, so R4 was dead code even when reassess did
+        # classify a no-reply correctly.
+        no_reply_within_24h=state.get("_customer_response") == "no_reply",
         shared_device_profile=any(item["key"] == "shared_device_across_cards" for item in state["ledger"]),
         shared_billing_region=any(item["key"] == "shared_region_cluster" for item in state["ledger"]),
         card_testing_detected=any(item["key"] == "card_testing_sequence" for item in state["ledger"]),
