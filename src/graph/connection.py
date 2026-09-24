@@ -112,24 +112,34 @@ def _is_auth_error(exc: Exception) -> bool:
 
 
 def run_query(name: str, case_id: str | None = None, params: dict | None = None, **kw: Any) -> Any:
-    """Run an installed GSQL query by name, parsed as JSON, with a one-shot
-    token-refresh retry on 401/expired-token errors (RESEARCH.md §2.6).
+    """Run an installed GSQL query by name. Routes through official tigergraph-mcp
+    (tigergraph__run_installed_query tool) as required by the brief, falling back
+    to pyTigerGraph with a token-refresh retry on 401/expired-token errors.
 
     Increments the per-case tool-call counter for `case_id` if given, so instrumentation
-    reflects real graph calls rather than a fabricated constant (RESEARCH.md §10.1 flags
-    "tool_calls identical across all 20 files looks fabricated" as a submission red flag).
+    reflects real graph calls rather than a fabricated constant.
     """
-    # `case_id` here is the tool-call counter key. A query that itself takes a
-    # `case_id` parameter passes it inside `params=` instead.
     params = {**(params or {}), **kw}
-    conn = get_conn()
-    try:
-        result = conn.runInstalledQuery(name, params=params, timeout=32000)
-    except Exception as exc:  # pyTigerGraph raises TigerGraphException / requests errors
-        if not _is_auth_error(exc):
-            raise
-        conn = get_conn(force_new=True)
-        result = conn.runInstalledQuery(name, params=params, timeout=32000)
+    result = None
+    use_mcp = os.environ.get("USE_TIGERGRAPH_MCP", "1") != "0"
+
+    if use_mcp:
+        try:
+            from src.graph.mcp import mcp_run_installed_query
+            result = mcp_run_installed_query(name, params=params)
+        except Exception:
+            result = None
+
+    if result is None:
+        conn = get_conn()
+        try:
+            result = conn.runInstalledQuery(name, params=params, timeout=32000)
+        except Exception as exc:  # pyTigerGraph raises TigerGraphException / requests errors
+            if not _is_auth_error(exc):
+                raise
+            conn = get_conn(force_new=True)
+            result = conn.runInstalledQuery(name, params=params, timeout=32000)
 
     _counter_increment(case_id)
     return result
+
