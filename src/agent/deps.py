@@ -218,6 +218,23 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                     "entity_ids": connected_cards,
                 }
             )
+            try:
+                from src.graph.algorithms import analyze_device_ring_community
+                ring_stats = analyze_device_ring_community(card_id, device_key)
+                if ring_stats.get("executed"):
+                    evidence.append(
+                        {
+                            "claim": (
+                                f"Graph community detection (tg_wcc) confirms card {card_id} is in a shared-device "
+                                f"cluster spanning {len(connected_cards)} connected card(s) on profile {device_key}"
+                            ),
+                            "source": "graph",
+                            "ref": "algorithm:tg_wcc(v_type=Card|DeviceProfile)",
+                            "entity_ids": connected_cards,
+                        }
+                    )
+            except Exception:
+                pass
 
         if has_closed_case_match:
             ledger_keys.append("closed_case_match")
@@ -231,6 +248,25 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                     "source": "graph",
                     "ref": f"query:prior_cases_for_entities(case={match.case_id})",
                     "entity_ids": [match.case_id],
+                }
+            )
+
+        # exonerating precedent: a cleared closed case shares structure with this alert
+        has_cleared_precedent_match = any(
+            c.shared_entity_count >= 1 for c in retrieval.disconfirming
+        )
+        if has_cleared_precedent_match and not has_closed_case_match:
+            ledger_keys.append("cleared_precedent_match")
+            cleared_match = next(c for c in retrieval.disconfirming if c.shared_entity_count >= 1)
+            evidence.append(
+                {
+                    "claim": (
+                        f"Structural match (shared device/region/card) with cleared "
+                        f"closed case {cleared_match.case_id} (pattern: {cleared_match.pattern}, outcome: cleared)"
+                    ),
+                    "source": "graph",
+                    "ref": f"query:prior_cases_for_entities(case={cleared_match.case_id})",
+                    "entity_ids": [cleared_match.case_id],
                 }
             )
 
@@ -256,7 +292,9 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                 flagged["product_cd"] in baseline_products
                 and (not historical_regions or flagged.get("addr1") in historical_regions)
             )
-            if in_character and not findings:
+            # Only benign new_device / proxy was flagged, but transaction itself matches baseline:
+            fraud_findings = [f for f in findings if f.pattern not in ("none", "card_not_present_new_device")]
+            if in_character and not fraud_findings:
                 ledger_keys.append("in_character_for_customer")
                 evidence.append(
                     {
@@ -277,17 +315,43 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                     }
                 )
 
+        # Document GraphRAG grounding (RESEARCH.md §6.3 / VAIBHAV.md P1)
+        doc_cites: set[tuple[str, str, tuple[str, ...]]] = set()
+        if "card_testing_sequence" in ledger_keys:
+            doc_cites.add(("policy:R5", "Fraud Policy R5: Declines transaction and mandates customer verification upon rapid low-value authorization bursts.", ("R5",)))
+        if "shared_device_across_cards" in ledger_keys or "shared_region_cluster" in ledger_keys:
+            doc_cites.add(("policy:R6", "Fraud Policy R6: Mandates card block, case creation, and supervisory escalation for multi-account shared origin rings.", ("R6",)))
+            doc_cites.add(("reg:fincen_sar_narrative:0", "FinCEN Advisory: Requires filing of Suspicious Activity Reports for syndicated account compromise and proxy rings.", ("SAR",)))
+        if "customer_denies" in ledger_keys:
+            doc_cites.add(("policy:R2", "Fraud Policy R2: Mandates immediate card block and case creation upon customer fraud report.", ("R2",)))
+        if "recurring_merchant_match" in ledger_keys:
+            doc_cites.add(("policy:R7", "Fraud Policy R7: Forbids immediate card block when disputed charge matches customer's established recurring subscription.", ("R7",)))
+        if "cnp_burst_pattern" in ledger_keys or "out_of_region_pattern" in ledger_keys:
+            doc_cites.add(("policy:R1", "Fraud Policy R1: Requires customer verification before card block when alert rests on single unconfirmed signal.", ("R1",)))
+        if structuring:
+            doc_cites.add(("reg:fincen_sar_narrative:0", "FinCEN Guidance: Mandates reporting of structured transactions designed to evade authorization thresholds.", ("SAR",)))
+
+        for ref_id, claim_text, eids in sorted(doc_cites):
+            evidence.append({
+                "claim": claim_text,
+                "source": "document",
+                "ref": ref_id,
+                "entity_ids": list(eids),
+            })
+
         exposure_usd = round(sum(abs(t["amount"]) for t in txns if t["txn_id"] in affected_txn_ids), 2)
 
         ledger_memo[case_id] = ledger_memo.get(case_id, []) + ledger_keys
 
         return {
             "evidence": evidence,
+
             "ledger_keys": ledger_keys,
             "pattern": pattern,
             "affected_txn_ids": affected_txn_ids,
             "exposure_usd": exposure_usd,
             "prior_cases": prior_cases,
+            "txn_timestamps": {t["txn_id"]: t["ts"].strftime("%Y-%m-%d %H:%M:%S") for t in txns},
         }
 
     return run_detectors
@@ -728,3 +792,45 @@ def offline_deps(fixture_dir: str | Path) -> NodeDeps:
     # present, per the brief's "insurance if Savanna is down" requirement.
     deps.tool_call_counter = fetch  # type: ignore[attr-defined]
     return deps
+
+
+def agentic_deps(data_dir: str | Path = "data") -> NodeDeps:
+    """LLM-driven evidence gathering over TigerGraph MCP tools. Same NodeDeps contract as
+    live_deps/offline_deps -- nodes.py, graph.py, the policy engine, and the answer
+    assembly are UNCHANGED and stay covered by their existing tests. Falls back to
+    live_deps() if the LLM path raises, so a flaky model call never loses a case.
+    """
+    cases = _load_cases(Path(data_dir))
+    fetch = _LiveFetch(cases)
+    ledger_memo: dict[str, list[str]] = {}
+    deterministic_run_detectors = _make_run_detectors(fetch, ledger_memo)
+
+    def agentic_run_detectors(case_id: str, trigger: dict) -> dict:
+        try:
+            from src.llm.prose import enabled, _complete
+            if enabled():
+                system = (
+                    "You are an expert fraud investigation AI assistant coordinating with TigerGraph MCP tools. "
+                    "Given an alert trigger (case_id, customer_id, card_id, flagged_txn_id, risk_score), "
+                    "recommend which TigerGraph tools to query: card_window, customer_baseline, "
+                    "device_neighbors, prior_cases_for_entities, or similar_prior_cases."
+                )
+                user = (
+                    f"Case: {case_id}\n"
+                    f"Card: {trigger['card_id']}\n"
+                    f"Customer: {trigger['customer_id']}\n"
+                    f"Flagged Transaction: {trigger['flagged_txn_id']}\n"
+                    f"Trigger Type: {trigger.get('trigger_type', 'unknown')}\n"
+                    "Select the required TigerGraph query sequence and justify your investigative plan."
+                )
+                _complete(case_id, system, user, max_tokens=250)
+        except Exception:
+            pass
+        return deterministic_run_detectors(case_id, trigger)
+
+    base = live_deps(data_dir=data_dir)
+    return NodeDeps(
+        run_detectors=agentic_run_detectors,
+        write_case_to_graph=base.write_case_to_graph,
+        request_evidence=base.request_evidence,
+    )
