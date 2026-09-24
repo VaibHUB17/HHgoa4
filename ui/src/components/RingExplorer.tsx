@@ -408,25 +408,61 @@ export function RingExplorer({ caseAnswer }: { caseAnswer: CaseAnswer }) {
                 const d = `M ${a.x} ${a.y} Q ${qx} ${qy} ${b.x} ${b.y}`;
                 const isHot =
                   highlighted && highlighted.has(e.from) && highlighted.has(e.to);
+                const pathId = `ring-edge-${i}`;
+                const dimmed = highlighted && !isHot;
                 return (
-                  <path
-                    key={`${e.from}-${e.to}-${i}`}
-                    d={d}
-                    fill="none"
-                    stroke={isHot ? "var(--phosphor)" : "var(--hold-lo)"}
-                    strokeWidth={isHot ? 1.6 : 1}
-                    strokeOpacity={
-                      highlighted ? (isHot ? 0.95 : 0.12) : 0.45
-                    }
-                    style={{ transition: "stroke-opacity 160ms, stroke 160ms" }}
-                  />
+                  <g key={`${e.from}-${e.to}-${i}`}>
+                    <path
+                      id={pathId}
+                      d={d}
+                      fill="none"
+                      stroke={isHot ? "var(--phosphor)" : "var(--hold-lo)"}
+                      strokeWidth={isHot ? 1.6 : 1}
+                      strokeOpacity={dimmed ? 0.12 : highlighted ? 0.95 : 0.45}
+                      style={{ transition: "stroke-opacity 160ms, stroke 160ms" }}
+                    />
+                    {/* A pulse running the length of every edge, toward the shared
+                        handset. The ring is not a static picture of who is
+                        connected — it is traffic converging on one device, and the
+                        motion is the only part of this view that says so.
+
+                        SMIL animateMotion rather than JS: it runs on the
+                        compositor, needs no frame loop, and keeps running while
+                        the force simulation is asleep. The dur is staggered per
+                        edge so the pulses never lockstep into a pattern. */}
+                    {!reduce && (
+                      <circle
+                        r={isHot ? 2.4 : 1.7}
+                        fill={isHot ? "var(--phosphor)" : "var(--hold)"}
+                        opacity={dimmed ? 0.1 : isHot ? 0.95 : 0.55}
+                        style={{ transition: "opacity 160ms" }}
+                      >
+                        <animateMotion
+                          dur={`${2.6 + ((i * 7) % 17) / 10}s`}
+                          begin={`${((i * 13) % 26) / 10}s`}
+                          repeatCount="indefinite"
+                          calcMode="linear"
+                        >
+                          {/* Edges are built card -> device in ringData, so the
+                              path's own direction already runs toward the hub.
+                              No keyPoints reversal needed; adding one would send
+                              the traffic outward, which is the wrong story. */}
+                          <mpath href={`#${pathId}`} />
+                        </animateMotion>
+                      </circle>
+                    )}
+                  </g>
                 );
               })}
             </g>
 
             <g>
-              {nodes.map((n) => {
+              {nodes.map((n, ni) => {
                 if (!isRevealed(n)) return null;
+                // Deterministic per-node phase offset so the emitted rings do not
+                // fire in lockstep. Derived here rather than stored on RingNode:
+                // it is a presentation concern, not part of the graph's data.
+                const pulseOffset = ((ni * 11) % 29) / 10;
                 const dim = highlighted ? !highlighted.has(n.id) : false;
                 const isFocused = n.id === focusedId;
                 const isHot = n.id === hoveredId;
@@ -481,6 +517,47 @@ export function RingExplorer({ caseAnswer }: { caseAnswer: CaseAnswer }) {
                         strokeOpacity={0.45}
                         filter="url(#ring-halo)"
                       />
+                    )}
+
+                    {/* A ring expanding out of the node, as if the arriving pulse
+                        landed. The device is the destination every edge runs to,
+                        so it beats steadily; the cards emit on their own offset so
+                        the graph reads as a system with traffic in it rather than
+                        a diagram that happens to have dots sliding over it.
+
+                        Pure SMIL on r and opacity, no JS timer trying to guess
+                        when a compositor-driven pulse arrives — that would drift
+                        out of sync within seconds and cost frames to maintain. */}
+                    {!reduce && !dim && (
+                      <circle
+                        cx={n.x}
+                        cy={n.y}
+                        r={n.r}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth={1.2}
+                        opacity={0}
+                        pointerEvents="none"
+                      >
+                        <animate
+                          attributeName="r"
+                          values={`${n.r};${n.r + (n.kind === "device" ? 26 : 15)}`}
+                          dur={n.kind === "device" ? "2.6s" : "3.1s"}
+                          begin={`${pulseOffset.toFixed(2)}s`}
+                          repeatCount="indefinite"
+                          calcMode="spline"
+                          keySplines="0.16 1 0.3 1"
+                          keyTimes="0;1"
+                        />
+                        <animate
+                          attributeName="opacity"
+                          values="0;0.55;0"
+                          dur={n.kind === "device" ? "2.6s" : "3.1s"}
+                          begin={`${pulseOffset.toFixed(2)}s`}
+                          repeatCount="indefinite"
+                          keyTimes="0;0.25;1"
+                        />
+                      </circle>
                     )}
                     <circle
                       cx={n.x}
