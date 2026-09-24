@@ -24,6 +24,13 @@ embeddings/
 !docs/**/*.svg
 scratch/
 
+# Exported chat logs. These carry the credentials the team pasted to each other,
+# so they must never be committed — the repo is public.
+chat*.txt
+chat*.md
+*whatsapp*
+*WhatsApp*
+
 # Secrets
 .env
 .env.*
