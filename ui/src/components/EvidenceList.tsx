@@ -1,14 +1,41 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
 import type { EvidenceItem } from "@/lib/types";
 import { SourceBadge } from "./Badges";
 
+const container = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0 },
+};
+
 export function EvidenceList({ evidence }: { evidence: EvidenceItem[] }) {
+  const reduce = useReducedMotion();
+
   if (evidence.length === 0) {
     return <p className="text-sm text-faint">No evidence recorded.</p>;
   }
+
   return (
-    <ul className="space-y-2">
+    <motion.ul
+      className="space-y-2"
+      variants={reduce ? undefined : container}
+      initial={reduce ? undefined : "hidden"}
+      whileInView={reduce ? undefined : "show"}
+      viewport={{ once: true, margin: "-40px" }}
+    >
       {evidence.map((e, i) => (
-        <li key={i} className="rounded-lg border border-line-hi bg-panel-hi px-3 py-2.5">
+        <motion.li
+          key={i}
+          variants={reduce ? undefined : item}
+          transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 26 }}
+          className="rounded-lg border border-line-hi bg-panel-hi px-3 py-2.5"
+        >
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm text-paper">{e.claim}</p>
             <SourceBadge source={e.source} />
@@ -28,8 +55,8 @@ export function EvidenceList({ evidence }: { evidence: EvidenceItem[] }) {
               </span>
             )}
           </div>
-        </li>
+        </motion.li>
       ))}
-    </ul>
+    </motion.ul>
   );
 }

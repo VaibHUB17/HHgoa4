@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { Fraunces, Inter_Tight, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
+// Fraunces is a variable font; asking for several weights AND both styles makes
+// Turbopack's next/font resolver fail with "queries have exactly one entry". The
+// italic face was never used, so requesting normal only keeps the display face and
+// lets the dev server boot.
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
   weight: ["500", "600"],
-  style: ["normal", "italic"],
 });
 
 const interTight = Inter_Tight({

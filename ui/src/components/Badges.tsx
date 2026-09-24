@@ -1,3 +1,6 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
 import type { Verdict, EvidenceSource, ApprovalRoute, CaseStatus } from "@/lib/types";
 
 const verdictStyle: Record<Verdict, string> = {
@@ -7,13 +10,18 @@ const verdictStyle: Record<Verdict, string> = {
 };
 
 export function VerdictBadge({ verdict }: { verdict: Verdict }) {
+  const reduce = useReducedMotion();
   return (
-    <span
+    <motion.span
+      key={verdict}
+      initial={reduce ? undefined : { opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 20 }}
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-data text-xs uppercase tracking-wide ${verdictStyle[verdict]}`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
       {verdict}
-    </span>
+    </motion.span>
   );
 }
 
@@ -46,11 +54,21 @@ const sourceStyle: Record<EvidenceSource, string> = {
   external: "text-clear border-clear/40 bg-clear/10",
 };
 
+// A different glyph per source, not just color — so the distinction survives a glance,
+// a screenshot, or a color-vision deficiency, not only the palette.
+const sourceGlyph: Record<EvidenceSource, string> = {
+  graph: "◈", // linked-node diamond
+  document: "≡", // stacked lines = document
+  customer: "●", // person dot
+  external: "↗", // outbound arrow
+};
+
 export function SourceBadge({ source }: { source: EvidenceSource }) {
   return (
     <span
-      className={`inline-flex items-center rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${sourceStyle[source]}`}
+      className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${sourceStyle[source]}`}
     >
+      <span aria-hidden>{sourceGlyph[source]}</span>
       {sourceLabel[source]}
     </span>
   );

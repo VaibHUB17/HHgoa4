@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import type { CaseAnswer, Verdict } from "@/lib/types";
 import { CaseListRow } from "./CaseListRow";
 
@@ -13,6 +14,7 @@ const FILTERS: { value: Verdict | "all"; label: string }[] = [
 
 export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
   const [filter, setFilter] = useState<Verdict | "all">("all");
+  const reduce = useReducedMotion();
 
   const filtered = useMemo(
     () => (filter === "all" ? cases : cases.filter((c) => c.case.verdict === filter)),
@@ -35,14 +37,23 @@ export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
             role="tab"
             aria-selected={filter === f.value}
             onClick={() => setFilter(f.value)}
-            className={`rounded-full border px-3 py-1.5 font-body text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-signal ${
+            className={`relative rounded-full border px-3 py-1.5 font-body text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-signal ${
               filter === f.value
-                ? "border-signal/50 bg-signal/15 text-signal"
+                ? "border-signal/50 text-signal"
                 : "border-line-hi bg-panel text-dim hover:text-paper"
             }`}
           >
-            {f.label}
-            <span className="ml-1.5 font-data text-[10px] text-faint">{counts[f.value] ?? 0}</span>
+            {filter === f.value && (
+              <motion.span
+                layoutId="verdict-filter-active"
+                className="absolute inset-0 rounded-full bg-signal/15"
+                transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 400, damping: 32 }}
+              />
+            )}
+            <span className="relative">
+              {f.label}
+              <span className="ml-1.5 font-data text-[10px] text-faint">{counts[f.value] ?? 0}</span>
+            </span>
           </button>
         ))}
       </div>
@@ -55,14 +66,16 @@ export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
         <span>Verdict / status</span>
       </div>
 
-      <div className="space-y-1.5">
-        {filtered.map((c) => (
-          <CaseListRow key={c.case_id} c={c} />
-        ))}
+      <motion.div layout className="space-y-1.5">
+        <AnimatePresence initial={false}>
+          {filtered.map((c) => (
+            <CaseListRow key={c.case_id} c={c} />
+          ))}
+        </AnimatePresence>
         {filtered.length === 0 && (
           <p className="px-4 py-8 text-center text-sm text-faint">No cases match this filter.</p>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }
