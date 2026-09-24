@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import type { EvidenceItem } from "@/lib/types";
+import type { EvidenceItem, EvidenceSource } from "@/lib/types";
 import { SourceBadge } from "./Badges";
 
 const container = {
@@ -9,10 +9,25 @@ const container = {
   show: { transition: { staggerChildren: 0.06 } },
 };
 
-const item = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0 },
+// Each source type arrives from a different direction, so the list reads as
+// evidence converging from distinct places rather than one uniform reveal.
+// Graph evidence comes from the network (from the right, where the graph
+// views live in this console); documents rise from below like a filed sheet;
+// customer evidence slides in from the left, closest to the human account.
+const directionBySource: Record<EvidenceSource, { x: number; y: number }> = {
+  graph: { x: 14, y: 0 },
+  document: { x: 0, y: 12 },
+  customer: { x: -14, y: 0 },
+  external: { x: 0, y: -10 },
 };
+
+function itemVariants(source: EvidenceSource) {
+  const d = directionBySource[source];
+  return {
+    hidden: { opacity: 0, x: d.x, y: d.y },
+    show: { opacity: 1, x: 0, y: 0 },
+  };
+}
 
 export function EvidenceList({ evidence }: { evidence: EvidenceItem[] }) {
   const reduce = useReducedMotion();
@@ -32,7 +47,7 @@ export function EvidenceList({ evidence }: { evidence: EvidenceItem[] }) {
       {evidence.map((e, i) => (
         <motion.li
           key={i}
-          variants={reduce ? undefined : item}
+          variants={reduce ? undefined : itemVariants(e.source)}
           transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 26 }}
           className="border-b border-seam px-1 py-2.5 last:border-b-0"
         >

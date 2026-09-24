@@ -210,6 +210,34 @@ body::after {
   mask-image: radial-gradient(ellipse 88% 82% at 50% 50%, #000 58%, transparent 100%);
 }
 
+/* Shape grammar borrowed from the event's own site: interactive elements are
+   fully rounded, data surfaces stay sharp. Rounded reads as "press me", square
+   reads as "this is a record" — a legible split for a console that is mostly
+   evidence with a few decisions in it. */
+.pill {
+  border-radius: 999px;
+}
+
+/* The one mark that says this submission belongs to this event rather than
+   being a generic console. A case-file seal, not a logo. */
+.seal {
+  position: relative;
+  border: 1px solid var(--seam-hi);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.seal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    oklch(0.99 0 0 / 0.045) 5px 6px
+  );
+}
+
 /* Evidence-chain draw-on. The single highest-leverage animation here: it
    dramatises causality rather than decorating, which is exactly what the
    before/after recommendation view has to communicate. */
@@ -226,6 +254,66 @@ body::after {
   50%      { box-shadow: 0 0 0 7px oklch(0.798 0.152 78 / 0); }
 }
 .awaiting { animation: hold-breathe 2.4s var(--ease-out-quart) infinite; }
+
+/* Cursor-tracked highlight for list rows. The pointermove handler writes
+   --spot-x/--spot-y straight to the element (no setState), so this radial
+   glow tracks the pointer at 60fps. Implemented on ::before (own layer, own
+   opacity) so it never fights the row's own hover/background transition. */
+.row-spotlight {
+  isolation: isolate;
+}
+.row-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(
+    260px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    oklch(0.99 0 0 / 0.05),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out-quart);
+}
+.row-spotlight:hover::before,
+.row-spotlight:focus-visible::before {
+  opacity: 1;
+}
+
+/* Pointer-tracked shine for badges/chips. --shine-x/--shine-y are written by
+   the pointermove handler directly to the element (never via setState), so
+   this costs nothing beyond a single compositor-friendly opacity toggle per
+   frame. Kept deliberately faint — a forensic stamp catching light, not a
+   game-UI sheen. */
+.badge-shine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    60% 90% at var(--shine-x, 50%) var(--shine-y, 50%),
+    oklch(0.99 0 0 / 0.16),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 180ms var(--ease-out-quart);
+}
+.badge-shine:hover::before {
+  opacity: 1;
+}
+
+/* TopNav's scroll-responsive hairline. --nav-seam (0..1) is written on scroll
+   directly to the header element, not via setState. At rest it is the same
+   quiet border every other panel uses; scrolled, it gains a hint of the
+   phosphor tone and a faint glow, so the bezel reads as watching the page
+   move rather than sitting inert above it. */
+.nav-seam {
+  --seam-mix: color-mix(in oklch, var(--phosphor) calc(var(--nav-seam, 0) * 55%), var(--seam));
+  border-bottom: 1px solid var(--seam-mix);
+  box-shadow: 0 1px 12px -4px color-mix(in oklch, var(--phosphor) calc(var(--nav-seam, 0) * 22%), transparent);
+  transition: border-color 120ms linear, box-shadow 120ms linear;
+}
 
 /* Hairline rule that fades at both ends, instead of stopping dead. */
 .rule-fade {

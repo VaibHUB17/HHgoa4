@@ -1,9 +1,36 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { useEffect, useState, useMemo } from "react";
+import {
+  motion,
+  AnimatePresence,
+  animate,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from "motion/react";
 import type { CaseAnswer, Verdict } from "@/lib/types";
 import { CaseListRow } from "./CaseListRow";
+
+// A tab's own count ticks up/down rather than jumping to the new digit — the
+// same count-up idiom ProbabilityMeter uses for its reading, reused here so a
+// filter change reads as a recount rather than a re-render.
+function TickingCount({ value }: { value: number }) {
+  const reduce = useReducedMotion();
+  const raw = useMotionValue(value);
+  const text = useTransform(raw, (v) => Math.round(v).toString());
+
+  useEffect(() => {
+    if (reduce) {
+      raw.set(value);
+      return;
+    }
+    const controls = animate(raw, value, { duration: 0.32, ease: [0.16, 1, 0.3, 1] });
+    return () => controls.stop();
+  }, [value, raw, reduce]);
+
+  return <motion.span className="ml-1.5 readout text-[10px] text-ink-faint">{text}</motion.span>;
+}
 
 const FILTERS: { value: Verdict | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -47,12 +74,16 @@ export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
               <motion.span
                 layoutId="verdict-filter-active"
                 className="absolute inset-0 rounded-full bg-phosphor/15"
-                transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 400, damping: 32 }}
+                transition={
+                  reduce
+                    ? { duration: 0 }
+                    : { type: "spring", stiffness: 500, damping: 22, mass: 0.7 }
+                }
               />
             )}
             <span className="relative">
               {f.label}
-              <span className="ml-1.5 readout text-[10px] text-ink-faint">{counts[f.value] ?? 0}</span>
+              <TickingCount value={counts[f.value] ?? 0} />
             </span>
           </button>
         ))}
@@ -68,8 +99,8 @@ export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
 
       <motion.div layout className="space-y-1.5">
         <AnimatePresence initial={false}>
-          {filtered.map((c) => (
-            <CaseListRow key={c.case_id} c={c} />
+          {filtered.map((c, i) => (
+            <CaseListRow key={c.case_id} c={c} index={i} />
           ))}
         </AnimatePresence>
         {filtered.length === 0 && (

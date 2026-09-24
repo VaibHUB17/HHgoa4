@@ -1,7 +1,24 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
+import { useRef } from "react";
 import type { Verdict, EvidenceSource, ApprovalRoute, CaseStatus } from "@/lib/types";
+
+// Pointer-tracked shine, shared by every badge below: writes the pointer
+// position straight to the element's own custom properties on move (no
+// setState, so hovering a row full of badges never triggers React) and the
+// CSS in globals.css turns that into a highlight that tracks the cursor.
+function useBadgeShine<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const onPointerMove = (e: React.PointerEvent<T>) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    el.style.setProperty("--shine-x", `${((e.clientX - rect.left) / rect.width) * 100}%`);
+    el.style.setProperty("--shine-y", `${((e.clientY - rect.top) / rect.height) * 100}%`);
+  };
+  return { ref, onPointerMove };
+}
 
 // Verdict badges are stamped, not pill-shaped: a squared block with a hard inner
 // rule, closer to a rubber stamp than a status chip.
@@ -13,13 +30,16 @@ const verdictStyle: Record<Verdict, string> = {
 
 export function VerdictBadge({ verdict }: { verdict: Verdict }) {
   const reduce = useReducedMotion();
+  const { ref, onPointerMove } = useBadgeShine<HTMLSpanElement>();
   return (
     <motion.span
       key={verdict}
-      initial={reduce ? undefined : { opacity: 0, scale: 0.85 }}
+      ref={ref}
+      onPointerMove={onPointerMove}
+      initial={reduce ? undefined : { opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 20 }}
-      className={`inline-flex items-center gap-1.5 rounded border-2 px-2.5 py-1 font-data text-xs font-medium uppercase tracking-wide ${verdictStyle[verdict]}`}
+      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 16, mass: 0.6 }}
+      className={`badge-shine relative inline-flex items-center gap-1.5 overflow-hidden rounded border-2 px-2.5 py-1 font-data text-xs font-medium uppercase tracking-wide ${verdictStyle[verdict]}`}
     >
       <span className="h-1.5 w-1.5 bg-current" aria-hidden />
       {verdict}
@@ -66,9 +86,12 @@ const sourceGlyph: Record<EvidenceSource, string> = {
 };
 
 export function SourceBadge({ source }: { source: EvidenceSource }) {
+  const { ref, onPointerMove } = useBadgeShine<HTMLSpanElement>();
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${sourceStyle[source]}`}
+      ref={ref}
+      onPointerMove={onPointerMove}
+      className={`badge-shine relative inline-flex items-center gap-1 overflow-hidden rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${sourceStyle[source]}`}
     >
       <span aria-hidden>{sourceGlyph[source]}</span>
       {sourceLabel[source]}
@@ -89,9 +112,12 @@ const routeLabel: Record<ApprovalRoute, string> = {
 };
 
 export function RouteBadge({ route }: { route: ApprovalRoute }) {
+  const { ref, onPointerMove } = useBadgeShine<HTMLSpanElement>();
   return (
     <span
-      className={`inline-flex items-center rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${routeStyle[route]}`}
+      ref={ref}
+      onPointerMove={onPointerMove}
+      className={`badge-shine relative inline-flex items-center overflow-hidden rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${routeStyle[route]}`}
     >
       {routeLabel[route]}
     </span>

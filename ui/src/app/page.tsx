@@ -7,6 +7,7 @@ import { RingExplorer } from "@/components/RingExplorer";
 import { CaseReplay } from "@/components/CaseReplay";
 import { PolicySandbox } from "@/components/PolicySandbox";
 import { buildReplayCases } from "@/lib/replayData";
+import { Reveal } from "@/components/Reveal";
 
 /* The landing page has to answer one question in the first thirty seconds: is this
    a real investigation system, or a prompt with a dashboard bolted on?
@@ -69,7 +70,7 @@ export default function LandingPage() {
           <p className="readout mb-3 text-[0.64rem] uppercase tracking-[0.18em] text-phosphor">
             the benchmark
           </p>
-          <h2 className="max-w-[24ch] text-balance text-[clamp(1.6rem,3.4vw,2.35rem)] font-medium leading-tight tracking-[-0.025em] text-bright">
+          <h2 className="font-display max-w-[24ch] text-balance text-[clamp(1.9rem,4vw,2.9rem)] leading-[1.05] tracking-[-0.015em] text-bright">
             Twenty cases. Ten of them legitimate.
           </h2>
           <p className="mt-4 max-w-[62ch] text-[0.95rem] leading-relaxed text-ink-dim">
@@ -125,11 +126,11 @@ function Section({
         <p className="readout mb-3 text-[0.64rem] uppercase tracking-[0.18em] text-phosphor">
           {eyebrow}
         </p>
-        <h2 className="max-w-[26ch] text-balance text-[clamp(1.6rem,3.4vw,2.35rem)] font-medium leading-tight tracking-[-0.025em] text-bright">
+        <h2 className="font-display max-w-[26ch] text-balance text-[clamp(1.9rem,4vw,2.9rem)] leading-[1.05] tracking-[-0.015em] text-bright">
           {title}
         </h2>
         <p className="mt-4 max-w-[68ch] text-[0.95rem] leading-relaxed text-ink-dim">{lede}</p>
-        <div className="mt-8">{children}</div>
+        <Reveal>{children}</Reveal>
       </div>
     </section>
   );

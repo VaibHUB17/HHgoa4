@@ -58,17 +58,22 @@ export function LandingHero() {
   return (
     <section className="relative border-b border-seam">
       <div className="mx-auto w-full max-w-6xl px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
-        <motion.p
-          className="readout mb-6 text-[0.66rem] uppercase tracking-[0.22em] text-phosphor"
+        <motion.div
+          className="mb-7 flex flex-wrap items-center gap-2.5"
           initial={reduce ? false : { opacity: 0 }}
           animate={reduce ? undefined : { opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
-          agentic fraud investigation · built on tigergraph
-        </motion.p>
+          <span className="seal readout bg-bed px-3 py-1 text-[0.62rem] uppercase tracking-[0.18em] text-ink-dim">
+            case file · hacker house goa
+          </span>
+          <span className="readout pill border border-seam px-3 py-1 text-[0.62rem] uppercase tracking-[0.16em] text-phosphor">
+            agentic fraud investigation
+          </span>
+        </motion.div>
 
         <motion.h1
-          className="max-w-[18ch] text-balance text-[clamp(2.4rem,6.4vw,4.5rem)] font-medium leading-[1.02] tracking-[-0.035em] text-bright"
+          className="font-display max-w-[18ch] text-balance text-[clamp(2.7rem,7vw,5.2rem)] leading-[0.98] tracking-[-0.02em] text-bright"
           initial={reduce ? false : { opacity: 0, y: 14 }}
           animate={reduce ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.05 }}
@@ -137,7 +142,7 @@ export function LandingHero() {
         >
           <Link
             href="#explore"
-            className="readout rounded-[var(--r-md)] border border-phosphor px-4 py-2 text-[0.74rem] uppercase tracking-[0.13em] text-phosphor transition-colors hover:bg-phosphor hover:text-void"
+            className="readout pill border border-phosphor px-5 py-2 text-[0.74rem] uppercase tracking-[0.13em] text-phosphor transition-colors hover:bg-phosphor hover:text-void"
           >
             explore the ring
           </Link>
