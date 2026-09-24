@@ -806,27 +806,66 @@ def agentic_deps(data_dir: str | Path = "data") -> NodeDeps:
     deterministic_run_detectors = _make_run_detectors(fetch, ledger_memo)
 
     def agentic_run_detectors(case_id: str, trigger: dict) -> dict:
+        """Deterministic sweep first, then let the model decide whether the case warrants
+        a deeper look at the shared-device neighbourhood.
+
+        The model's answer has to change what actually happens, or it is decoration. An
+        earlier version asked it to plan the query sequence and then discarded the reply,
+        which spent tokens and inflated tool_calls while the deterministic path ran
+        unchanged either way. Here the decision gates a real extra query, and the reasoning
+        is recorded as evidence so it is auditable rather than invisible.
+
+        The model can only ADD evidence, never suppress it: every deterministic detector
+        has already run by this point. Worst case for a bad answer is one wasted query.
+        """
+        result = deterministic_run_detectors(case_id, trigger)
+        if not result.get("evidence"):
+            return result  # nothing new this pass (loop guard); no decision to make
+
         try:
             from src.llm.prose import enabled, _complete
-            if enabled():
-                system = (
-                    "You are an expert fraud investigation AI assistant coordinating with TigerGraph MCP tools. "
-                    "Given an alert trigger (case_id, customer_id, card_id, flagged_txn_id, risk_score), "
-                    "recommend which TigerGraph tools to query: card_window, customer_baseline, "
-                    "device_neighbors, prior_cases_for_entities, or similar_prior_cases."
-                )
-                user = (
-                    f"Case: {case_id}\n"
-                    f"Card: {trigger['card_id']}\n"
-                    f"Customer: {trigger['customer_id']}\n"
-                    f"Flagged Transaction: {trigger['flagged_txn_id']}\n"
-                    f"Trigger Type: {trigger.get('trigger_type', 'unknown')}\n"
-                    "Select the required TigerGraph query sequence and justify your investigative plan."
-                )
-                _complete(case_id, system, user, max_tokens=250)
+            if not enabled():
+                return result
+
+            found = ", ".join(result.get("ledger_keys", [])) or "no detector signals"
+            system = (
+                "You are a fraud investigator deciding whether one more graph query is "
+                "worth running. Answer with a single word, YES or NO, then one short "
+                "sentence of justification. Answer YES only when the findings suggest the "
+                "compromise may extend to other cards or customers -- a device or region "
+                "shared beyond this cardholder, or a testing sequence that implies a "
+                "broader campaign. Answer NO when the activity looks contained to this "
+                "card, however suspicious it is on its own."
+            )
+            user = (
+                f"Case {case_id} on card {trigger['card_id']} "
+                f"(trigger: {trigger.get('trigger_type', 'unknown')}).\n"
+                f"Detector findings: {found}.\n"
+                "Should we query the shared-device neighbourhood for connected cards?"
+            )
+            reply = (_complete(case_id, system, user, max_tokens=120) or "").strip()
+            if not reply:
+                return result
+
+            wants_expansion = reply.upper().lstrip().startswith("YES")
+            if wants_expansion:
+                from src.graph.algorithms import analyze_device_ring_community
+                community = analyze_device_ring_community(trigger["card_id"])
+                if community.get("executed"):
+                    result.setdefault("evidence", []).append({
+                        "claim": (
+                            "Agent elected to expand the investigation to the shared-device "
+                            f"neighbourhood. Reasoning: {reply}"
+                        ),
+                        "source": "graph",
+                        "ref": f"llm_decision:expand_device_neighbourhood(case={case_id})",
+                        "entity_ids": [trigger["card_id"]],
+                    })
         except Exception:
+            # A flaky model call must never lose a case; the deterministic findings stand.
             pass
-        return deterministic_run_detectors(case_id, trigger)
+
+        return result
 
     base = live_deps(data_dir=data_dir)
     return NodeDeps(
