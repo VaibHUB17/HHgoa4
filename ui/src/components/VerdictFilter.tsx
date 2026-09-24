@@ -37,28 +37,28 @@ export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
             role="tab"
             aria-selected={filter === f.value}
             onClick={() => setFilter(f.value)}
-            className={`relative rounded-full border px-3 py-1.5 font-body text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-signal ${
+            className={`relative rounded-full border px-3 py-1.5 font-body text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-phosphor ${
               filter === f.value
-                ? "border-signal/50 text-signal"
-                : "border-line-hi bg-panel text-dim hover:text-paper"
+                ? "border-phosphor/50 text-phosphor"
+                : "border-seam-hi bg-bed text-ink-dim hover:text-bright"
             }`}
           >
             {filter === f.value && (
               <motion.span
                 layoutId="verdict-filter-active"
-                className="absolute inset-0 rounded-full bg-signal/15"
+                className="absolute inset-0 rounded-full bg-phosphor/15"
                 transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 400, damping: 32 }}
               />
             )}
             <span className="relative">
               {f.label}
-              <span className="ml-1.5 font-data text-[10px] text-faint">{counts[f.value] ?? 0}</span>
+              <span className="ml-1.5 readout text-[10px] text-ink-faint">{counts[f.value] ?? 0}</span>
             </span>
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-[110px_1fr_170px_120px_140px] gap-4 px-4 pb-2 font-data text-[10px] uppercase tracking-wide text-faint">
+      <div className="grid grid-cols-[110px_1fr_170px_120px_140px] gap-4 px-4 pb-2 readout text-[10px] uppercase tracking-wide text-ink-faint">
         <span>Case</span>
         <span>Pattern</span>
         <span>Fraud probability</span>
@@ -73,7 +73,7 @@ export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
           ))}
         </AnimatePresence>
         {filtered.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-faint">No cases match this filter.</p>
+          <p className="px-4 py-8 text-center text-sm text-ink-faint">No cases match this filter.</p>
         )}
       </motion.div>
     </div>

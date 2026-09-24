@@ -24,95 +24,142 @@ export default async function CaseDetailPage(props: PageProps<"/cases/[case_id]"
   const { case: c, source } = loadCase(case_id);
   if (!c) notFound();
 
-  // Primary card id: cards mentioned in evidence/connected list aren't the flagged card
-  // itself in the answer schema, so derive it from the first affected transaction's card
-  // where available, falling back to the first connected card, else a placeholder built
-  // from the case id so the graph view still renders something for a legitimate case.
+  // The answer schema does not carry the flagged card as a top-level field, so derive
+  // a focal card from the connected set, falling back to a placeholder so a legitimate
+  // case with no connections still renders a graph rather than an empty frame.
   const primaryCardId = c.case.connected_card_ids[0] ?? `${c.case_id}-CARD`;
   const graph = buildCaseGraph(c, primaryCardId);
+
+  const pattern =
+    c.case.pattern === "none" ? "no pattern identified" : c.case.pattern.replace(/_/g, " ");
 
   return (
     <>
       <DataSourceBanner source={source} />
       <TopNav />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-        <Link href="/" className="mb-4 inline-block text-xs text-dim hover:text-paper">
-          &larr; All cases
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-7 sm:px-8">
+        <Link
+          href="/"
+          className="readout mb-5 inline-flex items-center gap-1.5 text-[0.7rem] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-phosphor"
+        >
+          <span aria-hidden>←</span> all cases
         </Link>
 
-        {/* Header strip */}
-        <div className="mb-8 rounded-xl border border-line-hi bg-panel p-5">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="font-display text-2xl italic text-paper">{c.case_id}</h1>
-              <p className="mt-0.5 text-sm text-dim">
-                {c.case.pattern === "none" ? "No pattern identified" : c.case.pattern.replace(/_/g, " ")}
-                {c.case.pattern === "undocumented" && c.case.pattern_description
-                  ? ` — ${c.case.pattern_description}`
-                  : ""}
+        {/* ── Masthead ────────────────────────────────────────────────────────
+            The case id is set large in mono: it is an identifier, and treating it
+            as one rather than as a heading is what makes this read as a record
+            rather than a web page. */}
+        <header className="instrument mb-6 overflow-hidden">
+          <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-start">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="readout text-[2rem] font-medium leading-none text-bright">
+                  {c.case_id}
+                </h1>
+                <VerdictBadge verdict={c.case.verdict} />
+                <StatusBadge status={c.case.status} />
+              </div>
+
+              <p className="readout mt-2 text-[0.72rem] uppercase tracking-[0.13em] text-ink-faint">
+                {pattern}
+              </p>
+
+              {c.case.pattern === "undocumented" && c.case.pattern_description && (
+                <p className="mt-3 max-w-[68ch] text-[0.85rem] leading-relaxed text-ink">
+                  {c.case.pattern_description}
+                </p>
+              )}
+
+              <p className="mt-4 max-w-[68ch] text-[0.88rem] leading-relaxed text-ink">
+                {c.case.summary}
+              </p>
+
+              <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
+                <Figure label="exposure" value={usd(c.case.exposure_usd)} />
+                <Figure
+                  label="affected txns"
+                  value={String(c.case.affected_txn_ids.length)}
+                />
+                <Figure
+                  label="connected cards"
+                  value={String(c.case.connected_card_ids.length)}
+                  emphasise={c.case.connected_card_ids.length > 2}
+                />
+                <Figure
+                  label="prior cases cited"
+                  value={String(c.case.similar_prior_cases.length)}
+                />
+              </dl>
+            </div>
+
+            {/* The reading. Given its own bay so it is never competing with prose. */}
+            <div className="w-full border-t border-seam pt-5 lg:w-[22rem] lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+              <ProbabilityMeter value={c.case.fraud_probability} />
+              <p className="mt-4 text-[0.76rem] leading-relaxed text-ink-dim">
+                <span className="readout text-ink-faint">stop_reason — </span>
+                {c.stop_reason}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <VerdictBadge verdict={c.case.verdict} />
-              <StatusBadge status={c.case.status} />
-            </div>
           </div>
+        </header>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
-            <ProbabilityMeter value={c.case.fraud_probability} />
-            <div className="text-right">
-              <p className="font-data text-[10px] uppercase tracking-wide text-faint">Exposure</p>
-              <p className="font-data text-xl text-paper">{usd(c.case.exposure_usd)}</p>
-            </div>
-          </div>
-
-          <p className="mt-4 border-t border-line pt-4 text-sm leading-relaxed text-paper/90">
-            {c.case.summary}
-          </p>
-        </div>
-
-        {/* Recommendation delta — signature view */}
-        <section className="mb-8">
-          <h2 className="mb-4 font-display text-lg italic text-paper">
-            Recommendation: before &amp; after evidence
-          </h2>
+        {/* ── The argument ───────────────────────────────────────────────────
+            Recommendation history first: it is what the submission is judged on,
+            and it is the part a reader should meet before the supporting detail. */}
+        <div className="mb-6">
           <RecommendationDelta
             initial={c.next_best_actions.initial}
             final={c.next_best_actions.final}
             whatChanged={c.next_best_actions.what_changed}
             evidenceRequests={c.evidence_requests}
           />
-        </section>
+        </div>
 
-        {/* Evidence */}
-        <section className="mb-8">
-          <h2 className="mb-3 font-display text-lg italic text-paper">Evidence</h2>
+        {/* ── The graph ──────────────────────────────────────────────────────── */}
+        <div className="mb-6">
+          <CaseGraphView graph={graph} primaryCardId={primaryCardId} />
+        </div>
+
+        {/* ── Supporting record ─────────────────────────────────────────────── */}
+        <div className="mb-6 grid gap-6 lg:grid-cols-2">
           <EvidenceList evidence={c.case.evidence} />
-        </section>
-
-        {/* Graph view */}
-        <section className="mb-8">
-          <CaseGraphView graph={graph} />
-        </section>
-
-        {/* Similar prior cases */}
-        <section className="mb-8">
-          <h2 className="mb-3 font-display text-lg italic text-paper">Similar prior cases</h2>
           <SimilarCases caseAnswer={c} />
-        </section>
+        </div>
 
-        {/* SAR */}
         {c.sar.file && (
-          <section className="mb-8">
+          <div className="mb-6">
             <SarPanel sar={c.sar} />
-          </section>
+          </div>
         )}
 
-        {/* Instrumentation */}
-        <section>
-          <InstrumentationStrip c={c} />
-        </section>
+        <InstrumentationStrip c={c} />
       </main>
     </>
+  );
+}
+
+function Figure({
+  label,
+  value,
+  emphasise,
+}: {
+  label: string;
+  value: string;
+  emphasise?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="readout text-[0.62rem] uppercase tracking-[0.13em] text-ink-faint">
+        {label}
+      </dt>
+      <dd
+        className={`readout mt-1 text-[1.15rem] ${
+          emphasise ? "text-hold glow-hold" : "text-bright"
+        }`}
+      >
+        {value}
+      </dd>
+    </div>
   );
 }

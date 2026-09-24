@@ -1,201 +1,320 @@
 "use client";
 
-import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import type { CaseGraph, GraphNode, GraphNodeKind } from "@/lib/types";
+import { useMemo, useState } from "react";
+import type { CaseGraph, GraphNode } from "@/lib/types";
 
-// Hand-authored inline SVG, deterministic radial layout — no d3, no physics sim. Nodes are
-// grouped by kind into concentric rings (Customer/Card at center, Transaction and
-// DeviceProfile/BillingRegion further out) so the layout is stable and reproducible for the
-// same case every render. Shared DeviceProfile nodes are the ring-detection story: any device
-// with more than one edge into it is drawn larger, in the signal-teal accent, with a visible
-// halo, so a shared device across cards reads as obviously different from a single-card node.
+/* The entity neighbourhood — the argument for why this is a graph problem at all.
+   A per-transaction model scoring one payment cannot see the other seventeen cards
+   on the same handset. Two hops can, and on HHG-014 that is the whole case.
 
-const KIND_ORDER: GraphNodeKind[] = ["Customer", "Card", "Transaction", "DeviceProfile", "BillingRegion"];
+   Layout is deliberate, not a physics simulation. When one device is shared across
+   many customers' cards, the truthful picture is radial: the shared element at the
+   centre, everything that touches it arranged around it. A force layout would spend
+   frames converging on roughly that shape while jittering, and would produce a
+   different picture on every load. Deterministic beats organic here — an analyst
+   should be able to revisit a case and recognise it.
 
-const KIND_COLOR: Record<GraphNodeKind, string> = {
-  Customer: "#e7ebf0",
-  Card: "#4f8ff0",
-  Transaction: "#8d99ab",
-  DeviceProfile: "#2dd4bf",
-  BillingRegion: "#e8a53d",
-};
+   Signal encoding, one channel each so they never compete:
+     halo + saturation  -> flagged / fraud
+     opacity            -> distance from the focal card
+     stroke weight      -> primary path vs peripheral
+*/
 
-const W = 640;
+type Placed = GraphNode & { x: number; y: number; r: number; ring: number };
+
+const W = 760;
 const H = 440;
 const CX = W / 2;
 const CY = H / 2;
 
-interface Positioned extends GraphNode {
-  x: number;
-  y: number;
-  degree: number;
-}
+const KIND_STYLE: Record<
+  GraphNode["kind"],
+  { fill: string; stroke: string; r: number }
+> = {
+  DeviceProfile: { fill: "oklch(0.268 0.027 255)", stroke: "var(--hold)", r: 26 },
+  Card: { fill: "oklch(0.221 0.024 256)", stroke: "var(--seam-hi)", r: 13 },
+  Customer: { fill: "oklch(0.181 0.021 257)", stroke: "var(--seam)", r: 9 },
+  Transaction: { fill: "oklch(0.221 0.024 256)", stroke: "var(--phosphor-lo)", r: 8 },
+  BillingRegion: { fill: "oklch(0.221 0.024 256)", stroke: "var(--seam)", r: 10 },
+};
 
-function layout(graph: CaseGraph): Positioned[] {
-  const degree = new Map<string, number>();
-  for (const e of graph.edges) {
-    degree.set(e.from, (degree.get(e.from) ?? 0) + 1);
-    degree.set(e.to, (degree.get(e.to) ?? 0) + 1);
-  }
+function layout(graph: CaseGraph, primaryCardId: string): Placed[] {
+  const devices = graph.nodes.filter((n) => n.kind === "DeviceProfile");
+  const hub = devices[0];
 
-  const byKind = new Map<GraphNodeKind, GraphNode[]>();
-  for (const kind of KIND_ORDER) byKind.set(kind, []);
-  for (const n of graph.nodes) byKind.get(n.kind)?.push(n);
+  const placed: Placed[] = [];
+  const seen = new Set<string>();
 
-  const ringRadius: Record<GraphNodeKind, number> = {
-    Customer: 40,
-    Card: 120,
-    Transaction: 200,
-    DeviceProfile: 200,
-    BillingRegion: 200,
+  const put = (n: GraphNode, x: number, y: number, ring: number) => {
+    if (seen.has(n.id)) return;
+    seen.add(n.id);
+    placed.push({ ...n, x, y, r: KIND_STYLE[n.kind].r, ring });
   };
 
-  const positioned: Positioned[] = [];
-  // Outer ring kinds (Transaction/DeviceProfile/BillingRegion) share the same radius but
-  // occupy distinct angular sectors so they don't overlap.
-  const outerKinds: GraphNodeKind[] = ["Transaction", "DeviceProfile", "BillingRegion"];
-  const sectorSpan = (2 * Math.PI) / outerKinds.length;
+  // The shared device takes the centre when there is one — it is the thing the
+  // case is actually about.
+  if (hub) put(hub, CX, CY, 0);
 
-  for (const kind of KIND_ORDER) {
-    const nodes = byKind.get(kind) ?? [];
-    const r = ringRadius[kind];
-    if (kind === "Customer" || kind === "Card") {
-      nodes.forEach((n, i) => {
-        const angle = (2 * Math.PI * i) / Math.max(nodes.length, 1) - Math.PI / 2;
-        positioned.push({
-          ...n,
-          x: CX + r * Math.cos(angle),
-          y: CY + r * Math.sin(angle),
-          degree: degree.get(n.id) ?? 0,
-        });
-      });
-    } else {
-      const sectorIndex = outerKinds.indexOf(kind);
-      const start = sectorIndex * sectorSpan;
-      nodes.forEach((n, i) => {
-        const angle = start + (sectorSpan * (i + 0.5)) / Math.max(nodes.length, 1) - Math.PI / 2;
-        positioned.push({
-          ...n,
-          x: CX + r * Math.cos(angle),
-          y: CY + r * Math.sin(angle),
-          degree: degree.get(n.id) ?? 0,
-        });
-      });
+  // Cards orbit the hub. The card under investigation is pinned left of centre so
+  // the eye has a fixed anchor across cases.
+  const cards = graph.nodes.filter((n) => n.kind === "Card");
+  const others = cards.filter((c) => c.id !== primaryCardId);
+  const primary = cards.find((c) => c.id === primaryCardId);
+
+  if (primary) put(primary, CX - 250, CY, 1);
+
+  const rx = 232;
+  const ry = 150;
+  others.forEach((c, i) => {
+    // Sweep the arc to the right of the hub, leaving the left clear for the
+    // primary card and its transactions.
+    const t = others.length === 1 ? 0.5 : i / (others.length - 1);
+    const angle = -Math.PI * 0.62 + t * Math.PI * 1.24;
+    put(c, CX + Math.cos(angle) * rx, CY + Math.sin(angle) * ry, 1);
+  });
+
+  // Transactions hang off the primary card.
+  const txns = graph.nodes.filter((n) => n.kind === "Transaction");
+  txns.forEach((t, i) => {
+    const spread = (i - (txns.length - 1) / 2) * 42;
+    put(t, CX - 340, CY + spread, 2);
+  });
+
+  // Customers sit just outside their card, small and dim — they are context.
+  const customers = graph.nodes.filter((n) => n.kind === "Customer");
+  customers.forEach((cu) => {
+    const ownedCard = placed.find(
+      (p) => p.kind === "Card" && p.id.startsWith(cu.id),
+    );
+    if (ownedCard) {
+      const dx = ownedCard.x - CX;
+      const dy = ownedCard.y - CY;
+      const len = Math.hypot(dx, dy) || 1;
+      put(cu, ownedCard.x + (dx / len) * 34, ownedCard.y + (dy / len) * 34, 2);
     }
-  }
+  });
 
-  return positioned;
+  // Anything unplaced (defensive) goes on an outer ring.
+  graph.nodes.forEach((n, i) => {
+    if (!seen.has(n.id)) {
+      const a = (i / graph.nodes.length) * Math.PI * 2;
+      put(n, CX + Math.cos(a) * 320, CY + Math.sin(a) * 190, 3);
+    }
+  });
+
+  return placed;
 }
 
-export function CaseGraphView({ graph }: { graph: CaseGraph }) {
+export function CaseGraphView({
+  graph,
+  primaryCardId,
+}: {
+  graph: CaseGraph;
+  primaryCardId: string;
+}) {
   const reduce = useReducedMotion();
-  const nodes = useMemo(() => layout(graph), [graph]);
-  const posById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const placed = useMemo(() => layout(graph, primaryCardId), [graph, primaryCardId]);
+  const byId = useMemo(
+    () => new Map(placed.map((p) => [p.id, p])),
+    [placed],
+  );
+
+  const deviceCount = placed.filter((p) => p.kind === "DeviceProfile").length;
+  const cardCount = placed.filter((p) => p.kind === "Card").length;
 
   return (
-    <div className="rounded-xl border border-line-hi bg-panel p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-data text-xs uppercase tracking-wide text-faint">
-          Entity neighborhood
-        </h3>
-        <div className="flex items-center gap-3 text-[10px] font-data text-faint">
-          {KIND_ORDER.map((k) => (
-            <span key={k} className="flex items-center gap-1">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ background: KIND_COLOR[k] }}
-              />
-              {k}
-            </span>
-          ))}
-        </div>
-      </div>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full"
-        role="img"
-        aria-label="Entity neighborhood graph showing customers, cards, transactions, and shared device profiles"
-      >
-        <g>
-          {graph.edges.map((e, i) => {
-            const from = posById.get(e.from);
-            const to = posById.get(e.to);
-            if (!from || !to) return null;
-            const sharedDevice = to.kind === "DeviceProfile" && to.degree > 2;
-            return (
-              <motion.line
-                key={`${e.from}-${e.to}-${i}`}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                stroke={sharedDevice ? "#2dd4bf" : "#2a3341"}
-                strokeWidth={sharedDevice ? 1.75 : 1}
-                strokeOpacity={sharedDevice ? 0.8 : 0.6}
-                initial={reduce ? undefined : { pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: sharedDevice ? 0.8 : 0.6 }}
-                transition={reduce ? { duration: 0 } : { duration: 0.5, delay: i * 0.03 }}
-              />
-            );
-          })}
-        </g>
-        <g>
-          {nodes.map((n, i) => {
-            const isSharedDevice = n.kind === "DeviceProfile" && n.degree > 2;
-            const radius = n.kind === "Customer" ? 16 : isSharedDevice ? 14 : n.kind === "Card" ? 12 : 8;
-            return (
-              <motion.g
-                key={n.id}
-                initial={reduce ? undefined : { opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={
-                  reduce
-                    ? { duration: 0 }
-                    : { type: "spring", stiffness: 220, damping: 18, delay: i * 0.025 }
-                }
-              >
-                {isSharedDevice && (
+    <figure className="instrument overflow-hidden">
+      <figcaption className="flex items-baseline justify-between border-b border-seam px-4 py-2.5">
+        <span className="readout text-[0.68rem] uppercase tracking-[0.14em] text-ink-dim">
+          entity neighbourhood
+        </span>
+        <span className="readout text-[0.68rem] text-ink-faint">
+          {cardCount} cards · {deviceCount} device{deviceCount === 1 ? "" : "s"}
+        </span>
+      </figcaption>
+
+      <div className="matrix-bed">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="edge-fade block h-auto w-full"
+          role="img"
+          aria-label={`Entity graph for ${primaryCardId}: ${cardCount} cards connected through ${deviceCount} shared device profile${deviceCount === 1 ? "" : "s"}.`}
+        >
+          <defs>
+            <filter id="node-halo" x="-70%" y="-70%" width="240%" height="240%">
+              <feGaussianBlur stdDeviation="5" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* Edges first, beneath the nodes. Each traces in, so the relationships
+              are seen being discovered rather than presented pre-formed. */}
+          <g>
+            {graph.edges.map((e, i) => {
+              const a = byId.get(e.from);
+              const b = byId.get(e.to);
+              if (!a || !b) return null;
+
+              const isDevice = a.kind === "DeviceProfile" || b.kind === "DeviceProfile";
+              const touchesPrimary = e.from === primaryCardId || e.to === primaryCardId;
+              const isHot = hovered === e.from || hovered === e.to;
+
+              // Curve every edge slightly toward the hub. Near-parallel edges then
+              // read as a bundle instead of a crosshatch, which is what keeps a
+              // seventeen-card ring legible instead of a hairball.
+              const mx = (a.x + b.x) / 2;
+              const my = (a.y + b.y) / 2;
+              const qx = mx + (CX - mx) * 0.22;
+              const qy = my + (CY - my) * 0.22;
+              const d = `M ${a.x} ${a.y} Q ${qx} ${qy} ${b.x} ${b.y}`;
+              const len = Math.hypot(b.x - a.x, b.y - a.y) * 1.25;
+
+              return (
+                <motion.path
+                  key={`${e.from}-${e.to}-${i}`}
+                  d={d}
+                  fill="none"
+                  stroke={
+                    isHot
+                      ? "var(--phosphor)"
+                      : isDevice
+                        ? "var(--hold-lo)"
+                        : "var(--seam-hi)"
+                  }
+                  strokeWidth={touchesPrimary || isHot ? 1.5 : 1}
+                  strokeOpacity={isHot ? 0.95 : isDevice ? 0.55 : 0.35}
+                  style={{ transition: "stroke 160ms, stroke-opacity 160ms" }}
+                  initial={reduce ? false : { strokeDasharray: len, strokeDashoffset: len }}
+                  animate={reduce ? undefined : { strokeDashoffset: 0 }}
+                  transition={{
+                    duration: 0.85,
+                    delay: 0.15 + Math.min(i, 24) * 0.022,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                />
+              );
+            })}
+          </g>
+
+          {/* Nodes */}
+          <g>
+            {placed.map((n, i) => {
+              const style = KIND_STYLE[n.kind];
+              const isPrimary = n.id === primaryCardId;
+              const flagged = Boolean(n.fraud || n.flagged);
+              const isHub = n.kind === "DeviceProfile";
+              const isHot = hovered === n.id;
+
+              // Depth cue: the further from the focal card, the quieter.
+              const depthOpacity = n.ring === 0 ? 1 : n.ring === 1 ? 0.94 : 0.62;
+
+              return (
+                <motion.g
+                  key={n.id}
+                  opacity={depthOpacity}
+                  initial={reduce ? false : { opacity: 0, scale: 0.6 }}
+                  animate={reduce ? undefined : { opacity: depthOpacity, scale: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 24,
+                    delay: 0.1 + Math.min(i, 26) * 0.024,
+                  }}
+                  onMouseEnter={() => setHovered(n.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{ cursor: "default" }}
+                >
+                  {/* Halo strictly as alarm: the hub and anything flagged. Applying
+                      it to every node would dilute the one channel that means
+                      "look here." */}
+                  {(isHub || flagged || isPrimary) && (
+                    <circle
+                      cx={n.x}
+                      cy={n.y}
+                      r={style.r + 5}
+                      fill="none"
+                      stroke={isHub ? "var(--hold)" : flagged ? "var(--fraud)" : "var(--phosphor)"}
+                      strokeWidth={1}
+                      strokeOpacity={0.4}
+                      filter="url(#node-halo)"
+                    >
+                      {!reduce && (
+                        <animate
+                          attributeName="stroke-opacity"
+                          values="0.18;0.5;0.18"
+                          dur="3.2s"
+                          repeatCount="indefinite"
+                        />
+                      )}
+                    </circle>
+                  )}
+
                   <circle
                     cx={n.x}
                     cy={n.y}
-                    r={radius + 8}
-                    fill="none"
-                    stroke="#2dd4bf"
-                    strokeWidth={1.5}
-                    strokeDasharray="3 3"
-                    opacity={0.6}
+                    r={style.r}
+                    fill={style.fill}
+                    stroke={
+                      isHot
+                        ? "var(--phosphor)"
+                        : flagged
+                          ? "var(--fraud)"
+                          : isPrimary
+                            ? "var(--phosphor)"
+                            : style.stroke
+                    }
+                    strokeWidth={isPrimary || isHub || flagged ? 1.8 : 1}
+                    style={{ transition: "stroke 160ms" }}
                   />
-                )}
-                <circle
-                  cx={n.x}
-                  cy={n.y}
-                  r={radius}
-                  fill={n.kind === "Card" || n.kind === "Transaction" ? "#171e28" : KIND_COLOR[n.kind]}
-                  stroke={n.fraud ? "#f2578a" : KIND_COLOR[n.kind]}
-                  strokeWidth={n.flagged || n.fraud ? 2.5 : 1.5}
-                />
-                <text
-                  x={n.x}
-                  y={n.y + radius + 14}
-                  textAnchor="middle"
-                  fontSize={9}
-                  fontFamily="var(--font-data)"
-                  fill={isSharedDevice ? "#2dd4bf" : "#8d99ab"}
-                >
-                  {n.label.length > 22 ? `${n.label.slice(0, 20)}…` : n.label}
-                </text>
-              </motion.g>
-            );
-          })}
-        </g>
-      </svg>
-      {nodes.some((n) => n.kind === "DeviceProfile" && n.degree > 2) && (
-        <p className="mt-2 text-xs text-signal">
-          Dashed halo marks a device profile shared across multiple cards — the ring signal
-          behind R6.
-        </p>
-      )}
-    </div>
+
+                  {/* Label only where it earns the space: the hub, the focal card,
+                      and whatever is hovered. Labelling all twenty is a hairball. */}
+                  {(isHub || isPrimary || isHot) && (
+                    <text
+                      x={n.x}
+                      y={n.y + style.r + 14}
+                      textAnchor="middle"
+                      className="readout"
+                      fontSize={isHub ? 11 : 10}
+                      fill={isHub ? "var(--hold)" : isPrimary ? "var(--phosphor)" : "var(--ink)"}
+                    >
+                      {n.label.length > 26 ? `${n.label.slice(0, 24)}…` : n.label}
+                    </text>
+                  )}
+                </motion.g>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-seam px-4 py-2.5">
+        <Legend color="var(--hold)" label="shared device" />
+        <Legend color="var(--phosphor)" label="card under investigation" />
+        <Legend color="var(--fraud)" label="flagged" />
+        <Legend color="var(--seam-hi)" label="connected card" />
+      </div>
+    </figure>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        aria-hidden
+        className="h-[7px] w-[7px] rounded-full"
+        style={{ background: color }}
+      />
+      <span className="readout text-[0.64rem] uppercase tracking-[0.1em] text-ink-faint">
+        {label}
+      </span>
+    </span>
   );
 }

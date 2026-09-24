@@ -18,7 +18,7 @@ export function EvidenceList({ evidence }: { evidence: EvidenceItem[] }) {
   const reduce = useReducedMotion();
 
   if (evidence.length === 0) {
-    return <p className="text-sm text-faint">No evidence recorded.</p>;
+    return <p className="text-sm text-ink-faint">No evidence recorded.</p>;
   }
 
   return (
@@ -34,20 +34,20 @@ export function EvidenceList({ evidence }: { evidence: EvidenceItem[] }) {
           key={i}
           variants={reduce ? undefined : item}
           transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 26 }}
-          className="rounded-lg border border-line-hi bg-panel-hi px-3 py-2.5"
+          className="border-b border-seam px-1 py-2.5 last:border-b-0"
         >
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-paper">{e.claim}</p>
+            <p className="text-sm text-ink">{e.claim}</p>
             <SourceBadge source={e.source} />
           </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-faint">
-            <span className="font-data">{e.ref}</span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
+            <span className="readout truncate">{e.ref}</span>
             {e.entity_ids.length > 0 && (
               <span className="flex flex-wrap gap-1">
                 {e.entity_ids.map((id) => (
                   <span
                     key={id}
-                    className="rounded bg-slate px-1.5 py-0.5 font-data text-dim"
+                    className="rounded bg-void px-1.5 py-0.5 readout text-ink-dim"
                   >
                     {id}
                   </span>

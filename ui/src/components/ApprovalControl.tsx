@@ -15,13 +15,17 @@ export function ApprovalControl({ action }: { action: RecommendedAction }) {
   const reduce = useReducedMotion();
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-line-hi bg-panel-hi px-3 py-2.5">
+    <div
+      className={`flex items-center justify-between gap-3 rounded-lg border border-seam-hi bg-deck px-3 py-2.5 ${
+        decision === "pending" ? "awaiting" : ""
+      }`}
+    >
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-data text-sm text-paper">{action.action}</span>
+          <span className="readout text-sm text-bright">{action.action}</span>
           <RouteBadge route={action.route} />
         </div>
-        <p className="mt-0.5 text-xs text-dim">{action.reason}</p>
+        <p className="mt-0.5 text-xs text-ink-dim">{action.reason}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <AnimatePresence mode="wait" initial={false}>
@@ -36,14 +40,14 @@ export function ApprovalControl({ action }: { action: RecommendedAction }) {
               <button
                 type="button"
                 onClick={() => setDecision("approved")}
-                className="rounded border border-clear/50 bg-clear/10 px-2.5 py-1 font-body text-xs font-medium text-clear transition-colors hover:bg-clear/20 focus-visible:outline-2 focus-visible:outline-signal"
+                className="rounded border border-clear/50 bg-clear/10 px-2.5 py-1 font-body text-xs font-medium text-clear transition-colors hover:bg-clear/20 focus-visible:outline-2 focus-visible:outline-phosphor"
               >
                 Approve
               </button>
               <button
                 type="button"
                 onClick={() => setDecision("rejected")}
-                className="rounded border border-fraud/50 bg-fraud/10 px-2.5 py-1 font-body text-xs font-medium text-fraud transition-colors hover:bg-fraud/20 focus-visible:outline-2 focus-visible:outline-signal"
+                className="rounded border border-fraud/50 bg-fraud/10 px-2.5 py-1 font-body text-xs font-medium text-fraud transition-colors hover:bg-fraud/20 focus-visible:outline-2 focus-visible:outline-phosphor"
               >
                 Reject
               </button>
@@ -56,7 +60,7 @@ export function ApprovalControl({ action }: { action: RecommendedAction }) {
               initial={reduce ? undefined : { opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 20 }}
-              className={`rounded border px-2.5 py-1 font-data text-xs uppercase tracking-wide ${
+              className={`rounded border px-2.5 py-1 readout text-xs uppercase tracking-wide ${
                 decision === "approved"
                   ? "border-clear/40 bg-clear/10 text-clear"
                   : "border-fraud/40 bg-fraud/10 text-fraud"

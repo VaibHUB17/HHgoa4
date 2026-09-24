@@ -45,12 +45,12 @@ export function InstrumentationStrip({ c }: { c: CaseAnswer }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-20px" }}
       transition={reduce ? { duration: 0 } : { duration: 0.35 }}
-      className="flex flex-wrap items-start gap-x-6 gap-y-2 rounded-lg border border-line bg-panel/60 px-4 py-2.5 text-xs"
+      className="instrument flex flex-wrap items-start gap-x-6 gap-y-2 px-4 py-2.5 text-xs"
     >
       {items.map(({ label, node }) => (
         <div key={label} className={label === "Stop reason" ? "max-w-md flex-1" : ""}>
-          <span className="mr-1.5 font-data uppercase tracking-wide text-faint">{label}</span>
-          <span className={label === "Stop reason" ? "text-dim" : "font-data text-paper tabular-nums"}>
+          <span className="mr-1.5 readout uppercase tracking-wide text-ink-faint">{label}</span>
+          <span className={label === "Stop reason" ? "text-ink-dim" : "readout text-bright"}>
             {node}
           </span>
         </div>
