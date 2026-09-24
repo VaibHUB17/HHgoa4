@@ -29,12 +29,24 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character activity suggests a potential shared device that could be linked to other compromised cards.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character behavior suggests a potential shared device that may be linked to other compromised cards.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-005)",
         "entity_ids": [
           "C02923-K1"
         ]
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-12-08 03:38:37', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-12-08 03:38:37', 'hours': 24}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=2)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -44,7 +56,7 @@
       "CC-0699",
       "CC-0234"
     ],
-    "summary": "Case HHG-005 was reviewed after a real-time model scored transaction 3523199 for $100.07 at 0.54, resulting in a final verdict of legitimate with a fraud probability of 0.12. The key evidence indicated that while the transaction on card C02923-K1 originated from a device marked as new, the product category and billing region aligned with the customer's established history, and no evidence request was issued. The final action of CLOSE_NO_FRAUD was chosen via the auto route under rule R0: policy default, settled low, no rule triggered, as no new information changed the initial assessment.",
+    "summary": "Case HHG-005 was closed as legitimate with a final fraud probability of 0.12, as the single online transaction T3523199 for $100.07 on card C02923-K1 exhibited product and billing characteristics consistent with the customer's established history. Although the transaction originated from a device marked as new (id_15=New), prompting an attempt to query the shared-device neighborhood, both evidence requests failed due to a system error regarding the device ID conversion. Consequently, no additional corroborating evidence of fraud was obtained, and the initial assessment of low risk remained unchanged. The final action of CLOSE_NO_FRAUD was executed via the auto route under rule R0, which applies the policy default for settled low-risk cases where no specific fraud rule is triggered.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-005"
   },
@@ -76,6 +88,6 @@
   },
   "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 6,
-  "tokens": 802,
-  "latency_s": 9.17
+  "tokens": 3939,
+  "latency_s": 39.701
 }

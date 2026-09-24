@@ -27,14 +27,6 @@
         "entity_ids": [
           "T3514948"
         ]
-      },
-      {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character activity suggests a potential shared device or testing sequence that could implicate other cards.",
-        "source": "graph",
-        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-007)",
-        "entity_ids": [
-          "C09933-K2"
-        ]
       }
     ],
     "similar_prior_cases": [
@@ -44,7 +36,7 @@
       "CC-0388",
       "CC-0248"
     ],
-    "summary": "Case HHG-007 was reviewed after a real-time model scored transaction 3514948 at 0.87, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that the flagged transaction's product category and billing region align with the customer's established history, and although a prior transaction T3507797 originated from a device marked 'New', the agent's expansion to the shared-device neighborhood yielded no corroborating fraud. No evidence request was made, and the final action remains CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered) because nothing changed from the initial assessment.",
+    "summary": "Case HHG-007 was reviewed after a real-time model scored transaction 3514948 at 0.87, but the final verdict is legitimate with a fraud probability of 0.12. Key evidence indicates that the flagged transaction's product category and billing region align with the customer's established history, and no specific evidence request was made or resulted in new findings. The final action of CLOSE_NO_FRAUD was chosen via the auto route under rule R0, citing policy default, settled low status, and no rule triggered. Since nothing changed from the initial assessment, the case remains closed with no unresolved issues.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-007"
   },
@@ -76,6 +68,6 @@
   },
   "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 6,
-  "tokens": 814,
-  "latency_s": 4.258
+  "tokens": 770,
+  "latency_s": 2.758
 }

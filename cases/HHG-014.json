@@ -137,7 +137,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The shared_device_across_cards finding explicitly indicates the device is linked to other cards, suggesting the compromise extends beyond this single cardholder.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The shared_device_across_cards finding indicates the compromise extends beyond this single cardholder, requiring an investigation of the connected network.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-014)",
         "entity_ids": [
@@ -152,7 +152,7 @@
       "CC-0815",
       "CC-0488"
     ],
-    "summary": "Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by transaction T3478561 on card C13487-K1 which originated from a device profile shared across 18 unrelated customers, a structural signature of a coordinated ring confirmed by graph community detection. The request for customer validation yielded no reply within the 24-hour window, leaving the fraud probability unchanged and the initial action plan intact. Final actions include MONITOR_CARD (auto, R4), DECLINE_TRANSACTION (L1, R4), CREATE_CASE (auto, R6), FILE_REPORT (L2, R6), and MONITOR_CONNECTED_CARDS (auto, R6), selected to enforce Fraud Policy R6 mandates for multi-account shared origin rings and FinCEN Advisory requirements for syndicated account compromise.",
+    "summary": "Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by transaction T3478561 on card C13487-K1 which originated from a device profile shared across 18 unrelated customers, a structural signature of a coordinated ring. The request for customer validation yielded no reply within the 24-hour window, leaving the fraud probability unchanged and the initial action plan intact. Final actions include MONITOR_CARD (auto, R4), DECLINE_TRANSACTION (L1, R4), CREATE_CASE (auto, R6), FILE_REPORT (L2, R6), and MONITOR_CONNECTED_CARDS (auto, R6). These measures were selected to address the multi-account shared origin ring under Fraud Policy R6 and to comply with FinCEN Advisory requirements for syndicated account compromise.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-014"
   },
@@ -213,7 +213,7 @@
   "sar": {
     "file": true,
     "reason": "3a: activity connects to a shared device/region or another customer's fraud",
-    "narrative": "Customer C13487, associated with card C13487-K1, was identified as a victim of suspected card-not-present fraud on 2016-11-22. The fraudulent activity occurred over the online channel and involved transaction T3478561, which originated from a device profile shared across 18 unrelated customers. This device profile, identified as SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080, serves as a structural signature of a coordinated ring confirmed by graph community detection. The account is connected to cards C01289-K2, C01996-K2, C02910-K1, C02975-K1, C03676-K2, C04108-K2, C04274-K1, C06710-K1, C08168-K1, C09049-K1, C09906-K1, C09975-K2, C10193-K2, C11082-K1, C11670-K2, C12796-K1, and C13291-K1, indicating a broader scope of compromise. Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by the shared device origin across multiple accounts. A request for customer validation was issued but yielded no reply within the 24-hour window, leaving the fraud probability unchanged. The total exposure identified in this matter is $74.96. Related prior investigations reviewed as case memory include CC-0078, CC-0247, CC-0178, CC-0815, and CC-0488. The final actions taken include MONITOR_CARD, DECLINE_TRANSACTION, CREATE_CASE, FILE_REPORT, and MONITOR_CONNECTED_CARDS to address the syndicated account compromise.",
+    "narrative": "Customer C13487, associated with card C13487-K1, was identified as a victim of suspected card-not-present fraud on 2016-11-22. The fraudulent activity occurred over the online channel and involved transaction T3478561, which originated from a device profile shared across 18 unrelated customers. This shared device profile, identified as SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080, serves as a structural signature indicating a coordinated ring. The account is connected to cards C01289-K2, C01996-K2, C02910-K1, C02975-K1, C03676-K2, C04108-K2, C04274-K1, C06710-K1, C08168-K1, C09049-K1, C09906-K1, C09975-K2, C10193-K2, C11082-K1, C11670-K2, C12796-K1, and C13291-K1. Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by the multi-account shared origin of the transaction. A request for customer validation was issued, but no reply was received within the 24-hour window, leaving the fraud probability unchanged. The total exposure identified in this case is $74.96. Related prior investigations reviewed as case memory include CC-0078, CC-0247, CC-0178, CC-0815, and CC-0488.",
     "subjects": [
       "C13487",
       "C13487-K1",
@@ -249,6 +249,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.61 (fraud); further steps are unlikely to change the decision.",
   "tool_calls": 7,
-  "tokens": 3019,
-  "latency_s": 7.645
+  "tokens": 4549,
+  "latency_s": 8.349
 }

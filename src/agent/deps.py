@@ -861,6 +861,37 @@ def agentic_deps(data_dir: str | Path = "data") -> NodeDeps:
                         "ref": f"llm_decision:expand_device_neighbourhood(case={case_id})",
                         "entity_ids": [trigger["card_id"]],
                     })
+
+                # Hand the deterministic findings to the iterative investigator and let it
+                # keep going: assess what is still missing, choose the next query from the
+                # installed inventory, run it, fold the rows back in, reassess. The one-shot
+                # decision above answers "is this worth widening"; this answers "what next,
+                # and have we seen enough" -- repeatedly, which is what makes the depth real
+                # rather than a single hop dressed up as reasoning.
+                #
+                # It can only ADD evidence: every deterministic detector has already run,
+                # and the investigator surfaces llm_available=False rather than quietly
+                # substituting a fixed query sequence, so a degraded run stays visible.
+                from src.agent.investigator import LiveQueryTools, investigate
+
+                probe = investigate(
+                    case_id=case_id,
+                    trigger=trigger,
+                    tools=LiveQueryTools(case_id=case_id),
+                    max_depth=3,
+                    seed_evidence=list(result.get("evidence", [])),
+                )
+                if probe.llm_available:
+                    seen = {
+                        (e.get("ref"), tuple(sorted(e.get("entity_ids", []))))
+                        for e in result.get("evidence", [])
+                    }
+                    for e in probe.evidence:
+                        if (e.get("ref"), tuple(sorted(e.get("entity_ids", [])))) not in seen:
+                            result.setdefault("evidence", []).append(e)
+                    for k in probe.ledger_keys:
+                        if k not in result.setdefault("ledger_keys", []):
+                            result["ledger_keys"].append(k)
         except Exception:
             # A flaky model call must never lose a case; the deterministic findings stand.
             pass

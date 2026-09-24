@@ -45,3 +45,10 @@ proxy_device_ring:              { w: 0.30, req: "denied online purchase from a N
 travel_consistent_with_history: { w: -0.25 }  # 716/900 (80%) of cleared cases: confirmed travel to the billing region
 new_device_otherwise_in_character: { w: -0.20 }  # 158/900 (18%) of cleared cases: confirmed purchase from a new phone, in-baseline otherwise
 amount_unusual_but_isolated:    { w: -0.10 }  # 26/900 (3%) of cleared cases: unusual amount, no other signal, consistent with stated intent
+
+# Emitted by src/agent/investigator.py when the iterative loop widened the investigation
+# and the extra queries returned real rows. Weighted at zero on purpose: the expansion is
+# a record of HOW the investigation proceeded, not a finding about the customer. Whatever
+# it turned up arrives as its own evidence with its own keys, and letting the act of
+# looking move the probability would reward searching rather than what the search found.
+agentic_graph_expansion:        { w: 0.0, req: "iterative investigator widened the search and the query returned rows" }
