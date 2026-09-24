@@ -53,12 +53,18 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with activity in-character for the customer suggests a potential account takeover where the fraudster may be using the same device to access other accounts.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with activity in-character for the customer suggests a potential device compromise that could be used to test other cards.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-009)",
         "entity_ids": [
           "C08299-K1"
         ]
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-28 17:10:53', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=1)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -68,7 +74,7 @@
       "CC-0182",
       "CC-0281"
     ],
-    "summary": "Investigation of HHG-009 found no corroborating evidence of fraud; closed as legitimate.",
+    "summary": "Case HHG-009 was closed with a verdict of legitimate and a fraud probability of 0.09, as the disputed $30.02 charge on card C08299-K1 aligned with the customer's established recurring merchant pattern and billing history. Although a new device marker triggered an attempt to query device neighbors, the investigation was constrained by a failed query and an expired step-up authentication request, which slightly elevated the risk score from 0.07 to 0.09. Consequently, the final actions remained consistent with the initial recommendations, executing CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7) in accordance with Fraud Policy R7, which forbids immediate card blocks for charges matching established subscriptions.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-009"
   },
@@ -126,6 +132,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.09 (legitimate); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 195,
-  "latency_s": 10.108
+  "tokens": 2239,
+  "latency_s": 46.613
 }
