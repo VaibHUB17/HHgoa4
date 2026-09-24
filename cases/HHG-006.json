@@ -1,9 +1,9 @@
 {
   "case_id": "HHG-006",
   "case": {
-    "status": "closed_fraud",
-    "verdict": "fraud",
-    "fraud_probability": 0.8904,
+    "status": "escalated",
+    "verdict": "uncertain",
+    "fraud_probability": 0.7037,
     "pattern": "undocumented",
     "pattern_description": "Authorization-threshold structuring: several online purchases on one card within an hour, each priced just under $500, consistent with amounts chosen to stay below a $500 authorization limit. Not one of the five documented patterns; matches the bank's own closed cases labelled undocumented (CC-3748, CC-3841, CC-3907, CC-4086, CC-4124).",
     "affected_txn_ids": [
@@ -62,6 +62,14 @@
         "entity_ids": [
           "SAR"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker suggests the device may be shared with other cardholders, warranting a check for connected cards.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-006)",
+        "entity_ids": [
+          "C07297-K1"
+        ]
       }
     ],
     "similar_prior_cases": [
@@ -76,7 +84,7 @@
       "CC-4086",
       "CC-4124"
     ],
-    "summary": "Case HHG-006 is closed with a fraud verdict and a probability of 0.89, based on four online purchases on card C07297-K1 totaling $1,906.07 that were structured just under the $500 authorization threshold. The key evidence includes the customer's dispute of transaction T3476682 and the confirmation that the card remained in their possession, which elevated the risk assessment from 0.70 to 0.89. The final actions were selected to address the confirmed fraud: BLOCK_CARD was executed via route L1 under rules R2 and R10, CREATE_CASE was initiated via the auto route under rule R2, and FILE_REPORT was submitted via route L2 under rule R2.",
+    "summary": "Case HHG-006 resulted in an uncertain verdict with a fraud probability of 0.70, driven by four online purchases on card C07297-K1 totaling $1906.07 that were each priced just under $500, a pattern consistent with authorization-threshold structuring seen in prior undocumented cases. The investigation relied on the cardholder's dispute of transaction T3476682 and the presence of a new device marker, but the requested customer validation yielded no reply within the 24-hour window, leaving the single unconfirmed signal unresolved. Consequently, the final actions include BLOCK_CARD under route L1 citing rules R2 and R10, CREATE_CASE under route auto citing rule R2, FILE_REPORT under route L2 citing rule R2, and ESCALATE_TO_ANALYST under route auto citing rule R8. These actions were selected because the cardholder denied the charge, triggering the block recommendation despite the probability remaining below the 0.85 threshold, while the lack of customer response prevented a definitive conclusion.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-006"
   },
@@ -84,7 +92,7 @@
     {
       "type": "customer_validation",
       "asked_after_step": 3,
-      "assumed_response": "Customer states they did not make these purchases and still has the card in their possession."
+      "assumed_response": "No reply received from the customer within the 24-hour window."
     }
   ],
   "next_best_actions": {
@@ -110,14 +118,19 @@
         "action": "FILE_REPORT",
         "route": "L2",
         "reason": "R2"
+      },
+      {
+        "action": "ESCALATE_TO_ANALYST",
+        "route": "auto",
+        "reason": "R8"
       }
     ],
-    "what_changed": "The assumed customer validation response (Customer states they did not make these purchases and still has the card in their possession.) raised fraud probability from 0.70 to 0.89, changing the recommended actions."
+    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.70); actions are unchanged from the initial recommendation."
   },
   "sar": {
     "file": true,
     "reason": "3a: exposure $1,906.07 exceeds $1,000; pattern is undocumented/coordinated (R9)",
-    "narrative": "Customer C07297 reported that they did not make four online purchases on card C07297-K1, which occurred on 2016-11-21. The customer confirmed that the physical card remained in their possession during the time of the unauthorized transactions. The total exposure identified from these activities is $1,906.07. Each of the four transactions was priced just under the $500 authorization threshold, indicating a pattern of structuring to avoid detection. This behavior is consistent with an undocumented fraud pattern previously observed in closed cases CC-3748, CC-3841, CC-3907, CC-4086, and CC-4124. The investigation also reviewed related prior investigations CC-0485, CC-0668, CC-0076, CC-0489, and CC-0683 as case memory. The customer’s dispute of transaction T3476682 served as key evidence in confirming the fraudulent nature of the activity. The risk assessment for case HHG-006 was elevated from 0.70 to 0.89 based on the confirmed possession of the card and the disputed transaction. Case HHG-006 is closed with a fraud verdict and a probability of 0.89. The final actions taken included blocking the card, creating a case, and filing a report to address the confirmed fraud.",
+    "narrative": "Customer C07297 was the subject of an investigation regarding card C07297-K1, which exhibited activity consistent with an undocumented fraud pattern. Between 2016-11-21 and 2016-11-21, four online purchases were made on the card, each priced just under $500 to remain below a specific authorization limit. The total value of these transactions was $1906.07, representing the total exposure identified in this matter. This behavior aligns with authorization-threshold structuring, a pattern not among the five documented types but matching prior closed cases CC-3748, CC-3841, CC-3907, CC-4086, and CC-4124. The investigation was initiated by the cardholder's dispute of transaction T3476682 and the detection of a new device marker. Case HHG-006 resulted in an uncertain verdict with a fraud probability of 0.70, as the requested customer validation yielded no reply within the 24-hour window. The lack of customer response left the single unconfirmed signal unresolved, preventing a definitive conclusion despite the cardholder denying the charge. Related prior investigations reviewed as case memory included CC-0485, CC-0668, CC-0076, CC-0489, and CC-0683. The final actions taken included blocking the card, creating a case, filing a report, and escalating to an analyst. These measures were implemented because the cardholder denied the charge, triggering the block recommendation despite the probability remaining below the 0.85 threshold.",
     "subjects": [
       "C07297",
       "C07297-K1",
@@ -138,8 +151,8 @@
       "2016-11-21"
     ]
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.89 (fraud); further steps are unlikely to change the decision.",
+  "stop_reason": "Evidence request settled the question: probability reached 0.70 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 1926,
-  "latency_s": 2.737
+  "tokens": 2347,
+  "latency_s": 4.493
 }

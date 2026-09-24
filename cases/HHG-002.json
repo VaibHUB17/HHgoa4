@@ -30,7 +30,7 @@
       "CC-0678",
       "CC-0702"
     ],
-    "summary": "Case HHG-002 resulted in an uncertain verdict with a fraud probability of 0.17, as the real-time model score of 0.79 for transaction 3478782 was not corroborated by other signals. The evidence request for customer validation yielded no reply within the 24-hour window, leaving the fraud probability unchanged at 0.17 and the final actions identical to the initial recommendation. Consequently, the case remains unresolved due to mixed signals, and the final actions of VERIFY_WITH_CUSTOMER (auto, R1) and STEP_UP_AUTH (auto, R1) were retained per policy.",
+    "summary": "Case HHG-002 resulted in an uncertain verdict with a fraud probability of 0.17, as the real-time model score of 0.79 on transaction 3478782 ($292.36) was not corroborated by other signals. The evidence request for customer validation yielded no reply within the 24-hour window, leaving the fraud probability unchanged and the case unresolved. Consequently, the final actions remained identical to the initial recommendation, executing VERIFY_WITH_CUSTOMER (auto, R1) and STEP_UP_AUTH (auto, R1). These actions were chosen because the lack of customer response did not alter the risk assessment, necessitating continued verification and enhanced authentication per the established rules.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-002"
   },
@@ -78,6 +78,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.17 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 597,
-  "latency_s": 2.672
+  "tokens": 787,
+  "latency_s": 7.935
 }

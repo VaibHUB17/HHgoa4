@@ -3,7 +3,7 @@
   "case": {
     "status": "closed_legitimate",
     "verdict": "legitimate",
-    "fraud_probability": 0.001,
+    "fraud_probability": 0.0379,
     "pattern": "none",
     "pattern_description": "",
     "affected_txn_ids": [],
@@ -60,7 +60,7 @@
       "CC-1589",
       "CC-0264"
     ],
-    "summary": "Case HHG-003 was closed as legitimate with a fraud probability of 0.0 after customer C08623 confirmed the disputed $49.00 charge was a recognized recurring monthly subscription. The investigation relied on structural matches with cleared case CC-1589 and the alignment of the transaction's product category and billing region with the customer's established history. The final actions included CLOSE_NO_FRAUD (auto, R3), CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), which were selected because the customer's validation lowered the fraud probability from 0.04 to 0.00.",
+    "summary": "Case HHG-003 was closed as legitimate with a fraud probability of 0.04, as the disputed $49.00 charge on card C08623-K2 matched the customer's established recurring subscription pattern and billing history. Although an evidence request for customer validation resulted in no reply within the 24-hour window, the lack of response did not alter the low fraud probability or the initial assessment. The final actions included CREATE_CASE (auto, R2, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), which were retained because the structural match with cleared case CC-1589 and adherence to Fraud Policy R7 forbade immediate card blocking.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-003"
   },
@@ -68,7 +68,7 @@
     {
       "type": "customer_validation",
       "asked_after_step": 2,
-      "assumed_response": "Customer confirms they made this purchase, recognizing a recurring monthly charge from a merchant they use regularly, an amount and product category consistent with their usual spending and does not dispute the charge."
+      "assumed_response": "No reply received from the customer within the 24-hour window."
     }
   ],
   "next_best_actions": {
@@ -91,14 +91,9 @@
     ],
     "final": [
       {
-        "action": "CLOSE_NO_FRAUD",
-        "route": "auto",
-        "reason": "R3"
-      },
-      {
         "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R7"
+        "reason": "R2, R7"
       },
       {
         "action": "VERIFY_WITH_CUSTOMER",
@@ -111,7 +106,7 @@
         "reason": "R7"
       }
     ],
-    "what_changed": "The assumed customer validation response (Customer confirms they made this purchase, recognizing a recurring monthly charge from a merchant they use regularly, an amount and product category consistent with their usual spending and does not dispute the charge.) lowered fraud probability from 0.04 to 0.00, changing the recommended actions."
+    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.04); actions are unchanged from the initial recommendation."
   },
   "sar": {
     "file": false,
@@ -121,8 +116,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.00 (legitimate); further steps are unlikely to change the decision.",
+  "stop_reason": "Evidence request settled the question: probability reached 0.04 (legitimate); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 774,
-  "latency_s": 9.929
+  "tokens": 923,
+  "latency_s": 3.243
 }
