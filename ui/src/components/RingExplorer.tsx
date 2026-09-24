@@ -273,10 +273,16 @@ export function RingExplorer({ caseAnswer }: { caseAnswer: CaseAnswer }) {
     [draggingId, view],
   );
   const onBgPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!panRef.current) return;
-    const dx = e.clientX - panRef.current.startX;
-    const dy = e.clientY - panRef.current.startY;
-    setView((v) => ({ ...v, x: panRef.current!.ox + dx, y: panRef.current!.oy + dy }));
+    // Read the pan origin into locals BEFORE calling setView. React may run the
+    // updater after this handler returns, and a pointerup in between nulls the
+    // ref — so dereferencing it inside the updater crashes on release. The
+    // non-null assertion that used to sit there was asserting something untrue.
+    const pan = panRef.current;
+    if (!pan) return;
+    const { startX, startY, ox, oy } = pan;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    setView((v) => ({ ...v, x: ox + dx, y: oy + dy }));
   }, []);
   const onBgPointerUp = useCallback(() => {
     panRef.current = null;
