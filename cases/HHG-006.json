@@ -1,0 +1,119 @@
+{
+  "case_id": "HHG-006",
+  "case": {
+    "status": "closed_fraud",
+    "verdict": "fraud",
+    "fraud_probability": 0.8904,
+    "pattern": "undocumented",
+    "pattern_description": "Authorization-threshold structuring: several online purchases on one card within an hour, each priced just under $500, consistent with amounts chosen to stay below a $500 authorization limit. Not one of the five documented patterns; matches the bank's own closed cases labelled undocumented (CC-3748, CC-3841, CC-3907, CC-4086, CC-4124).",
+    "affected_txn_ids": [
+      "T3476602",
+      "T3476633",
+      "T3476665",
+      "T3476682"
+    ],
+    "first_suspicious_txn_id": "T3476602",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 1906.07,
+    "evidence": [
+      {
+        "claim": "Cardholder disputes the charge: Customer C07297 message: 'I never made this $482.12 purchase. Please check my card.' Refers to 3476682.",
+        "source": "customer",
+        "ref": "trigger:customer_report(HHG-006)",
+        "entity_ids": [
+          "T3476682"
+        ]
+      },
+      {
+        "claim": "4 online purchases on card C07297-K1 within 30 minutes, each just under $500 ($478.95, $456.96, $488.04, $482.12) -- consistent with structuring below a $500 authorization threshold, as in closed cases CC-3748, CC-3841, CC-3907",
+        "source": "graph",
+        "ref": "detector:threshold_structuring(card_id=C07297-K1)",
+        "entity_ids": [
+          "T3476602",
+          "T3476633",
+          "T3476665",
+          "T3476682"
+        ]
+      },
+      {
+        "claim": "4 online transaction(s) on card C07297-K1 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C07297-K1)",
+        "entity_ids": [
+          "T3476602",
+          "T3476633",
+          "T3476665",
+          "T3476682"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-3748",
+      "CC-3841",
+      "CC-3907",
+      "CC-4086",
+      "CC-4124"
+    ],
+    "summary": "Investigation of HHG-006 concluded fraud (undocumented), covering 4 transaction(s) totaling $1,906.07.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-006"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 3,
+      "assumed_response": "Customer states they did not make these purchases and still has the card in their possession."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "ESCALATE_TO_ANALYST",
+        "route": "auto",
+        "reason": "R8"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2, R10"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R2"
+      }
+    ],
+    "what_changed": "The assumed customer validation response (Customer states they did not make these purchases and still has the card in their possession.) raised fraud probability from 0.70 to 0.89, changing the recommended actions."
+  },
+  "sar": {
+    "file": true,
+    "reason": "3a: exposure $1,906.07 exceeds $1,000; pattern is undocumented/coordinated (R9)",
+    "narrative": "Customer C07297, card C07297-K1. The activity is consistent with an undocumented fraud pattern. Authorization-threshold structuring: several online purchases on one card within an hour, each priced just under $500, consistent with amounts chosen to stay below a $500 authorization limit. Not one of the five documented patterns; matches the bank's own closed cases labelled undocumented (CC-3748, CC-3841, CC-3907, CC-4086, CC-4124). The activity occurred between 2016-11-22 and 2016-11-22. Activity occurred over the online channel. Investigation of HHG-006 concluded fraud (undocumented), covering 4 transaction(s) totaling $1,906.07. Customer states they did not make these purchases and still has the card in their possession. Similar activity was previously confirmed as fraud in case(s) CC-3748, CC-3841, CC-3907, CC-4086, CC-4124. Total exposure identified: $1,906.07.",
+    "subjects": [
+      "C07297",
+      "C07297-K1",
+      "CC-3748",
+      "CC-3841",
+      "CC-3907",
+      "CC-4086",
+      "CC-4124"
+    ],
+    "total_amount_usd": 1906.07,
+    "activity_dates": [
+      "2016-11-22",
+      "2016-11-22"
+    ]
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.89 (fraud); further steps are unlikely to change the decision.",
+  "tool_calls": 4,
+  "tokens": 0,
+  "latency_s": 0.998
+}

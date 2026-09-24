@@ -172,7 +172,12 @@ def run_case(case_id: str, trigger: dict, deps: NodeDeps) -> dict:
     ]
 
     pattern_description = ""
-    if pattern == "undocumented":
+    if pattern == "undocumented" and any(
+        e.get("ref", "").startswith("detector:threshold_structuring") for e in result["evidence"]
+    ):
+        from src.detectors.patterns import STRUCTURING_DESCRIPTION
+        pattern_description = STRUCTURING_DESCRIPTION
+    elif pattern == "undocumented":
         pattern_description = (
             "Activity shares a device profile, billing region, or recipient email across "
             "multiple customers within a short window but does not match any of the five "
@@ -197,6 +202,18 @@ def run_case(case_id: str, trigger: dict, deps: NodeDeps) -> dict:
     first_suspicious = affected_txn_ids[0] if affected_txn_ids else ""
 
     summary = _build_summary(case_id, verdict, pattern, exposure_usd, len(affected_txn_ids))
+    final_actions = final_snap["action_list"] if final_snap else []
+    blocks = [a for a in final_actions if a["action"] in ("BLOCK_CARD", "BLOCK_ALL_CARDS", "DECLINE_TRANSACTION")]
+    if verdict == "uncertain" and blocks:
+        why = sorted({r.strip() for a in blocks for r in a["reason"].split(",")})
+        summary += (
+            f" The cardholder denied making the charge, so {'/'.join(a['action'] for a in blocks)} "
+            f"is recommended under {', '.join(why)} (route {blocks[0]['route']}, awaiting approval) "
+            f"even though the evidence alone stays below the 0.85 fraud threshold."
+        ) if "R2" in why else (
+            f" {'/'.join(a['action'] for a in blocks)} is recommended under {', '.join(why)} "
+            f"(route {blocks[0]['route']}, awaiting approval) although the verdict remains uncertain."
+        )
 
     case = Case(
         status=status,
@@ -317,11 +334,12 @@ def _build_sar(trigger: dict, case: Case, requests: list[EvidenceRequest], shoul
         prior_case_ids=case.similar_prior_cases,
         actions_taken=[],
         verdict=case.verdict,
-        strongly_suspected=case.verdict == "fraud",
+        strongly_suspected=case.fraud_probability >= 0.70,
         shared_device_or_region_or_other_customer=bool(case.connected_card_ids or device_profiles),
     )
     should_file_gate = sar_trigger(
-        case.verdict, case.exposure_usd, facts.shared_device_or_region_or_other_customer, case.pattern
+        case.verdict, case.exposure_usd, facts.shared_device_or_region_or_other_customer, case.pattern,
+        fraud_probability=case.fraud_probability,
     )
     file_flag = should_file and should_file_gate
     if not file_flag:
@@ -387,7 +405,7 @@ def main(argv: list[str] | None = None) -> int:
         fixture_dir = Path(args.fixture_dir) if args.fixture_dir else data_dir / "offline"
         deps = offline_deps(fixture_dir)
     else:
-        deps = live_deps()
+        deps = live_deps(data_dir)
 
     all_rows = load_case_pack(data_dir)
     if args.case:

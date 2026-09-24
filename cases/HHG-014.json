@@ -1,0 +1,190 @@
+{
+  "case_id": "HHG-014",
+  "case": {
+    "status": "open",
+    "verdict": "uncertain",
+    "fraud_probability": 0.8436,
+    "pattern": "card_not_present_new_device",
+    "pattern_description": "",
+    "affected_txn_ids": [
+      "T3478561"
+    ],
+    "first_suspicious_txn_id": "T3478561",
+    "connected_card_ids": [
+      "C01289-K2",
+      "C01996-K2",
+      "C02910-K1",
+      "C02975-K1",
+      "C03676-K2",
+      "C04108-K2",
+      "C04274-K1",
+      "C06710-K1",
+      "C08168-K1",
+      "C09049-K1",
+      "C09906-K1",
+      "C09975-K2",
+      "C10193-K2",
+      "C11082-K1",
+      "C11670-K2",
+      "C12796-K1",
+      "C13291-K1"
+    ],
+    "connected_device_profiles": [
+      "SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080"
+    ],
+    "exposure_usd": 74.96,
+    "evidence": [
+      {
+        "claim": "1 online transaction(s) on card C13487-K1 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C13487-K1)",
+        "entity_ids": [
+          "T3478561"
+        ]
+      },
+      {
+        "claim": "Shared device profile 'SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080' used by 18 distinct customers across cards ['C01289-K2', 'C01996-K2', 'C02910-K1', 'C02975-K1', 'C03676-K2', 'C04108-K2', 'C04274-K1', 'C06710-K1', 'C08168-K1', 'C09049-K1', 'C09906-K1', 'C09975-K2', 'C10193-K2', 'C11082-K1', 'C11670-K2', 'C12796-K1', 'C13291-K1', 'C13487-K1'] within a 7-day window",
+        "source": "graph",
+        "ref": "query:device_neighbors(device_profile=SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080)",
+        "entity_ids": [
+          "T3460634",
+          "T3461032",
+          "T3462447",
+          "T3463379",
+          "T3466014",
+          "T3467346",
+          "T3467635",
+          "T3467764",
+          "T3467828",
+          "T3468314",
+          "T3468363",
+          "T3468463",
+          "T3469068",
+          "T3470763",
+          "T3471032",
+          "T3473050",
+          "T3473057",
+          "T3474445",
+          "T3475406",
+          "T3476202",
+          "T3477916",
+          "T3478133",
+          "T3478561"
+        ]
+      },
+      {
+        "claim": "Device profile SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080 also used on connected card(s) C01289-K2, C01996-K2, C02910-K1, C02975-K1, C03676-K2, C04108-K2, C04274-K1, C06710-K1, C08168-K1, C09049-K1, C09906-K1, C09975-K2, C10193-K2, C11082-K1, C11670-K2, C12796-K1, C13291-K1",
+        "source": "graph",
+        "ref": "query:device_neighbors(device_id=SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080)",
+        "entity_ids": [
+          "C01289-K2",
+          "C01996-K2",
+          "C02910-K1",
+          "C02975-K1",
+          "C03676-K2",
+          "C04108-K2",
+          "C04274-K1",
+          "C06710-K1",
+          "C08168-K1",
+          "C09049-K1",
+          "C09906-K1",
+          "C09975-K2",
+          "C10193-K2",
+          "C11082-K1",
+          "C11670-K2",
+          "C12796-K1",
+          "C13291-K1"
+        ]
+      }
+    ],
+    "similar_prior_cases": [],
+    "summary": "Investigation of HHG-014 could not reach a confident verdict (card_not_present_new_device); escalated per policy. The cardholder denied making the charge, so BLOCK_CARD is recommended under R10, R2 (route L1, awaiting approval) even though the evidence alone stays below the 0.85 fraud threshold.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-014"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 3,
+      "assumed_response": "Customer states they did not make these purchases and still has the card in their possession (activity from a device they do not recognize)."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R6"
+      },
+      {
+        "action": "MONITOR_CONNECTED_CARDS",
+        "route": "auto",
+        "reason": "R6"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2, R10"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2, R6"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R2, R6"
+      },
+      {
+        "action": "MONITOR_CONNECTED_CARDS",
+        "route": "auto",
+        "reason": "R6"
+      }
+    ],
+    "what_changed": "The assumed customer validation response (Customer states they did not make these purchases and still has the card in their possession (activity from a device they do not recognize).) raised fraud probability from 0.61 to 0.84, changing the recommended actions."
+  },
+  "sar": {
+    "file": true,
+    "reason": "3a: activity connects to a shared device/region or another customer's fraud",
+    "narrative": "Customer C13487, card C13487-K1, connected to card(s) C01289-K2, C01996-K2, C02910-K1, C02975-K1, C03676-K2, C04108-K2, C04274-K1, C06710-K1, C08168-K1, C09049-K1, C09906-K1, C09975-K2, C10193-K2, C11082-K1, C11670-K2, C12796-K1, C13291-K1. The activity is consistent with card-not-present fraud from a device new to this account. The activity occurred between 2016-11-22 and 2016-11-22. Activity occurred over the online channel. Investigation of HHG-014 could not reach a confident verdict (card_not_present_new_device); escalated per policy. The cardholder denied making the charge, so BLOCK_CARD is recommended under R10, R2 (route L1, awaiting approval) even though the evidence alone stays below the 0.85 fraud threshold. Customer states they did not make these purchases and still has the card in their possession (activity from a device they do not recognize). The device profile SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080 link this activity to other affected transactions. Total exposure identified: $74.96.",
+    "subjects": [
+      "C13487",
+      "C13487-K1",
+      "C01289-K2",
+      "C01996-K2",
+      "C02910-K1",
+      "C02975-K1",
+      "C03676-K2",
+      "C04108-K2",
+      "C04274-K1",
+      "C06710-K1",
+      "C08168-K1",
+      "C09049-K1",
+      "C09906-K1",
+      "C09975-K2",
+      "C10193-K2",
+      "C11082-K1",
+      "C11670-K2",
+      "C12796-K1",
+      "C13291-K1",
+      "SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080"
+    ],
+    "total_amount_usd": 74.96,
+    "activity_dates": [
+      "2016-11-22",
+      "2016-11-22"
+    ]
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.84 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 5,
+  "tokens": 0,
+  "latency_s": 1.238
+}

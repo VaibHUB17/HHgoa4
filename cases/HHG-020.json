@@ -1,0 +1,88 @@
+{
+  "case_id": "HHG-020",
+  "case": {
+    "status": "open",
+    "verdict": "uncertain",
+    "fraud_probability": 0.6118,
+    "pattern": "card_not_present_new_device",
+    "pattern_description": "",
+    "affected_txn_ids": [
+      "T3509359"
+    ],
+    "first_suspicious_txn_id": "T3509359",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 125.08,
+    "evidence": [
+      {
+        "claim": "1 online transaction(s) on card C12265-K2 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C12265-K2)",
+        "entity_ids": [
+          "T3509359"
+        ]
+      },
+      {
+        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-2447 (pattern: account_takeover)",
+        "source": "graph",
+        "ref": "query:prior_cases_for_entities(case=CC-2447)",
+        "entity_ids": [
+          "CC-2447"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-2447",
+      "CC-2277"
+    ],
+    "summary": "Investigation of HHG-020 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-020"
+  },
+  "evidence_requests": [
+    {
+      "type": "step_up_auth",
+      "asked_after_step": 3,
+      "assumed_response": "Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R8"
+      },
+      {
+        "action": "MONITOR_CARD",
+        "route": "auto",
+        "reason": "R4"
+      }
+    ],
+    "final": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R8"
+      },
+      {
+        "action": "MONITOR_CARD",
+        "route": "auto",
+        "reason": "R4"
+      }
+    ],
+    "what_changed": "The assumed step up auth response (Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received.) raised fraud probability from 0.41 to 0.61, changing the recommended actions."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.61 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 4,
+  "tokens": 0,
+  "latency_s": 0.981
+}

@@ -1,0 +1,100 @@
+{
+  "case_id": "HHG-004",
+  "case": {
+    "status": "closed_fraud",
+    "verdict": "fraud",
+    "fraud_probability": 0.8904,
+    "pattern": "card_not_present_new_device",
+    "pattern_description": "",
+    "affected_txn_ids": [
+      "T3580804",
+      "T3583227"
+    ],
+    "first_suspicious_txn_id": "T3580804",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 221.19,
+    "evidence": [
+      {
+        "claim": "Cardholder disputes the charge: Customer C08106 message: 'I never made this $128.33 purchase. Please check my card.' Refers to 3583227.",
+        "source": "customer",
+        "ref": "trigger:customer_report(HHG-004)",
+        "entity_ids": [
+          "T3583227"
+        ]
+      },
+      {
+        "claim": "2 online transaction(s) on card C08106-K1 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C08106-K1)",
+        "entity_ids": [
+          "T3580804",
+          "T3583227"
+        ]
+      },
+      {
+        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-1736 (pattern: card_not_present_fraud)",
+        "source": "graph",
+        "ref": "query:prior_cases_for_entities(case=CC-1736)",
+        "entity_ids": [
+          "CC-1736"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-1736",
+      "CC-2121",
+      "CC-3778",
+      "CC-0696"
+    ],
+    "summary": "Investigation of HHG-004 concluded fraud (card_not_present_new_device), covering 2 transaction(s) totaling $221.19.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-004"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 3,
+      "assumed_response": "Customer states they did not make these purchases and still has the card in their possession (a pattern matching a previously confirmed fraud case)."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R8"
+      },
+      {
+        "action": "MONITOR_CARD",
+        "route": "auto",
+        "reason": "R4"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2, R10"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2"
+      }
+    ],
+    "what_changed": "The assumed customer validation response (Customer states they did not make these purchases and still has the card in their possession (a pattern matching a previously confirmed fraud case).) raised fraud probability from 0.70 to 0.89, changing the recommended actions."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.89 (fraud); further steps are unlikely to change the decision.",
+  "tool_calls": 4,
+  "tokens": 0,
+  "latency_s": 1.014
+}

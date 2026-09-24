@@ -138,7 +138,7 @@ def derive_card_id(df: "pd.DataFrame") -> "pd.Series":
     first-seen ts). See module-level VERIFIED note above -- confirmed against 4
     independent known card_ids in case_pack.csv; not exhaustively validated.
     """
-    key = df["customer_id"].astype(str) + "||" + df[CARD_TUPLE_COLS].astype(str).agg("|".join, axis=1)
+    key = df["customer_id"].astype(str) + "||" + df[CARD_TUPLE_COLS].astype("string").fillna("nan").agg("|".join, axis=1)
     first_seen = df.groupby(key)["ts"].transform("min")
     txn_count = df.groupby(key)["ts"].transform("count")
     tmp = pd.DataFrame(
@@ -198,6 +198,31 @@ def _build_card_id_lookup(transactions_csv: Path) -> "pd.Series":
         parse_dates=["ts"],
     )
     narrow["card_id"] = derive_card_id(narrow)
+
+    # case_pack.csv and closed_cases_history.csv carry the bank's real card_id for the
+    # transactions they cite. Those override the heuristic for the whole card tuple they
+    # fall on, so every other transaction on that physical card gets the same id.
+    data_dir = Path(transactions_csv).parent
+    known: dict[int, str] = {}
+    cc_path, cp_path = data_dir / "closed_cases_history.csv", data_dir / "case_pack.csv"
+    if cc_path.exists():
+        cc = pd.read_csv(cc_path, usecols=["card_id", "txn_ids"], dtype=str)
+        for card_id, txn_ids in zip(cc["card_id"], cc["txn_ids"].fillna("")):
+            for t in txn_ids.split("|"):
+                if t.strip():
+                    known[int(t)] = card_id
+    if cp_path.exists():
+        cp = pd.read_csv(cp_path, usecols=["card_id", "flagged_txn_id"])
+        known.update({int(t): c for t, c in zip(cp["flagged_txn_id"], cp["card_id"])})
+    if known:
+        tuple_key = (narrow["customer_id"].astype(str) + "||"
+                     + narrow[CARD_TUPLE_COLS].astype("string").fillna("nan").agg("|".join, axis=1))
+        anchored = narrow["TransactionID"].map(known)
+        key_to_known = anchored.groupby(tuple_key).first().dropna()
+        override = tuple_key.map(key_to_known)
+        changed = int((override.notna() & (override != narrow["card_id"])).sum())
+        narrow["card_id"] = override.fillna(narrow["card_id"])
+        logger.info("card_id: %d known ids anchored, %d transactions re-labelled", len(known), changed)
     return narrow.set_index("TransactionID")["card_id"]
 
 
@@ -332,68 +357,126 @@ def slice_closed_cases(closed_cases_csv: Path, out_vertices_csv: Path,
 # GSQL LOADING JOB (bulk) vs pyTigerGraph upsert (incremental)
 # ---------------------------------------------------------------------------
 
-LOADING_JOB_GSQL = """\
-CREATE LOADING JOB load_fraud FOR GRAPH FraudGraph {{
-  DEFINE FILENAME f_txn = "{txn_slim}";
-  DEFINE FILENAME f_next = "{next_edges}";
-  DEFINE FILENAME f_case = "{case_vertices}";
-  DEFINE FILENAME f_case_involves = "{case_involves}";
-  DEFINE FILENAME f_case_connected = "{case_connected}";
+# Each LOAD names source columns by header; they are translated to positional $N at job
+# build time because data is POSTed to the /ddl endpoint header-less, in chunks (a
+# Savanna workspace cannot read local paths, and one 170MB POST exceeds REST++ limits).
+LOAD_SPEC: dict[str, list[tuple[str, str, list[str], str | None]]] = {
+    # file_tag: [(kind, type, source columns, required-non-empty column or None)]
+    "f_txn": [
+        ("VERTEX", "Customer", ["customer_id"], None),
+        ("VERTEX", "Card", ["card_id", "card4", "card6"], None),
+        ("VERTEX", "Transaction", ["TransactionID", "ts", "TransactionAmt", "ProductCD",
+                                   "channel", "risk_score", "dist1", "dist2", "C1", "C2",
+                                   "D1", "D15", "M4", "M6", "id_15", "id_23"], None),
+        ("VERTEX", "DeviceProfile", ["device_key", "device_completeness"], "device_key"),
+        ("VERTEX", "EmailDomain", ["P_emaildomain"], "P_emaildomain"),
+        ("VERTEX", "EmailDomain", ["R_emaildomain"], "R_emaildomain"),
+        ("VERTEX", "BillingRegion", ["addr1", "addr2"], "addr1"),
+        ("VERTEX", "ProductCategory", ["ProductCD"], None),
+        ("EDGE", "OWNS", ["customer_id", "card_id"], None),
+        ("EDGE", "MADE", ["card_id", "TransactionID"], None),
+        ("EDGE", "FROM_DEVICE", ["TransactionID", "device_key"], "device_key"),
+        ("EDGE", "PURCHASER_EMAIL", ["TransactionID", "P_emaildomain"], "P_emaildomain"),
+        ("EDGE", "RECIPIENT_EMAIL", ["TransactionID", "R_emaildomain"], "R_emaildomain"),
+        ("EDGE", "BILLED_IN", ["TransactionID", "addr1"], "addr1"),
+        ("EDGE", "IN_CATEGORY", ["TransactionID", "ProductCD"], None),
+    ],
+    "f_next": [("EDGE", "NEXT", ["from_txn_id", "to_txn_id"], None)],
+    "f_case": [
+        ("VERTEX", "ClosedCase", ["case_id", "customer_id", "card_id", "outcome", "pattern",
+                                  "first_fraud_txn_id", "n_txns", "exposure_usd",
+                                  "actions_taken", "report_filed", "analyst_notes",
+                                  "opened_at", "closed_at"], None),
+        ("EDGE", "ON_CARD", ["case_id", "card_id"], None),
+    ],
+    "f_case_involves": [("EDGE", "INVOLVES", ["case_id", "txn_id"], None)],
+    "f_case_connected": [("EDGE", "CONNECTED_TO", ["case_id", "card_id"], None)],
+}
 
-  LOAD f_txn TO VERTEX Customer VALUES ($"customer_id") USING header="true", separator=",";
-  LOAD f_txn TO VERTEX Card VALUES ($"card_id", $"card4", $"card6") USING header="true", separator=",";
-  LOAD f_txn TO VERTEX Transaction VALUES (
-        $"TransactionID", $"ts", $"TransactionAmt", $"ProductCD", $"channel", $"risk_score",
-        $"dist1", $"dist2", $"C1", $"C2", $"D1", $"D15", $"M4", $"M6", $"id_15", $"id_23"
-      ) USING header="true", separator=",";
-  LOAD f_txn TO VERTEX DeviceProfile VALUES ($"device_key", $"device_completeness")
-      WHERE $"device_key" != "" USING header="true", separator=",";
-  LOAD f_txn TO VERTEX EmailDomain VALUES ($"P_emaildomain") USING header="true", separator=",";
-  LOAD f_txn TO VERTEX BillingRegion VALUES ($"addr1", $"addr2") USING header="true", separator=",";
-  LOAD f_txn TO VERTEX ProductCategory VALUES ($"ProductCD") USING header="true", separator=",";
+LOAD_FILES = {
+    "f_txn": "txn_slim.csv",
+    "f_next": "next_edges.csv",
+    "f_case": "closed_case_vertices.csv",
+    "f_case_involves": "closed_case_involves.csv",
+    "f_case_connected": "closed_case_connected.csv",
+}
 
-  LOAD f_txn TO EDGE OWNS            VALUES ($"customer_id", $"card_id") USING header="true", separator=",";
-  LOAD f_txn TO EDGE MADE            VALUES ($"card_id", $"TransactionID") USING header="true", separator=",";
-  LOAD f_txn TO EDGE FROM_DEVICE     VALUES ($"TransactionID", $"device_key")
-      WHERE $"device_key" != "" USING header="true", separator=",";
-  LOAD f_txn TO EDGE PURCHASER_EMAIL VALUES ($"TransactionID", $"P_emaildomain") USING header="true", separator=",";
-  LOAD f_txn TO EDGE RECIPIENT_EMAIL VALUES ($"TransactionID", $"R_emaildomain")
-      WHERE $"R_emaildomain" != "" USING header="true", separator=",";
-  LOAD f_txn TO EDGE BILLED_IN       VALUES ($"TransactionID", $"addr1") USING header="true", separator=",";
-  LOAD f_txn TO EDGE IN_CATEGORY     VALUES ($"TransactionID", $"ProductCD") USING header="true", separator=",";
-
-  LOAD f_next TO EDGE NEXT VALUES ($"from_txn_id", $"to_txn_id") USING header="true", separator=",";
-
-  LOAD f_case TO VERTEX ClosedCase VALUES (
-        $"case_id", $"customer_id", $"card_id", $"outcome", $"pattern",
-        $"first_fraud_txn_id", $"n_txns", $"exposure_usd", $"actions_taken",
-        $"report_filed", $"analyst_notes", $"opened_at", $"closed_at"
-      ) USING header="true", separator=",";
-  LOAD f_case_involves  TO EDGE INVOLVES     VALUES ($"case_id", $"txn_id")  USING header="true", separator=",";
-  LOAD f_case           TO EDGE ON_CARD      VALUES ($"case_id", $"card_id") USING header="true", separator=",";
-  LOAD f_case_connected TO EDGE CONNECTED_TO VALUES ($"case_id", $"card_id") USING header="true", separator=",";
-}}
-RUN LOADING JOB load_fraud
-"""
+CHUNK_BYTES = 24_000_000
 
 
-def run_loading_job(conn, data_dir: Path) -> None:
-    """Bulk-load via a GSQL LOADING JOB, per TigerGraph DevRel guidance quoted in
-    RESEARCH.md §2.2: "Don't do row-by-row REST. Use a GSQL loading job." Server paths
-    are relative to the GSQL server's file staging area -- callers are expected to have
-    already uploaded/placed the sliced CSVs there (out of scope for this function; the
-    conn.gsql() call below assumes `data_dir` is reachable by the server process, which
-    holds for Community Edition local installs and for Savanna after an explicit upload
-    step not automated here).
-    """
-    job_gsql = LOADING_JOB_GSQL.format(
-        txn_slim=str(data_dir / "txn_slim.csv"),
-        next_edges=str(data_dir / "next_edges.csv"),
-        case_vertices=str(data_dir / "closed_case_vertices.csv"),
-        case_involves=str(data_dir / "closed_case_involves.csv"),
-        case_connected=str(data_dir / "closed_case_connected.csv"),
-    )
-    conn.gsql(job_gsql)
+def _header(path: Path) -> list[str]:
+    with open(path, "r", encoding="utf-8") as f:
+        return f.readline().rstrip("\r\n").split(",")
+
+
+def build_loading_job(graph: str, data_dir: Path, job: str = "load_fraud") -> str:
+    lines = [f"CREATE LOADING JOB {job} FOR GRAPH {graph} {{"]
+    for tag in LOAD_SPEC:
+        lines.append(f'  DEFINE FILENAME {tag};')
+    for tag, loads in LOAD_SPEC.items():
+        pos = {c: i for i, c in enumerate(_header(data_dir / LOAD_FILES[tag]))}
+        for kind, target, cols, required in loads:
+            values = ", ".join(f"${pos[c]}" for c in cols)
+            where = f' WHERE ${pos[required]} != ""' if required else ""
+            lines.append(f'  LOAD {tag} TO {kind} {target} VALUES ({values}){where} '
+                         f'USING SEPARATOR=",", HEADER="false", QUOTE="double";')
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def _iter_chunks(path: Path, max_bytes: int = CHUNK_BYTES):
+    """Yield header-less chunks of whole lines. Quoted fields in these files never span
+    lines (pandas only quotes on commas/quotes, and analyst_notes has no newlines)."""
+    with open(path, "r", encoding="utf-8") as f:
+        f.readline()
+        buf, size = [], 0
+        for line in f:
+            buf.append(line)
+            size += len(line)
+            if size >= max_bytes:
+                yield "".join(buf)
+                buf, size = [], 0
+        if buf:
+            yield "".join(buf)
+
+
+def run_loading_job(conn, data_dir: Path, job: str = "load_fraud") -> dict[str, dict]:
+    """Bulk-load through a GSQL LOADING JOB (TigerGraph's bulk path, per DevRel: "Don't do
+    row-by-row REST"), feeding each FILENAME with chunked POSTs to /ddl. Same engine as
+    Savanna's Load Data tool or the MCP run_loading_job_with_file tool."""
+    graph = conn.graphname
+    conn.gsql(f"USE GRAPH {graph}\nDROP JOB {job}")
+    out = str(conn.gsql(f"USE GRAPH {graph}\n" + build_loading_job(graph, data_dir, job)))
+    if "error" in out.lower() or "fail" in out.lower():
+        raise RuntimeError(f"loading job rejected:\n{out}")
+    totals: dict[str, dict] = {}
+    for tag, fname in LOAD_FILES.items():
+        loaded = rejected = 0
+        for i, chunk in enumerate(_iter_chunks(data_dir / fname), 1):
+            res = conn.runLoadingJobWithData(chunk, tag, job, sep=",", eol="\n",
+                                             timeout=600_000, sizeLimit=64_000_000)
+            stats = _loading_stats(res)
+            loaded += stats[0]
+            rejected += stats[1]
+            logger.info("%s chunk %d: +%d lines (%d rejected so far)", tag, i, stats[0], rejected)
+        totals[tag] = {"lines": loaded, "rejected": rejected}
+    return totals
+
+
+def _loading_stats(res) -> tuple[int, int]:
+    """Pull valid/rejected line counts out of a /ddl response (shape differs across
+    4.x minor versions, so read defensively)."""
+    try:
+        r = res[0] if isinstance(res, list) else res
+        s = r.get("statistics", r)
+        s = s.get("parsingStatistics", s)  # 4.2.x nests fileLevel under parsingStatistics
+        if "validLine" in s:
+            return int(s["validLine"]), int(s.get("rejectLine", 0)) + int(s.get("invalidJson", 0))
+        fs = s.get("fileLevel", s)
+        return int(fs.get("validLine", 0)), int(fs.get("rejectedLine", fs.get("rejectLine", 0)))
+    except Exception:  # noqa: BLE001
+        logger.warning("unrecognised loading response: %s", str(res)[:300])
+        return 0, 0
 
 
 def upsert_incremental(conn, vertex_type: str, attributes: dict) -> None:
@@ -445,7 +528,8 @@ def main() -> None:
     if args.run_loading_job:
         from src.graph.connection import get_conn
         conn = get_conn()
-        run_loading_job(conn, out_dir)
+        for tag, t in run_loading_job(conn, out_dir).items():
+            logger.info("loaded %-17s %9d lines, %d rejected", tag, t["lines"], t["rejected"])
 
 
 if __name__ == "__main__":

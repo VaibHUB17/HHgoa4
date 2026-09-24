@@ -1,0 +1,77 @@
+{
+  "case_id": "HHG-002",
+  "case": {
+    "status": "open",
+    "verdict": "uncertain",
+    "fraud_probability": 0.5622,
+    "pattern": "none",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0,
+    "evidence": [
+      {
+        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-4160 (pattern: card_not_present_fraud)",
+        "source": "graph",
+        "ref": "query:prior_cases_for_entities(case=CC-4160)",
+        "entity_ids": [
+          "CC-4160"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-4160"
+    ],
+    "summary": "Investigation of HHG-002 could not reach a confident verdict (mixed signals); escalated per policy. The cardholder denied making the charge, so BLOCK_CARD is recommended under R10, R2 (route L1, awaiting approval) even though the evidence alone stays below the 0.85 fraud threshold.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-002"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 3,
+      "assumed_response": "Customer states they did not make these purchases and still has the card in their possession (a pattern matching a previously confirmed fraud case)."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R1"
+      },
+      {
+        "action": "STEP_UP_AUTH",
+        "route": "auto",
+        "reason": "R1"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2, R10"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2"
+      }
+    ],
+    "what_changed": "The assumed customer validation response (Customer states they did not make these purchases and still has the card in their possession (a pattern matching a previously confirmed fraud case).) raised fraud probability from 0.27 to 0.56, changing the recommended actions."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.56 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 4,
+  "tokens": 0,
+  "latency_s": 0.984
+}

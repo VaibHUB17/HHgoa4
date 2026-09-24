@@ -193,9 +193,15 @@ def rule_r7(s: CaseState) -> list[str]:
 
 
 def rule_r7_forbidden_actions(s: CaseState) -> set[str]:
-    """Actions R7 forbids outright, if it fires."""
+    """Actions R7 forbids outright, if it fires.
+
+    FILE_REPORT is forbidden alongside the policy's own BLOCK_CARD/DECLINE_TRANSACTION:
+    R7 classes the charge "disputed but legitimate", while a SAR requires fraud confirmed
+    or strongly suspected. Without this, R2's exposure > $1,000 add-on recommends a report
+    on the very dispute R7 says not to act against.
+    """
     if s.disputed_matches_recurring_pattern:
-        return {"BLOCK_CARD", "DECLINE_TRANSACTION"}
+        return {"BLOCK_CARD", "DECLINE_TRANSACTION", "FILE_REPORT"}
     return set()
 
 
@@ -313,20 +319,26 @@ def apply_rules(s: CaseState) -> list[dict]:
 # --- SAR trigger, §3a ----------------------------------------------------------------------
 
 
+STRONGLY_SUSPECTED_P = 0.70  # R1's block line: at or above it the policy may act on fraud
+
+
 def sar_trigger(
     verdict: str,
     exposure_usd: float,
     shared_device_or_region_or_other_customer_fraud: bool,
     pattern: str,
+    fraud_probability: float | None = None,
 ) -> bool:
     """File a SAR when fraud is confirmed or strongly suspected AND at least one of:
     exposure_usd > 1000; shared device/region/other-customer fraud; pattern is
     coordinated/undocumented (R9).
 
-    "strongly suspected" is read as verdict == "fraud" (this engine has no separate
-    strongly_suspected state; see engine.py report for the ambiguity note).
+    "strongly suspected" = fraud_probability >= 0.70, the same line R1 uses for "enough
+    to block". Reading it as verdict == "fraud" (p >= 0.85) left cases where R2/R6
+    recommend BLOCK_CARD + FILE_REPORT at p = 0.84 unable to file the report they call for.
     """
-    if verdict != "fraud":
+    strongly_suspected = fraud_probability is not None and fraud_probability >= STRONGLY_SUSPECTED_P
+    if verdict != "fraud" and not strongly_suspected:
         return False
     return (
         exposure_usd > 1000

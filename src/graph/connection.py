@@ -80,11 +80,14 @@ def get_conn(force_new: bool = False) -> tg.TigerGraphConnection:
         secret = os.environ.get("TG_SECRET")
         api_token = os.environ.get("TG_API_TOKEN")
 
+        # With a GSQL secret, pyTigerGraph authenticates both GSQL statements (DDL, query
+        # installs) and REST++ calls from the secret alone -- no username/password needed.
         conn = tg.TigerGraphConnection(
             host=host,
             graphname=graphname,
             username=username,
             password=password,
+            gsqlSecret=secret or "",
             tgCloud=True,
         )
 
@@ -108,7 +111,7 @@ def _is_auth_error(exc: Exception) -> bool:
     return "401" in msg or "authoriz" in msg or "token" in msg and "expir" in msg
 
 
-def run_query(name: str, case_id: str | None = None, **params: Any) -> Any:
+def run_query(name: str, case_id: str | None = None, params: dict | None = None, **kw: Any) -> Any:
     """Run an installed GSQL query by name, parsed as JSON, with a one-shot
     token-refresh retry on 401/expired-token errors (RESEARCH.md §2.6).
 
@@ -116,6 +119,9 @@ def run_query(name: str, case_id: str | None = None, **params: Any) -> Any:
     reflects real graph calls rather than a fabricated constant (RESEARCH.md §10.1 flags
     "tool_calls identical across all 20 files looks fabricated" as a submission red flag).
     """
+    # `case_id` here is the tool-call counter key. A query that itself takes a
+    # `case_id` parameter passes it inside `params=` instead.
+    params = {**(params or {}), **kw}
     conn = get_conn()
     try:
         result = conn.runInstalledQuery(name, params=params, timeout=32000)

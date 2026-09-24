@@ -1,0 +1,114 @@
+{
+  "case_id": "HHG-003",
+  "case": {
+    "status": "open",
+    "verdict": "uncertain",
+    "fraud_probability": 0.1687,
+    "pattern": "none",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0,
+    "evidence": [
+      {
+        "claim": "Cardholder disputes the charge: Customer C08623 message: 'I never made this $49.00 purchase. Please check my card.' Refers to 3530164.",
+        "source": "customer",
+        "ref": "trigger:customer_report(HHG-003)",
+        "entity_ids": [
+          "T3530164"
+        ]
+      },
+      {
+        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-2935 (pattern: out_of_region_use)",
+        "source": "graph",
+        "ref": "query:prior_cases_for_entities(case=CC-2935)",
+        "entity_ids": [
+          "CC-2935"
+        ]
+      },
+      {
+        "claim": "Flagged transaction's product category and billing region match this customer's established history",
+        "source": "graph",
+        "ref": "query:customer_baseline(customer_id=C08623)",
+        "entity_ids": [
+          "T3530164"
+        ]
+      },
+      {
+        "claim": "Flagged charge matches this customer's own recurring merchant/amount pattern (monthly)",
+        "source": "graph",
+        "ref": "query:customer_baseline(customer_id=C08623)",
+        "entity_ids": [
+          "T3530164"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-2935",
+      "CC-2817",
+      "CC-4957",
+      "CC-1589"
+    ],
+    "summary": "Investigation of HHG-003 could not reach a confident verdict (mixed signals); escalated per policy.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-003"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 3,
+      "assumed_response": "No reply received from the customer within the 24-hour window."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R7"
+      },
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R7"
+      },
+      {
+        "action": "WARN_CUSTOMER",
+        "route": "auto",
+        "reason": "R7"
+      }
+    ],
+    "final": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2, R7"
+      },
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R7"
+      },
+      {
+        "action": "WARN_CUSTOMER",
+        "route": "auto",
+        "reason": "R7"
+      }
+    ],
+    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.17); actions are unchanged from the initial recommendation."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.17 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 4,
+  "tokens": 0,
+  "latency_s": 1.042
+}

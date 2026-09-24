@@ -1,0 +1,71 @@
+{
+  "case_id": "HHG-001",
+  "case": {
+    "status": "closed_legitimate",
+    "verdict": "legitimate",
+    "fraud_probability": 0.1419,
+    "pattern": "none",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0.0,
+    "evidence": [
+      {
+        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-1066 (pattern: out_of_region_use)",
+        "source": "graph",
+        "ref": "query:prior_cases_for_entities(case=CC-1066)",
+        "entity_ids": [
+          "CC-1066"
+        ]
+      },
+      {
+        "claim": "Flagged transaction's product category and billing region match this customer's established history",
+        "source": "graph",
+        "ref": "query:customer_baseline(customer_id=C12382)",
+        "entity_ids": [
+          "T3514030"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-1066",
+      "CC-3587",
+      "CC-2964"
+    ],
+    "summary": "Investigation of HHG-001 found no corroborating evidence of fraud; closed as legitimate.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-001"
+  },
+  "evidence_requests": [],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "CLOSE_NO_FRAUD",
+        "route": "auto",
+        "reason": "R3"
+      }
+    ],
+    "final": [
+      {
+        "action": "CLOSE_NO_FRAUD",
+        "route": "auto",
+        "reason": "R3"
+      }
+    ],
+    "what_changed": "nothing"
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Probability 0.14 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
+  "tool_calls": 4,
+  "tokens": 0,
+  "latency_s": 1.001
+}
