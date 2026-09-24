@@ -16,6 +16,7 @@ langchain-mcp-adapters>=0.1
 # Embeddings / LLM — optional, code degrades gracefully without them
 openai>=1.40
 tiktoken>=0.7
+google-genai>=0.1
 
 # Parquet sidecar for the V-columns
 pyarrow>=16.0
