@@ -56,7 +56,7 @@
         ]
       },
       {
-        "claim": "34 online transaction(s) on card C11923-K2 from a device marked 'New' for this account (id_15=New)",
+        "claim": "34 online transaction(s) on card C11923-K2 -- T3576228 ($11.22), T3576269 ($21.98), T3576340 ($33.86), T3576468 ($22.30), T3576872 ($22.21), T3577245 ($33.79), T3577287 ($20.51), T3577440 ($31.30), T3577647 ($35.74), T3578347 ($40.13), T3578817 ($25.73), T3579597 ($26.19), T3580380 ($25.67), T3580403 ($25.76), T3580417 ($25.68), T3580478 ($23.52), T3580544 ($22.07), T3580712 ($44.08), T3580765 ($40.12), T3580776 ($25.08), T3580815 ($15.21), T3580907 ($16.17), T3581048 ($37.08), T3582338 ($36.67), T3582375 ($32.65), T3582413 ($16.63), T3582738 ($56.59), T3582868 ($57.27), T3583101 ($40.56), T3583229 ($16.78), T3583368 ($131.30), T3583406 ($19.55), T3583411 ($6.33), T3583435 ($22.93) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C11923-K2)",
         "entity_ids": [
@@ -121,7 +121,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with a closed case match suggests the device may be linked to other compromised accounts, warranting a check for connected cards.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with a closed case match suggests a shared device that may be linked to other compromised cards.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-011)",
         "entity_ids": [
@@ -136,7 +136,7 @@
       "CC-0696",
       "CC-4743"
     ],
-    "summary": "Case HHG-011 resulted in an uncertain verdict with a fraud probability of 0.33, driven by a customer dispute of a $131.30 charge on card C11923-K2 and the presence of 34 online transactions from a new device. Key evidence included a structural match with confirmed-fraud case CC-3905, though the disputed charge also aligned with the customer's established recurring subscription pattern, which Policy R7 forbids from triggering an immediate card block. The step-up authentication request expired unanswered, raising the fraud probability from 0.29 to 0.33 and confirming the need for further review. Consequently, the final actions consisted of CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), WARN_CUSTOMER (auto, R7), and ESCALATE_TO_ANALYST (auto, R8), as the unresolved device linkage and lack of customer response prevented a definitive determination.",
+    "summary": "Case HHG-011 remains uncertain with a fraud probability of 0.33, as the step-up authentication request expired unanswered, which raised the risk assessment from 0.29 and prevented a definitive conclusion. Key evidence includes a customer dispute of a $131.30 charge on card C11923-K2, 34 online transactions from a new device, and a structural match with confirmed fraud case CC-3905, though the disputed charge aligns with the customer's recurring merchant pattern. The final actions of CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), WARN_CUSTOMER (auto, R7), and ESCALATE_TO_ANALYST (auto, R8) were selected because Fraud Policy R7 forbids immediate card blocking for recurring subscriptions, while the unresolved authentication and shared-device links necessitated escalation per policy.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-011"
   },
@@ -204,6 +204,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.33 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 1380,
-  "latency_s": 4.612
+  "tokens": 1866,
+  "latency_s": 6.192
 }

@@ -60,7 +60,7 @@
       "CC-1589",
       "CC-0264"
     ],
-    "summary": "Investigation of HHG-003 found no corroborating evidence of fraud; closed as legitimate.",
+    "summary": "Case HHG-003 was closed with a verdict of legitimate and a fraud probability of 0.02, as the disputed $49.00 charge on card C08623-K2 matched the customer's established recurring subscription pattern and billing history. The lack of a customer reply to the validation request did not alter the low risk assessment, and the structural match with cleared case CC-1589 further supported the legitimate classification. The final actions include MONITOR_CARD (auto, R4), CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), which were selected because Fraud Policy R7 forbids immediate card blocking for recurring charges and the evidence did not justify escalation.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-003"
   },
@@ -123,6 +123,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.02 (legitimate); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 189,
-  "latency_s": 5.041
+  "tokens": 932,
+  "latency_s": 2.085
 }

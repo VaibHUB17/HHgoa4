@@ -23,7 +23,7 @@
         ]
       },
       {
-        "claim": "1 online transaction(s) on card C09988-K1 from a device marked 'New' for this account (id_15=New)",
+        "claim": "1 online transaction(s) on card C09988-K1 -- T3534820 ($59.67) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C09988-K1)",
         "entity_ids": [
@@ -31,7 +31,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker indicates a potential shared device that could be linked to other compromised cards or customers.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker suggests a potential shared device that could be linked to other compromised cards or customers.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-016)",
         "entity_ids": [
@@ -46,7 +46,7 @@
       "CC-0534",
       "CC-0620"
     ],
-    "summary": "Case HHG-016 regarding customer C09988 and card C09988-K1 remains uncertain with a fraud probability of 0.38, as the step-up authentication request expired unanswered within the window. The key evidence includes the customer's dispute of the $59.67 charge on transaction T3534820 and the detection of one online transaction from a device marked 'New' for this account. The final actions consist of CREATE_CASE (auto, R8) and MONITOR_CARD (auto, R4), which were chosen because the lack of a step-up response raised the probability from 0.33 to 0.38, necessitating escalation per policy.",
+    "summary": "Investigation of HHG-016 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-016"
   },
@@ -62,24 +62,24 @@
       {
         "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R8"
+        "reason": "R0: 3a, fraud_probability >= 0.30"
       },
       {
         "action": "MONITOR_CARD",
         "route": "auto",
-        "reason": "R4"
+        "reason": "R0: policy default, keep watching while case is open"
       }
     ],
     "final": [
       {
         "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R8"
+        "reason": "R0: 3a, fraud_probability >= 0.30"
       },
       {
         "action": "MONITOR_CARD",
         "route": "auto",
-        "reason": "R4"
+        "reason": "R0: policy default, keep watching while case is open"
       }
     ],
     "what_changed": "The assumed step up auth response (Step-up authentication request expired unanswered within the window.) raised fraud probability from 0.33 to 0.38, changing the recommended actions."
@@ -94,6 +94,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.38 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 886,
-  "latency_s": 10.01
+  "tokens": 170,
+  "latency_s": 6.098
 }

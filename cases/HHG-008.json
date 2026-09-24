@@ -30,7 +30,7 @@
         ]
       },
       {
-        "claim": "8 online transaction(s) on card C13171-K2 from a device marked 'New' for this account (id_15=New)",
+        "claim": "8 online transaction(s) on card C13171-K2 -- T3551412 ($4.67), T3553223 ($45.75), T3554288 ($78.56), T3554589 ($11.91), T3554683 ($85.57), T3555638 ($11.85), T3556719 ($8.33), T3557987 ($55.69) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C13171-K2)",
         "entity_ids": [
@@ -69,7 +69,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker alongside a closed case match suggests a potential shared device or account takeover that may extend to other cards.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with a closed case match suggests the device may be linked to other compromised accounts, warranting an investigation of the shared-device neighborhood.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-008)",
         "entity_ids": [
@@ -84,7 +84,7 @@
       "CC-4819",
       "CC-0553"
     ],
-    "summary": "Investigation of HHG-008 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
+    "summary": "Case HHG-008 resulted in an uncertain verdict with a fraud probability of 0.33, as the investigation into the card_not_present_new_device pattern could not reach a confident conclusion. Key evidence included a customer dispute regarding a $55.68 charge, eight online transactions on card C13171-K2 from a new device, and a structural match with closed fraud case CC-0056, though the disputed charge also matched the customer's recurring subscription pattern. The step-up authentication evidence request expired unanswered, which raised the fraud probability from 0.29 to 0.33 and influenced the final decision-making process. Consequently, the final actions consisted of CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), chosen because Fraud Policy R7 forbids an immediate card block when the disputed charge aligns with an established recurring subscription.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-008"
   },
@@ -142,6 +142,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.33 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 186,
-  "latency_s": 5.954
+  "tokens": 1238,
+  "latency_s": 8.192
 }

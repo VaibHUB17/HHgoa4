@@ -13,7 +13,7 @@
     "exposure_usd": 0.0,
     "evidence": [
       {
-        "claim": "1 online transaction(s) on card C05876-K2 from a device marked 'New' for this account (id_15=New)",
+        "claim": "1 online transaction(s) on card C05876-K2 -- T3545223 ($5.92) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C05876-K2)",
         "entity_ids": [
@@ -29,7 +29,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character behavior suggests a potential shared device or testing sequence that could indicate a broader compromise beyond this single card.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character activity suggests a potential shared device or compromised endpoint that may be linked to other cards.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-012)",
         "entity_ids": [
@@ -44,7 +44,7 @@
       "CC-0553",
       "CC-0522"
     ],
-    "summary": "Case HHG-012 was reviewed after a real-time model scored transaction 3553342 at 0.55, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that the flagged transaction's product category and billing region align with the customer's established history, despite the device being marked as new for card C05876-K2. Although the agent expanded the investigation to the shared-device neighborhood, no additional corroborating evidence of fraud was found, resulting in no change to the initial actions. Consequently, the case was closed with the final action CLOSE_NO_FRAUD (auto, R3), which matches the initial action exactly.",
+    "summary": "Case HHG-012 was reviewed after a real-time model scored transaction 3553342 at 0.55, but the final verdict is legitimate with a fraud probability of 0.12. Key evidence indicates that the flagged transaction's product category and billing region align with the customer's established history, and while a prior transaction T3545223 originated from a device marked 'New', this was assessed as a potential shared device rather than fraud. No evidence request was issued, and the investigation concluded that the activity was in-character. The final action is CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered), which was chosen because the initial assessment found no corroborating evidence of fraud and nothing changed during the review process.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-012"
   },
@@ -54,14 +54,14 @@
       {
         "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, settled low, no rule triggered"
       }
     ],
     "final": [
       {
         "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, settled low, no rule triggered"
       }
     ],
     "what_changed": "nothing"
@@ -76,6 +76,6 @@
   },
   "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 6,
-  "tokens": 783,
-  "latency_s": 5.202
+  "tokens": 834,
+  "latency_s": 4.239
 }
