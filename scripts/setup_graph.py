@@ -26,7 +26,7 @@ QUERIES = ROOT / "src" / "graph" / "queries.gsql"
 
 EXPECTED_VERTICES = {
     "Customer", "Card", "Transaction", "DeviceProfile", "EmailDomain",
-    "BillingRegion", "ProductCategory", "ClosedCase", "Case", "PolicyChunk",
+    "BillingRegion", "ProductCategory", "ClosedCase", "InvestigationCase", "PolicyChunk",
 }
 EXPECTED_QUERIES = {
     "card_window", "device_neighbors", "customer_baseline",
@@ -91,29 +91,62 @@ def split_statements(gsql: str) -> list[str]:
     return [b.strip() for b in blocks if b.strip()]
 
 
-def run_file(conn, path: Path, label: str) -> None:
+_GSQL_FAIL = re.compile(
+    r"(semantic check fails|syntax error|encountered \"|failed to|does not exist|"
+    r"is not defined|type check error|error:|exception)", re.I)
+
+
+def run_gsql(conn, stmt: str, label: str, graph: str | None = None) -> str:
+    """Run one statement, optionally inside a graph. pyTigerGraph's gsql() returns the
+    server's text output even when the statement was rejected, so failure is detected
+    from that text rather than from an exception alone."""
+    body = f"USE GRAPH {graph}\n{stmt}" if graph else stmt
+    first = stmt.strip().splitlines()[0][:70]
+    try:
+        out = str(conn.gsql(body))
+    except Exception as e:  # noqa: BLE001
+        out = f"exception: {e}"
+    low = out.lower()
+    if "already exist" in low or "is used by another object" in low:
+        print(f"    {label} skip {first}  (already exists)")
+        return out
+    if _GSQL_FAIL.search(out):
+        print(f"    {label} FAIL {first}", file=sys.stderr)
+        _die(
+            f"statement was rejected:\n\n{body}\n\n{out}",
+            "GSQL syntax varies by version. Nested subqueries inside "
+            "POST-ACCUM/FOREACH are the most common incompatibility.",
+        )
+    print(f"    {label} ok   {first}")
+    return out
+
+
+def run_statements(conn, statements: list[str], label: str, graph: str | None = None) -> None:
+    print(f"\n  {label}: {len(statements)} statement(s)")
+    for i, stmt in enumerate(statements, 1):
+        run_gsql(conn, stmt, f"[{i:>2}/{len(statements)}]", graph)
+
+
+def run_file(conn, path: Path, label: str, graph: str) -> None:
+    """Schema: global vertex/edge types first, then CREATE GRAPH over them, then the
+    vector schema-change job. Queries: each created inside the graph, then installed."""
     if not path.exists():
         _die(f"{path} not found")
-    print(f"\n  {label}: {path.relative_to(ROOT)}")
     statements = split_statements(path.read_text(encoding="utf-8"))
-    print(f"  {len(statements)} statement(s)")
-    for i, stmt in enumerate(statements, 1):
-        first = stmt.strip().splitlines()[0][:70]
-        try:
-            conn.gsql(stmt)
-            print(f"    [{i:>2}/{len(statements)}] ok   {first}")
-        except Exception as e:  # noqa: BLE001
-            msg = str(e)
-            if "already exist" in msg.lower():
-                print(f"    [{i:>2}/{len(statements)}] skip {first}  (already exists)")
-                continue
-            print(f"    [{i:>2}/{len(statements)}] FAIL {first}", file=sys.stderr)
-            _die(
-                f"statement {i} of {path.name} was rejected:\n\n{stmt}\n\n{msg}",
-                "GSQL syntax varies by version. Nested subqueries inside "
-                "POST-ACCUM/FOREACH are the most common incompatibility. "
-                "`SHOW QUERY <name>` reports the parsed syntax version.",
-            )
+    if path == SCHEMA:
+        types = [s for s in statements if "SCHEMA_CHANGE" not in s.upper()]
+        vector_job = [s for s in statements if "SCHEMA_CHANGE" in s.upper()]
+        run_statements(conn, types, "schema types")
+        existing = str(conn.gsql("SHOW GRAPH *"))
+        if f"Graph {graph}(" in existing:
+            print(f"    graph {graph} already exists")
+        else:
+            run_gsql(conn, f"CREATE GRAPH {graph}(*)", "[graph]")
+        run_statements(conn, vector_job, "vector attributes")
+    else:
+        run_statements(conn, statements, label, graph)
+        print("\n  installing queries (a few minutes on first install)")
+        run_gsql(conn, "INSTALL QUERY ALL", "[install]", graph)
 
 
 def verify(conn) -> None:
@@ -173,8 +206,9 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001
             print(f"  drop skipped: {e}")
 
-    run_file(conn, SCHEMA, "schema")
-    run_file(conn, QUERIES, "queries")
+    graph = getattr(conn, "graphname", "")
+    run_file(conn, SCHEMA, "schema", graph)
+    run_file(conn, QUERIES, "queries", graph)
     verify(conn)
     return 0
 

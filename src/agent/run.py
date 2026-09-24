@@ -118,6 +118,8 @@ def run_case(case_id: str, trigger: dict, deps: NodeDeps) -> dict:
         from src.graph.connection import counter_get, counter_reset
 
     counter_reset(case_id)
+    from src.llm import prose
+    prose.reset_tokens(case_id)
     start = time.perf_counter()
 
     graph = build_graph(deps)
@@ -172,7 +174,12 @@ def run_case(case_id: str, trigger: dict, deps: NodeDeps) -> dict:
     ]
 
     pattern_description = ""
-    if pattern == "undocumented":
+    if pattern == "undocumented" and any(
+        e.get("ref", "").startswith("detector:threshold_structuring") for e in result["evidence"]
+    ):
+        from src.detectors.patterns import STRUCTURING_DESCRIPTION
+        pattern_description = STRUCTURING_DESCRIPTION
+    elif pattern == "undocumented":
         pattern_description = (
             "Activity shares a device profile, billing region, or recipient email across "
             "multiple customers within a short window but does not match any of the five "
@@ -197,6 +204,18 @@ def run_case(case_id: str, trigger: dict, deps: NodeDeps) -> dict:
     first_suspicious = affected_txn_ids[0] if affected_txn_ids else ""
 
     summary = _build_summary(case_id, verdict, pattern, exposure_usd, len(affected_txn_ids))
+    final_actions = final_snap["action_list"] if final_snap else []
+    blocks = [a for a in final_actions if a["action"] in ("BLOCK_CARD", "BLOCK_ALL_CARDS", "DECLINE_TRANSACTION")]
+    if verdict == "uncertain" and blocks:
+        why = sorted({r.strip() for a in blocks for r in a["reason"].split(",")})
+        summary += (
+            f" The cardholder denied making the charge, so {'/'.join(a['action'] for a in blocks)} "
+            f"is recommended under {', '.join(why)} (route {blocks[0]['route']}, awaiting approval) "
+            f"even though the evidence alone stays below the 0.85 fraud threshold."
+        ) if "R2" in why else (
+            f" {'/'.join(a['action'] for a in blocks)} is recommended under {', '.join(why)} "
+            f"(route {blocks[0]['route']}, awaiting approval) although the verdict remains uncertain."
+        )
 
     case = Case(
         status=status,
@@ -228,9 +247,31 @@ def run_case(case_id: str, trigger: dict, deps: NodeDeps) -> dict:
 
     nba = NextBestActions(initial=initial_actions, final=final_actions, what_changed=what_changed)
 
+    # LLM prose (wording only): every fact below is already decided; the summary falls
+    # back to the deterministic template if the model is unavailable or cites an unknown id
+    case.summary = prose.write_summary(case_id, {
+        "case_id": case_id,
+        "trigger": trigger.get("trigger_text", ""),
+        "card_id": trigger.get("card_id", ""),
+        "customer_id": trigger.get("customer_id", ""),
+        "verdict": verdict,
+        "fraud_probability": round(p_final, 2),
+        "pattern": pattern,
+        "pattern_description": pattern_description,
+        "affected_txn_ids": ", ".join(affected_txn_ids),
+        "exposure_usd": exposure_usd,
+        "evidence": " | ".join(e.claim for e in evidence),
+        "similar_prior_cases": ", ".join(case.similar_prior_cases),
+        "evidence_requests": " | ".join(f"{r.type}: {r.assumed_response}" for r in evidence_requests),
+        "initial_actions": ", ".join(f"{a.action} ({a.route}, {a.reason})" for a in initial_actions),
+        "final_actions": ", ".join(f"{a.action} ({a.route}, {a.reason})" for a in final_actions),
+        "what_changed": what_changed,
+        "template_summary": case.summary,
+    }, fallback=case.summary)
+
     final_action_names = {a.action for a in final_actions}
     should_file = "FILE_REPORT" in final_action_names
-    sar = _build_sar(trigger, case, evidence_requests, should_file)
+    sar = _build_sar(trigger, case, evidence_requests, should_file, result.get("txn_timestamps", {}))
 
     stop_reason = _build_stop_reason(evidence_requests, p_final, verdict)
 
@@ -242,7 +283,7 @@ def run_case(case_id: str, trigger: dict, deps: NodeDeps) -> dict:
         sar=sar,
         stop_reason=stop_reason,
         tool_calls=tool_calls,
-        tokens=0,  # no LLM call in this build's deterministic path -- honest zero, not fabricated
+        tokens=prose.tokens_used(case_id),  # real Groq usage; 0 when prose is disabled/unavailable
         latency_s=latency_s,
     )
     return answer.to_dict()
@@ -296,7 +337,8 @@ def _build_stop_reason(requests: list[EvidenceRequest], p_final: float, verdict:
     return f"Probability {p_final:.2f} remains uncertain after available evidence; escalating rather than continuing indefinitely."
 
 
-def _build_sar(trigger: dict, case: Case, requests: list[EvidenceRequest], should_file: bool) -> Sar:
+def _build_sar(trigger: dict, case: Case, requests: list[EvidenceRequest], should_file: bool,
+               txn_timestamps: dict | None = None) -> Sar:
     device_profiles = case.connected_device_profiles
     facts = SarFacts(
         customer_id=trigger["customer_id"],
@@ -317,11 +359,12 @@ def _build_sar(trigger: dict, case: Case, requests: list[EvidenceRequest], shoul
         prior_case_ids=case.similar_prior_cases,
         actions_taken=[],
         verdict=case.verdict,
-        strongly_suspected=case.verdict == "fraud",
+        strongly_suspected=case.fraud_probability >= 0.70,
         shared_device_or_region_or_other_customer=bool(case.connected_card_ids or device_profiles),
     )
     should_file_gate = sar_trigger(
-        case.verdict, case.exposure_usd, facts.shared_device_or_region_or_other_customer, case.pattern
+        case.verdict, case.exposure_usd, facts.shared_device_or_region_or_other_customer, case.pattern,
+        fraud_probability=case.fraud_probability,
     )
     file_flag = should_file and should_file_gate
     if not file_flag:
@@ -335,9 +378,15 @@ def _build_sar(trigger: dict, case: Case, requests: list[EvidenceRequest], shoul
     if not case.affected_txn_ids:
         return Sar(file=False, reason="3a: no affected transactions to report", narrative="", subjects=[], total_amount_usd=0.0, activity_dates=[])
 
+    # real transaction times from the graph; the case open time only as a last resort
+    ts_map = txn_timestamps or {}
+    facts.affected_txn_timestamps = [ts_map.get(t, trigger["opened_at"]) for t in case.affected_txn_ids]
     dates = [str(trigger["opened_at"])[:10]] * 2
-    facts.affected_txn_timestamps = [trigger["opened_at"]] * len(case.affected_txn_ids)
-    report = generate_sar(facts)
+    from src.llm import prose
+    try:
+        report = generate_sar(facts, render_fn=prose.sar_render_fn(trigger["case_id"]))
+    except ValueError:  # rewritten narrative failed the id guard: keep the template
+        report = generate_sar(facts)
     if not report.file:
         return Sar(file=False, reason=report.reason, narrative="", subjects=[], total_amount_usd=0.0, activity_dates=[])
     return Sar(
@@ -374,6 +423,7 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument("--case", help="single case_id to run, e.g. HHG-017")
     group.add_argument("--all", action="store_true", help="run every case in case_pack.csv, in opened_at order")
     parser.add_argument("--offline", action="store_true", help="use offline_deps (JSON fixtures, no TigerGraph)")
+    parser.add_argument("--evidence-mode", choices=["deterministic", "agentic"], default="deterministic", help="tool selection mode (default: deterministic, agentic: LLM tool selection)")
     parser.add_argument("--data-dir", default=str(_DEFAULT_DATA_DIR), help="directory with case_pack.csv etc. (default: data/)")
     parser.add_argument("--fixture-dir", default=None, help="offline fixture directory (default: <data-dir>/offline)")
     parser.add_argument("--out", default="cases", help="output directory for answer files (default: cases/)")
@@ -386,8 +436,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.offline:
         fixture_dir = Path(args.fixture_dir) if args.fixture_dir else data_dir / "offline"
         deps = offline_deps(fixture_dir)
+    elif args.evidence_mode == "agentic":
+        from src.agent.deps import agentic_deps
+        deps = agentic_deps(data_dir)
     else:
-        deps = live_deps()
+        deps = live_deps(data_dir)
 
     all_rows = load_case_pack(data_dir)
     if args.case:

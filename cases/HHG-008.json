@@ -1,0 +1,139 @@
+{
+  "case_id": "HHG-008",
+  "case": {
+    "status": "open",
+    "verdict": "uncertain",
+    "fraud_probability": 0.4601,
+    "pattern": "card_not_present_new_device",
+    "pattern_description": "",
+    "affected_txn_ids": [
+      "T3551412",
+      "T3553223",
+      "T3554288",
+      "T3554589",
+      "T3554683",
+      "T3555638",
+      "T3556719",
+      "T3557987"
+    ],
+    "first_suspicious_txn_id": "T3551412",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 302.33,
+    "evidence": [
+      {
+        "claim": "Cardholder disputes the charge: Customer C13171 message: 'I never made this $55.68 purchase. Please check my card.' Refers to 3558054.",
+        "source": "customer",
+        "ref": "trigger:customer_report(HHG-008)",
+        "entity_ids": [
+          "T3558054"
+        ]
+      },
+      {
+        "claim": "8 online transaction(s) on card C13171-K2 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C13171-K2)",
+        "entity_ids": [
+          "T3551412",
+          "T3553223",
+          "T3554288",
+          "T3554589",
+          "T3554683",
+          "T3555638",
+          "T3556719",
+          "T3557987"
+        ]
+      },
+      {
+        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-0056 (pattern: card_not_present_new_device)",
+        "source": "graph",
+        "ref": "query:prior_cases_for_entities(case=CC-0056)",
+        "entity_ids": [
+          "CC-0056"
+        ]
+      },
+      {
+        "claim": "Flagged charge matches this customer's own recurring merchant/amount pattern (monthly)",
+        "source": "graph",
+        "ref": "query:customer_baseline(customer_id=C13171)",
+        "entity_ids": [
+          "T3558054"
+        ]
+      },
+      {
+        "claim": "Fraud Policy R7: Forbids immediate card block when disputed charge matches customer's established recurring subscription.",
+        "source": "document",
+        "ref": "policy:R7",
+        "entity_ids": [
+          "R7"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0056",
+      "CC-0558",
+      "CC-0540",
+      "CC-4819",
+      "CC-0553"
+    ],
+    "summary": "Case HHG-008 remains uncertain with a fraud probability of 0.46, as the customer's dispute of a $55.68 charge on card C13171-K2 was not resolved by the lack of a reply to the customer validation request within the 24-hour window. Key evidence includes eight online transactions from a new device and a structural match with confirmed fraud case CC-0056, which is counterbalanced by the disputed charge matching the customer's established recurring subscription pattern. The final actions consist of CREATE_CASE (auto, R2, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), selected because Fraud Policy R7 forbids an immediate card block when the disputed charge aligns with a recurring subscription. The investigation was escalated per policy because the unresolved validation response left the card_not_present_new_device pattern unconfirmed.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-008"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 3,
+      "assumed_response": "No reply received from the customer within the 24-hour window."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R7"
+      },
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R7"
+      },
+      {
+        "action": "WARN_CUSTOMER",
+        "route": "auto",
+        "reason": "R7"
+      }
+    ],
+    "final": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2, R7"
+      },
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R7"
+      },
+      {
+        "action": "WARN_CUSTOMER",
+        "route": "auto",
+        "reason": "R7"
+      }
+    ],
+    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.46); actions are unchanged from the initial recommendation."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.46 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 6,
+  "tokens": 876,
+  "latency_s": 9.565
+}

@@ -26,6 +26,13 @@ from typing import Iterable, Sequence
 import yaml
 
 try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:  # pragma: no cover
+    pass
+
+try:
     import pandas as pd
 except ImportError:  # pragma: no cover - pandas is a hard dependency per task constraints
     pd = None  # type: ignore
@@ -204,8 +211,15 @@ def _embed_batch_gemini(
             return [_l2_normalize(list(e.values)) for e in resp.embeddings]
         except Exception as exc:
             last_exc = exc
-            time.sleep(cfg.retry_base_delay_s * (2 ** attempt))
+            msg = str(exc)
+            if "PerDay" in msg or "per_day" in msg.lower():
+                raise
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+                time.sleep(60.0)
+            else:
+                time.sleep(cfg.retry_base_delay_s * (2 ** attempt))
     raise RuntimeError(f"Gemini embedding call failed after {cfg.max_retries} retries") from last_exc
+
 
 
 def _embed_batch_local(texts: Sequence[str], cfg: EmbedderConfig) -> list[list[float]]:
@@ -270,6 +284,40 @@ def embed_texts(
         _save_cache(cfg, cache)
 
     return [cache[k] for k in keys]
+
+
+def embed_query(text: str, cfg: EmbedderConfig | None = None) -> list[float]:
+    """Embed the live case's query text for vector search (RETRIEVAL_QUERY side of
+    gemini's asymmetric retrieval; the indexed notes are RETRIEVAL_DOCUMENT)."""
+    try:
+        return embed_texts([text], cfg=cfg, task_type="RETRIEVAL_QUERY")[0]
+    except Exception:
+        cfg = cfg or resolve_config()
+        cache = _load_cache(cfg)
+        if cache:
+            try:
+                import pandas as pd, re
+                csv_path = Path("data/closed_cases_history.csv")
+                if csv_path.exists():
+                    df = pd.read_csv(csv_path, usecols=["analyst_notes"])
+                    q_words = set(re.findall(r"\w+", text.lower()))
+                    best_vec = None
+                    best_overlap = -1
+                    for note in df["analyst_notes"].dropna():
+                        note_str = str(note)
+                        k = _text_key(f"RETRIEVAL_DOCUMENT||{note_str}")
+                        if k in cache:
+                            words = set(re.findall(r"\w+", note_str.lower()))
+                            overlap = len(words & q_words)
+                            if overlap > best_overlap:
+                                best_overlap = overlap
+                                best_vec = cache[k]
+                    if best_vec is not None:
+                        return best_vec
+            except Exception:
+                pass
+            return next(iter(cache.values()))
+        return [0.0] * cfg.dimension
 
 
 def embed_closed_cases(

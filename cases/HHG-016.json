@@ -1,0 +1,91 @@
+{
+  "case_id": "HHG-016",
+  "case": {
+    "status": "open",
+    "verdict": "uncertain",
+    "fraud_probability": 0.5112,
+    "pattern": "card_not_present_new_device",
+    "pattern_description": "",
+    "affected_txn_ids": [
+      "T3534820"
+    ],
+    "first_suspicious_txn_id": "T3534820",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 59.67,
+    "evidence": [
+      {
+        "claim": "Cardholder disputes the charge: Customer C09988 message: 'I never made this $59.67 purchase. Please check my card.' Refers to 3534820.",
+        "source": "customer",
+        "ref": "trigger:customer_report(HHG-016)",
+        "entity_ids": [
+          "T3534820"
+        ]
+      },
+      {
+        "claim": "1 online transaction(s) on card C09988-K1 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C09988-K1)",
+        "entity_ids": [
+          "T3534820"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0420",
+      "CC-0080",
+      "CC-0842",
+      "CC-0534",
+      "CC-0620"
+    ],
+    "summary": "Case HHG-016 remains uncertain with a fraud probability of 0.51, as the cardholder's denial of the $59.67 charge on card C09988-K1 and the detection of a new device did not yield a definitive conclusion. The request for customer validation resulted in no reply within the 24-hour window, leaving the fraud probability unchanged and the case unresolved. Consequently, the final actions include BLOCK_CARD via route L1 under rules R2 and R10, and CREATE_CASE via the auto route under rule R2. These actions were selected because the cardholder explicitly denied the transaction, triggering a precautionary block despite the evidence staying below the 0.85 fraud threshold.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-016"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 3,
+      "assumed_response": "No reply received from the customer within the 24-hour window."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R8"
+      },
+      {
+        "action": "MONITOR_CARD",
+        "route": "auto",
+        "reason": "R4"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2, R10"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2"
+      }
+    ],
+    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.51); actions are unchanged from the initial recommendation."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.51 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 6,
+  "tokens": 735,
+  "latency_s": 2.715
+}

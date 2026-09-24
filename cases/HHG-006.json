@@ -1,0 +1,145 @@
+{
+  "case_id": "HHG-006",
+  "case": {
+    "status": "closed_fraud",
+    "verdict": "fraud",
+    "fraud_probability": 0.8904,
+    "pattern": "undocumented",
+    "pattern_description": "Authorization-threshold structuring: several online purchases on one card within an hour, each priced just under $500, consistent with amounts chosen to stay below a $500 authorization limit. Not one of the five documented patterns; matches the bank's own closed cases labelled undocumented (CC-3748, CC-3841, CC-3907, CC-4086, CC-4124).",
+    "affected_txn_ids": [
+      "T3476602",
+      "T3476633",
+      "T3476665",
+      "T3476682"
+    ],
+    "first_suspicious_txn_id": "T3476602",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 1906.07,
+    "evidence": [
+      {
+        "claim": "Cardholder disputes the charge: Customer C07297 message: 'I never made this $482.12 purchase. Please check my card.' Refers to 3476682.",
+        "source": "customer",
+        "ref": "trigger:customer_report(HHG-006)",
+        "entity_ids": [
+          "T3476682"
+        ]
+      },
+      {
+        "claim": "4 online purchases on card C07297-K1 within 30 minutes, each just under $500 ($478.95, $456.96, $488.04, $482.12) -- consistent with structuring below a $500 authorization threshold, as in closed cases CC-3748, CC-3841, CC-3907",
+        "source": "graph",
+        "ref": "detector:threshold_structuring(card_id=C07297-K1)",
+        "entity_ids": [
+          "T3476602",
+          "T3476633",
+          "T3476665",
+          "T3476682"
+        ]
+      },
+      {
+        "claim": "4 online transaction(s) on card C07297-K1 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C07297-K1)",
+        "entity_ids": [
+          "T3476602",
+          "T3476633",
+          "T3476665",
+          "T3476682"
+        ]
+      },
+      {
+        "claim": "Fraud Policy R1: Requires customer verification before card block when alert rests on single unconfirmed signal.",
+        "source": "document",
+        "ref": "policy:R1",
+        "entity_ids": [
+          "R1"
+        ]
+      },
+      {
+        "claim": "FinCEN Guidance: Mandates reporting of structured transactions designed to evade authorization thresholds.",
+        "source": "document",
+        "ref": "reg:fincen_sar_narrative:0",
+        "entity_ids": [
+          "SAR"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0485",
+      "CC-0668",
+      "CC-0076",
+      "CC-0489",
+      "CC-0683",
+      "CC-3748",
+      "CC-3841",
+      "CC-3907",
+      "CC-4086",
+      "CC-4124"
+    ],
+    "summary": "Case HHG-006 is closed with a fraud verdict and a probability of 0.89, based on four online purchases on card C07297-K1 totaling $1,906.07 that were structured just under the $500 authorization threshold. The key evidence includes the customer's dispute of transaction T3476682 and the confirmation that the card remained in their possession, which elevated the risk assessment from 0.70 to 0.89. The final actions were selected to address the confirmed fraud: BLOCK_CARD was executed via route L1 under rules R2 and R10, CREATE_CASE was initiated via the auto route under rule R2, and FILE_REPORT was submitted via route L2 under rule R2.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-006"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 3,
+      "assumed_response": "Customer states they did not make these purchases and still has the card in their possession."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "ESCALATE_TO_ANALYST",
+        "route": "auto",
+        "reason": "R8"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2, R10"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R2"
+      }
+    ],
+    "what_changed": "The assumed customer validation response (Customer states they did not make these purchases and still has the card in their possession.) raised fraud probability from 0.70 to 0.89, changing the recommended actions."
+  },
+  "sar": {
+    "file": true,
+    "reason": "3a: exposure $1,906.07 exceeds $1,000; pattern is undocumented/coordinated (R9)",
+    "narrative": "Customer C07297 reported that they did not make four online purchases on card C07297-K1, which occurred on 2016-11-21. The customer confirmed that the physical card remained in their possession during the time of the unauthorized transactions. The total exposure identified from these activities is $1,906.07. Each of the four transactions was priced just under the $500 authorization threshold, indicating a pattern of structuring to avoid detection. This behavior is consistent with an undocumented fraud pattern previously observed in closed cases CC-3748, CC-3841, CC-3907, CC-4086, and CC-4124. The investigation also reviewed related prior investigations CC-0485, CC-0668, CC-0076, CC-0489, and CC-0683 as case memory. The customer’s dispute of transaction T3476682 served as key evidence in confirming the fraudulent nature of the activity. The risk assessment for case HHG-006 was elevated from 0.70 to 0.89 based on the confirmed possession of the card and the disputed transaction. Case HHG-006 is closed with a fraud verdict and a probability of 0.89. The final actions taken included blocking the card, creating a case, and filing a report to address the confirmed fraud.",
+    "subjects": [
+      "C07297",
+      "C07297-K1",
+      "CC-0485",
+      "CC-0668",
+      "CC-0076",
+      "CC-0489",
+      "CC-0683",
+      "CC-3748",
+      "CC-3841",
+      "CC-3907",
+      "CC-4086",
+      "CC-4124"
+    ],
+    "total_amount_usd": 1906.07,
+    "activity_dates": [
+      "2016-11-21",
+      "2016-11-21"
+    ]
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.89 (fraud); further steps are unlikely to change the decision.",
+  "tool_calls": 6,
+  "tokens": 1926,
+  "latency_s": 2.737
+}

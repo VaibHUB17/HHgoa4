@@ -89,7 +89,7 @@ CREATE VERTEX ClosedCase (
 // (similar_prior_cases, prior_cases_for_entities) needs no separate path. Distinguished
 // from ClosedCase by vertex type, not a flag, so a later investigation can tell "bank
 // historical record" from "our own output" while still traversing both uniformly if needed.
-CREATE VERTEX Case (
+CREATE VERTEX InvestigationCase (   // "Case" is a reserved GSQL keyword
     PRIMARY_ID case_id STRING,
     customer_id STRING,
     card_id STRING,
@@ -123,9 +123,9 @@ CREATE DIRECTED EDGE CONNECTED_TO    (FROM ClosedCase, TO Card)            WITH 
 // Same edge shapes for our own Case vertices, so write_case_to_graph() and the retrieval
 // queries can treat Case exactly like ClosedCase (separate reverse-edge names to avoid
 // GSQL "reverse edge already defined" collisions on a shared name).
-CREATE DIRECTED EDGE CASE_INVOLVES     (FROM Case, TO Transaction) WITH REVERSE_EDGE="INVOLVED_IN_CASE"
-CREATE DIRECTED EDGE CASE_ON_CARD      (FROM Case, TO Card)        WITH REVERSE_EDGE="HAS_OPEN_CASE"
-CREATE DIRECTED EDGE CASE_CONNECTED_TO (FROM Case, TO Card)        WITH REVERSE_EDGE="CONNECTED_FROM_CASE"
+CREATE DIRECTED EDGE CASE_INVOLVES     (FROM InvestigationCase, TO Transaction) WITH REVERSE_EDGE="INVOLVED_IN_CASE"
+CREATE DIRECTED EDGE CASE_ON_CARD      (FROM InvestigationCase, TO Card)        WITH REVERSE_EDGE="HAS_OPEN_CASE"
+CREATE DIRECTED EDGE CASE_CONNECTED_TO (FROM InvestigationCase, TO Card)        WITH REVERSE_EDGE="CONNECTED_FROM_CASE"
 
 // Document grounding (RESEARCH.md §6.3) -- policy chunked by rule so a citable unit
 // exists per Rn, plus regulatory reference summaries. Not required by the task prompt's

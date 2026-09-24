@@ -1,0 +1,89 @@
+{
+  "case_id": "HHG-015",
+  "case": {
+    "status": "escalated",
+    "verdict": "uncertain",
+    "fraud_probability": 0.6118,
+    "pattern": "card_not_present_new_device",
+    "pattern_description": "",
+    "affected_txn_ids": [
+      "T3464869"
+    ],
+    "first_suspicious_txn_id": "T3464869",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 599.94,
+    "evidence": [
+      {
+        "claim": "1 online transaction(s) on card C03042-K1 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C03042-K1)",
+        "entity_ids": [
+          "T3464869"
+        ]
+      },
+      {
+        "claim": "Card C03042-K1 billed in region(s) ['327.0'] outside its historical region set ['123.0', '126.0', '143.0', '170.0', '177.0', '184.0', '204.0', '225.0', '231.0', '264.0', '272.0', '299.0', '315.0', '325.0', '330.0', '337.0', '387.0', '433.0', '472.0', '476.0', '485.0'], with home-region activity interleaved within 24h -- the card cannot physically be in both places, consistent with a clone rather than a trip",
+        "source": "graph",
+        "ref": "query:customer_baseline + card_window(card_id=C03042-K1)",
+        "entity_ids": [
+          "T3464869"
+        ]
+      },
+      {
+        "claim": "Fraud Policy R1: Requires customer verification before card block when alert rests on single unconfirmed signal.",
+        "source": "document",
+        "ref": "policy:R1",
+        "entity_ids": [
+          "R1"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0469",
+      "CC-0698",
+      "CC-0791",
+      "CC-0034",
+      "CC-0684"
+    ],
+    "summary": "Case HHG-015 resulted in an uncertain verdict with a fraud probability of 0.61, driven by transaction 3464869 for $599.94 on card C03042-K1 which triggered the card_not_present_new_device pattern. Key evidence indicates the card was billed in region 327.0, outside its historical set, while home-region activity occurred within 24 hours, suggesting a clone, though Fraud Policy R1 requires customer verification before a block due to the single unconfirmed signal. The requested step_up_auth evidence was not completed within the window as no valid one-time passcode confirmation was received, which raised the probability from 0.41 to 0.61. Consequently, the final action remains ESCALATE_TO_ANALYST (auto, R8), as the unresolved lack of authentication prevents a definitive decision.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-015"
+  },
+  "evidence_requests": [
+    {
+      "type": "step_up_auth",
+      "asked_after_step": 3,
+      "assumed_response": "Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "ESCALATE_TO_ANALYST",
+        "route": "auto",
+        "reason": "R8"
+      }
+    ],
+    "final": [
+      {
+        "action": "ESCALATE_TO_ANALYST",
+        "route": "auto",
+        "reason": "R8"
+      }
+    ],
+    "what_changed": "The assumed step up auth response (Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received.) raised fraud probability from 0.41 to 0.61, changing the recommended actions."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Evidence request settled the question: probability reached 0.61 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 6,
+  "tokens": 898,
+  "latency_s": 2.721
+}

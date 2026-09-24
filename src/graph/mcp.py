@@ -88,8 +88,66 @@ async def check_mcp_server() -> int:
         return 1
 
     print("-" * 60)
+    print("Testing live query via tigergraph-mcp tool...")
+    try:
+        test_res = mcp_run_installed_query("customer_baseline", params={"customer_id": ("C04570",)})
+        print(f"  mcp_run_installed_query('customer_baseline'): OK (returned {len(test_res)} block(s))")
+    except Exception as exc:
+        print(f"  Warning: live MCP query test failed: {exc}", file=sys.stderr)
+
+    print("-" * 60)
     print("TigerGraph MCP is ready for pipeline tool execution.")
     return 0
+
+
+def mcp_run_installed_query(
+    query_name: str,
+    params: dict[str, Any] | None = None,
+    graph_name: str | None = None,
+) -> list[dict]:
+    """Execute an installed query through tigergraph-mcp's run_installed_query tool.
+
+    Ensures parameter formatting (e.g. 1-tuple for vertices) and extracts the result
+    payload from the MCP TextContent response.
+    """
+    import concurrent.futures
+    import json
+    import re
+    from tigergraph_mcp.tools.query_tools import run_installed_query
+
+    target_graph = graph_name or os.environ.get("TG_GRAPH", "") or os.environ.get("TG_GRAPHNAME", "")
+
+    formatted_params = dict(params or {})
+    for k, v in list(formatted_params.items()):
+        if k in ("card_id", "customer_id", "device_id") and isinstance(v, str):
+            formatted_params[k] = (v,)
+
+    coro = run_installed_query(query_name, params=formatted_params, graph_name=target_graph)
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            res = executor.submit(asyncio.run, coro).result()
+    else:
+        res = asyncio.run(coro)
+
+    if not res or not hasattr(res[0], "text"):
+        raise RuntimeError(f"tigergraph-mcp returned empty response for query {query_name}")
+
+    m = re.search(r"```json\n(.*?)\n```", res[0].text, re.DOTALL)
+    if m:
+        data = json.loads(m.group(1))
+    else:
+        data = json.loads(res[0].text.strip())
+
+    if not data.get("success"):
+        raise RuntimeError(data.get("summary") or f"Query {query_name} failed via MCP")
+
+    return data.get("data", {}).get("result", [])
 
 
 def main() -> int:
@@ -102,3 +160,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

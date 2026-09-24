@@ -1,0 +1,73 @@
+{
+  "case_id": "HHG-005",
+  "case": {
+    "status": "closed_legitimate",
+    "verdict": "legitimate",
+    "fraud_probability": 0.1187,
+    "pattern": "none",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0.0,
+    "evidence": [
+      {
+        "claim": "1 online transaction(s) on card C02923-K1 from a device marked 'New' for this account (id_15=New)",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C02923-K1)",
+        "entity_ids": [
+          "T3523199"
+        ]
+      },
+      {
+        "claim": "Flagged transaction's product category and billing region match this customer's established history",
+        "source": "graph",
+        "ref": "query:customer_baseline(customer_id=C02923)",
+        "entity_ids": [
+          "T3523199"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0823",
+      "CC-0307",
+      "CC-0499",
+      "CC-0699",
+      "CC-0234"
+    ],
+    "summary": "Case HHG-005 was reviewed after a real-time model scored transaction 3523199 for $100.07 at a 0.54 probability, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that while the transaction originated from a device marked 'New' for card C02923-K1, the product category and billing region align with the customer's established history, resulting in zero exposure. No evidence request was issued or resolved during this investigation. The final action of CLOSE_NO_FRAUD was chosen via the auto route under rule R3, as no new information changed the initial assessment.",
+    "written_to_graph": true,
+    "graph_case_id": "CASE-HHG-005"
+  },
+  "evidence_requests": [],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "CLOSE_NO_FRAUD",
+        "route": "auto",
+        "reason": "R3"
+      }
+    ],
+    "final": [
+      {
+        "action": "CLOSE_NO_FRAUD",
+        "route": "auto",
+        "reason": "R3"
+      }
+    ],
+    "what_changed": "nothing"
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/3a: no FILE_REPORT recommended for this case",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0.0,
+    "activity_dates": []
+  },
+  "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
+  "tool_calls": 6,
+  "tokens": 545,
+  "latency_s": 2.582
+}

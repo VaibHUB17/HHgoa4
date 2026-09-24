@@ -426,3 +426,50 @@ def detect_shared_origin(
         break  # one clustered episode per origin_key is enough; avoid overlapping dupes
 
     return findings
+
+
+# ---------------------------------------------------------------------------
+# Undocumented pattern: authorization-threshold structuring
+# ---------------------------------------------------------------------------
+# Found by reading the closed-case notes labelled pattern == "undocumented" (CC-3748,
+# CC-3841, CC-3907, CC-4086, CC-4124): "four online purchases within forty minutes, each
+# just under $500 ... amounts appear chosen to stay under a $500 authorization threshold."
+STRUCTURING_CEILING = 500.0
+STRUCTURING_FLOOR = 450.0          # "just under" -- within 10% of the threshold
+STRUCTURING_MIN_COUNT = 3
+STRUCTURING_WINDOW = timedelta(hours=1)
+STRUCTURING_PRECEDENTS = ["CC-3748", "CC-3841", "CC-3907", "CC-4086", "CC-4124"]
+STRUCTURING_DESCRIPTION = (
+    "Authorization-threshold structuring: several online purchases on one card within an "
+    "hour, each priced just under $500, consistent with amounts chosen to stay below a $500 "
+    "authorization limit. Not one of the five documented patterns; matches the bank's own "
+    "closed cases labelled undocumented (" + ", ".join(STRUCTURING_PRECEDENTS) + ")."
+)
+
+
+def detect_threshold_structuring(card_id: str, txns: list[dict]) -> list[Finding]:
+    online = sorted(
+        (t for t in txns if t.get("channel") == "online"
+         and STRUCTURING_FLOOR <= t["amount"] < STRUCTURING_CEILING),
+        key=lambda t: t["ts"],
+    )
+    for i, start in enumerate(online):
+        window = [t for t in online[i:] if t["ts"] - start["ts"] <= STRUCTURING_WINDOW]
+        if len(window) >= STRUCTURING_MIN_COUNT:
+            minutes = int((window[-1]["ts"] - window[0]["ts"]).total_seconds() // 60)
+            amounts = ", ".join(f"${t['amount']:.2f}" for t in window)
+            return [Finding(
+                pattern="undocumented",
+                evidence_items=[
+                    f"{len(window)} online purchases on card {card_id} within {minutes} minutes, "
+                    f"each just under $500 ({amounts}) -- consistent with structuring below a "
+                    f"$500 authorization threshold, as in closed cases "
+                    f"{', '.join(STRUCTURING_PRECEDENTS[:3])}"
+                ],
+                # no new ledger weight: a burst of unusual online purchases is exactly what
+                # cnp_burst_pattern already prices; this finding names the mechanism
+                weight_keys=["cnp_burst_pattern"],
+                entity_ids=[t["txn_id"] for t in window],
+                ref=f"detector:threshold_structuring(card_id={card_id})",
+            )]
+    return []

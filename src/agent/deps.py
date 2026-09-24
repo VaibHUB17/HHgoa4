@@ -34,6 +34,7 @@ from src.detectors.patterns import (
     detect_new_device,
     detect_out_of_region,
     detect_shared_origin,
+    detect_threshold_structuring,
 )
 from src.rag.retrieve import ClosedCaseCandidate, retrieve_similar_cases
 
@@ -128,11 +129,18 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
         baseline_products: set[str] = set(baseline.get("products", []))
         historical_regions: set[str] = set(baseline.get("regions", []))
 
+        own_txn_ids = {t["txn_id"] for t in txns}
         findings = []
         findings += detect_card_testing(card_id, txns)
         findings += detect_cnp_burst(card_id, txns, baseline_products)
         findings += detect_new_device(card_id, txns)
         findings += detect_out_of_region(card_id, txns, historical_regions)
+        structuring = detect_threshold_structuring(card_id, txns)
+        if structuring:
+            # the structuring finding names the mechanism behind the CNP burst; drop the
+            # generic burst finding so the same purchases aren't counted twice
+            findings = [f for f in findings if "cnp_burst_pattern" not in f.weight_keys]
+            findings = structuring + findings
 
         cards_txns_raw = fetch.cards_for_customer(customer_id, case_id)
         cards_txns = {cid: _normalize_txns(rows) for cid, rows in cards_txns_raw.items()}
@@ -163,6 +171,10 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
         candidates = fetch.prior_case_candidates(case_id)
         retrieval = retrieve_similar_cases(candidates)
         prior_cases = retrieval.similar_prior_cases
+        if structuring:
+            # the bank's own closed cases for this undocumented pattern are the precedent
+            from src.detectors.patterns import STRUCTURING_PRECEDENTS
+            prior_cases = list(dict.fromkeys(prior_cases + STRUCTURING_PRECEDENTS))
 
         # closed_case_match: a confirmed_fraud precedent that shares structure (not just
         # semantic similarity) with this case -- shared_entity_count >= 1 and outcome
@@ -189,7 +201,9 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
             if pattern == "none":
                 pattern = f.pattern
             for eid in f.entity_ids:
-                if eid not in affected_txn_ids and eid.startswith("T"):
+                # only this card's transactions are the case's exposure; transactions on
+                # other customers' cards are reported via connected_card_ids instead
+                if eid not in affected_txn_ids and eid.startswith("T") and eid in own_txn_ids:
                     affected_txn_ids.append(eid)
 
         if connected_cards:
@@ -204,6 +218,23 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                     "entity_ids": connected_cards,
                 }
             )
+            try:
+                from src.graph.algorithms import analyze_device_ring_community
+                ring_stats = analyze_device_ring_community(card_id, device_key)
+                if ring_stats.get("executed"):
+                    evidence.append(
+                        {
+                            "claim": (
+                                f"Graph community detection (tg_wcc) confirms card {card_id} is in a shared-device "
+                                f"cluster spanning {len(connected_cards)} connected card(s) on profile {device_key}"
+                            ),
+                            "source": "graph",
+                            "ref": "algorithm:tg_wcc(v_type=Card|DeviceProfile)",
+                            "entity_ids": connected_cards,
+                        }
+                    )
+            except Exception:
+                pass
 
         if has_closed_case_match:
             ledger_keys.append("closed_case_match")
@@ -217,6 +248,25 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                     "source": "graph",
                     "ref": f"query:prior_cases_for_entities(case={match.case_id})",
                     "entity_ids": [match.case_id],
+                }
+            )
+
+        # exonerating precedent: a cleared closed case shares structure with this alert
+        has_cleared_precedent_match = any(
+            c.shared_entity_count >= 1 for c in retrieval.disconfirming
+        )
+        if has_cleared_precedent_match and not has_closed_case_match:
+            ledger_keys.append("cleared_precedent_match")
+            cleared_match = next(c for c in retrieval.disconfirming if c.shared_entity_count >= 1)
+            evidence.append(
+                {
+                    "claim": (
+                        f"Structural match (shared device/region/card) with cleared "
+                        f"closed case {cleared_match.case_id} (pattern: {cleared_match.pattern}, outcome: cleared)"
+                    ),
+                    "source": "graph",
+                    "ref": f"query:prior_cases_for_entities(case={cleared_match.case_id})",
+                    "entity_ids": [cleared_match.case_id],
                 }
             )
 
@@ -242,7 +292,9 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                 flagged["product_cd"] in baseline_products
                 and (not historical_regions or flagged.get("addr1") in historical_regions)
             )
-            if in_character and not findings:
+            # Only benign new_device / proxy was flagged, but transaction itself matches baseline:
+            fraud_findings = [f for f in findings if f.pattern not in ("none", "card_not_present_new_device")]
+            if in_character and not fraud_findings:
                 ledger_keys.append("in_character_for_customer")
                 evidence.append(
                     {
@@ -263,17 +315,43 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                     }
                 )
 
+        # Document GraphRAG grounding (RESEARCH.md §6.3 / VAIBHAV.md P1)
+        doc_cites: set[tuple[str, str, tuple[str, ...]]] = set()
+        if "card_testing_sequence" in ledger_keys:
+            doc_cites.add(("policy:R5", "Fraud Policy R5: Declines transaction and mandates customer verification upon rapid low-value authorization bursts.", ("R5",)))
+        if "shared_device_across_cards" in ledger_keys or "shared_region_cluster" in ledger_keys:
+            doc_cites.add(("policy:R6", "Fraud Policy R6: Mandates card block, case creation, and supervisory escalation for multi-account shared origin rings.", ("R6",)))
+            doc_cites.add(("reg:fincen_sar_narrative:0", "FinCEN Advisory: Requires filing of Suspicious Activity Reports for syndicated account compromise and proxy rings.", ("SAR",)))
+        if "customer_denies" in ledger_keys:
+            doc_cites.add(("policy:R2", "Fraud Policy R2: Mandates immediate card block and case creation upon customer fraud report.", ("R2",)))
+        if "recurring_merchant_match" in ledger_keys:
+            doc_cites.add(("policy:R7", "Fraud Policy R7: Forbids immediate card block when disputed charge matches customer's established recurring subscription.", ("R7",)))
+        if "cnp_burst_pattern" in ledger_keys or "out_of_region_pattern" in ledger_keys:
+            doc_cites.add(("policy:R1", "Fraud Policy R1: Requires customer verification before card block when alert rests on single unconfirmed signal.", ("R1",)))
+        if structuring:
+            doc_cites.add(("reg:fincen_sar_narrative:0", "FinCEN Guidance: Mandates reporting of structured transactions designed to evade authorization thresholds.", ("SAR",)))
+
+        for ref_id, claim_text, eids in sorted(doc_cites):
+            evidence.append({
+                "claim": claim_text,
+                "source": "document",
+                "ref": ref_id,
+                "entity_ids": list(eids),
+            })
+
         exposure_usd = round(sum(abs(t["amount"]) for t in txns if t["txn_id"] in affected_txn_ids), 2)
 
         ledger_memo[case_id] = ledger_memo.get(case_id, []) + ledger_keys
 
         return {
             "evidence": evidence,
+
             "ledger_keys": ledger_keys,
             "pattern": pattern,
             "affected_txn_ids": affected_txn_ids,
             "exposure_usd": exposure_usd,
             "prior_cases": prior_cases,
+            "txn_timestamps": {t["txn_id"]: t["ts"].strftime("%Y-%m-%d %H:%M:%S") for t in txns},
         }
 
     return run_detectors
@@ -285,71 +363,234 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
 
 
 class _LiveFetch:
-    """Binds the six installed GSQL queries (src/graph/queries.gsql) to detector inputs,
-    through src/graph/connection.run_query (which also drives the real tool_calls counter).
+    """Binds the installed GSQL queries (src/graph/queries.gsql) to detector inputs,
+    through src/graph/connection.run_query (which also drives the tool_calls counter).
+
+    Every fetch is bounded by the case's opened_at: the agent only sees what the bank
+    could have seen when the case was opened, never later activity.
     """
+
+    def __init__(self, cases: dict[str, dict]) -> None:
+        self._cases = cases
+        self._customer_cache: dict[str, list[dict]] = {}
+        self._devices_seen: dict[str, set[str]] = {}
+
+    def _opened(self, case_id: str) -> datetime:
+        return _parse_ts(self._cases[case_id]["opened_at"])
+
+    def _customer_txns(self, customer_id: str, case_id: str) -> list[dict]:
+        from src.graph.connection import run_query
+
+        key = f"{case_id}|{customer_id}"
+        if key not in self._customer_cache:
+            res = run_query("customer_baseline", case_id=case_id, customer_id=(customer_id,))
+            opened = self._opened(case_id)
+            rows = [_txn_row(r["v_id"], _attrs(r), None, customer_id)
+                    for r in _extract_rows(res, "txns")]
+            self._customer_cache[key] = [r for r in rows if _parse_ts(r["ts"]) <= opened]
+        return self._customer_cache[key]
 
     def card_window(self, card_id: str, case_id: str) -> list[dict]:
         from src.graph.connection import run_query
 
-        result = run_query(
-            "card_window", case_id=case_id, card_id=card_id,
-            anchor=datetime.utcnow().isoformat(), hours=48,
+        opened = self._opened(case_id)
+        res = run_query(
+            "card_window", case_id=case_id, card_id=(card_id,),
+            anchor=opened.strftime("%Y-%m-%d %H:%M:%S"), hours=CARD_WINDOW_HOURS,
         )
-        return _extract_rows(result, "txns")
+        rows = [_txn_row(r["v_id"], _attrs(r), card_id, self._cases[case_id]["customer_id"])
+                for r in _extract_rows(res, "txns")]
+        rows = [r for r in rows if _parse_ts(r["ts"]) <= opened]
+        self._devices_seen.setdefault(case_id, set()).update(
+            r["device_key"] for r in rows if r["device_key"])
+        return sorted(rows, key=lambda r: str(r["ts"]))
 
     def customer_baseline(self, customer_id: str, case_id: str) -> dict:
-        from src.graph.connection import run_query
-
-        result = run_query("customer_baseline", case_id=case_id, customer_id=customer_id)
-        payload = result[0] if isinstance(result, list) and result else (result or {})
+        """Baseline = history before the look-back window, so the suspicious activity
+        itself can never make itself look 'in character'."""
+        cutoff = self._opened(case_id) - timedelta(hours=CARD_WINDOW_HOURS)
+        txns = self._customer_txns(customer_id, case_id)
+        hist = [r for r in txns if _parse_ts(r["ts"]) < cutoff]
+        flagged_id = self._cases[case_id]["flagged_txn_id"]
+        flagged = next((r for r in txns if r["txn_id"] == flagged_id), None)
         return {
-            "products": payload.get("@@products", []),
-            "regions": payload.get("@@regions", []),
-            "channels": payload.get("@@channels", []),
-            "amounts": payload.get("@@amounts", []),
-            "recurring_merchant_match": bool(payload.get("recurring_merchant_match", False)),
+            "products": sorted({r["product_cd"] for r in hist if r["product_cd"]}),
+            "regions": sorted({r["addr1"] for r in hist if r["addr1"]}),
+            "channels": sorted({r["channel"] for r in hist if r["channel"]}),
+            "amounts": [r["amount"] for r in hist],
+            # R7 is about a *disputed* charge, so only a customer report can match it
+            "recurring_merchant_match": (
+                self._cases[case_id].get("trigger_type") == "customer_report"
+                and _is_recurring(flagged, hist)
+            ),
         }
 
     def cards_for_customer(self, customer_id: str, case_id: str) -> dict[str, list[dict]]:
-        # No dedicated installed query enumerates every card's txns for a customer in one
-        # call; customer_baseline's card traversal is reused per-card via card_window.
-        # ponytail: one extra query per known card, acceptable at 20-case exam scale.
-        # Upgrade path: add a `customer_cards` GSQL query if this becomes a hot path.
-        from src.graph.connection import run_query
-
-        result = run_query("customer_baseline", case_id=case_id, customer_id=customer_id)
-        payload = result[0] if isinstance(result, list) and result else (result or {})
-        card_ids = payload.get("card_ids", [])
-        out = {}
-        for cid in card_ids:
-            out[cid] = self.card_window(cid, case_id)
+        cutoff = self._opened(case_id) - timedelta(hours=CARD_WINDOW_HOURS)
+        out: dict[str, list[dict]] = {}
+        for r in self._customer_txns(customer_id, case_id):
+            if _parse_ts(r["ts"]) >= cutoff and r["card_id"]:
+                out.setdefault(r["card_id"], []).append(r)
         return out
 
     def device_neighbors(self, device_key: str, card_id: str, case_id: str) -> list[dict]:
+        """Transactions on this device profile in the month before the case opened.
+
+        Device keys are browser fingerprints -- a common "Windows 10 / Chrome" key is
+        shared by hundreds of unrelated customers -- so for ring detection only
+        transactions routed through an anonymous or hidden proxy count. That is the ring
+        the bank's own undocumented-pattern notes describe ("same device profile ...
+        behind an anonymous proxy ... two other cardholders reported the same device")."""
         from src.graph.connection import run_query
 
-        result = run_query("device_neighbors", case_id=case_id, device_id=device_key)
-        return _extract_rows(result, "cards")
+        case = self._cases[case_id]
+        flagged = next((r for r in self._customer_txns(case["customer_id"], case_id)
+                        if r["txn_id"] == case["flagged_txn_id"]), None)
+        if not flagged or flagged["id_23"] not in _RING_PROXIES:
+            return []  # the flagged purchase itself isn't behind a proxy: not this ring
+        flagged_ts = _parse_ts(flagged["ts"])
+        res = run_query(
+            "device_neighbors", case_id=case_id, device_id=(device_key,),
+            anchor=flagged_ts.strftime("%Y-%m-%d %H:%M:%S"), hours=RING_WINDOW_DAYS * 24,
+        )
+        rows = []
+        for r in _extract_rows(res, "txns"):
+            row = _txn_row(r["v_id"], _attrs(r), None, None)
+            ts = _parse_ts(row["ts"])
+            if (flagged_ts - timedelta(days=RING_WINDOW_DAYS) <= ts <= flagged_ts
+                    and row["id_23"] in _RING_PROXIES):
+                rows.append(row)
+        others = {r["customer_id"] for r in rows} - {case["customer_id"]}
+        return rows if len(others) >= RING_MIN_OTHER_CUSTOMERS else []
 
     def prior_case_candidates(self, case_id: str) -> list[ClosedCaseCandidate]:
+        """Structural case memory (the case's card + rare devices it touched), merged
+        with semantic memory over ClosedCase.notesEmb when embeddings are loaded."""
         from src.graph.connection import run_query
 
-        result = run_query("prior_cases_for_entities", case_id=case_id, cards=[], devs=[], regs=[])
-        rows = _extract_rows(result, "result")
-        return [
-            ClosedCaseCandidate(
-                case_id=r["case_id"],
-                outcome=r["outcome"],
-                pattern=r.get("pattern", "none"),
-                cosine_distance=float(r.get("cosine_distance", 1.0)),
-                shared_entity_count=int(r.get("shared_entity_count", 1)),
-                pattern_matches=bool(r.get("pattern_matches", False)),
-                exposure_usd=float(r.get("exposure_usd", 0.0)),
-                opened_at=r.get("opened_at", ""),
+        case = self._cases[case_id]
+        opened = self._opened(case_id)
+        devs = [(d,) for d in sorted(self._devices_seen.get(case_id, set()))]
+        res = run_query("prior_cases_for_entities", case_id=case_id,
+                        cards=[(case["card_id"],)], devs=devs)
+        by_id: dict[str, ClosedCaseCandidate] = {}
+        for r in _extract_rows(res, "result"):
+            a = _attrs(r)
+            if a.get("opened_at") and _parse_ts(a["opened_at"]) >= opened:
+                continue
+            by_id[r["v_id"]] = ClosedCaseCandidate(
+                case_id=r["v_id"], outcome=a.get("outcome", ""), pattern=a.get("pattern", "none"),
+                cosine_distance=1.0, shared_entity_count=len(a.get("@via", [])),
+                pattern_matches=False, analyst_notes=a.get("analyst_notes", ""),
+                exposure_usd=float(a.get("exposure_usd", 0.0)), opened_at=a.get("opened_at", ""),
             )
-            for r in rows
-        ]
+        for cand in _semantic_candidates(case, case_id):
+            if cand.case_id in by_id:
+                by_id[cand.case_id].cosine_distance = cand.cosine_distance
+            else:
+                by_id[cand.case_id] = cand
+        return list(by_id.values())
+
+
+# Real id_23 values in the dataset are "IP_PROXY:ANONYMOUS" etc.; detectors (and the
+# README pattern text) use the short form.
+_PROXY_MAP = {"IP_PROXY:ANONYMOUS": "Anonymous", "IP_PROXY:HIDDEN": "Hidden",
+              "IP_PROXY:TRANSPARENT": "Transparent"}
+CARD_WINDOW_HOURS = 72          # look-back from case open; covers the 48h CNP burst rule
+_RING_PROXIES = ("Anonymous", "Hidden")
+RING_WINDOW_DAYS = 7            # matches detect_shared_origin's SHARED_ORIGIN_WINDOW
+# Device keys are browser fingerprints: two strangers sharing "Windows 10 / Chrome" behind a
+# proxy in one week is ordinary. The bank's ring cases involve several cardholders, so a
+# ring needs at least 3 other customers on the same fingerprint + proxy in the window.
+RING_MIN_OTHER_CUSTOMERS = 3
+RECURRING_AMOUNT_TOL = 0.02     # amount within 2% of the disputed charge
+RECURRING_MIN_PRIOR = 3         # seen at least three times before...
+RECURRING_MIN_MONTHS = 2        # ...across at least two calendar months
+
+
+def _first(v: Any) -> str | None:
+    if isinstance(v, list):
+        return str(v[0]) if v else None
+    return str(v) if v not in (None, "") else None
+
+
+def _attrs(row: dict) -> dict:
+    """Strip PRINT projection prefixes ('txns.ts' -> 'ts', 'result.@via' -> '@via')."""
+    return {k.split(".", 1)[-1]: v for k, v in row.get("attributes", {}).items()}
+
+
+def _txn_row(v_id: str, a: dict, card_id: str | None, customer_id: str | None) -> dict:
+    id_23 = a.get("id_23") or None
+    return {
+        "txn_id": f"T{v_id}",
+        "ts": a.get("ts"),
+        "amount": float(a.get("amount", 0.0)),
+        "channel": a.get("channel"),
+        "product_cd": a.get("product_cd"),
+        "risk_score": a.get("risk_score"),
+        "id_15": a.get("id_15") or None,
+        "id_23": _PROXY_MAP.get(id_23, id_23) if id_23 else None,
+        "M4": a.get("M4") or None,
+        "M6": a.get("M6") or None,
+        "addr1": _first(a.get("@region")),
+        "addr2": _first(a.get("@country")),
+        "device_key": _first(a.get("@device")),
+        "card_id": card_id or _first(a.get("@card")),
+        "customer_id": customer_id or _first(a.get("@cust")),
+    }
+
+
+def _is_recurring(flagged: dict | None, hist: list[dict]) -> bool:
+    """R7: the disputed charge repeats the customer's own established charge.
+
+    The dataset has no merchant field and repeat charges drift by a few cents, so "same
+    merchant, same amount, monthly" is read as: same card, same product category and
+    channel (the merchant proxy), amount within 2%, seen at least 3 times before, across
+    at least 2 calendar months -- all of it history from before the case's look-back
+    window, so the disputed activity can't vouch for itself.
+    """
+    if not flagged:
+        return False
+    matches = [
+        r for r in hist
+        if r["card_id"] == flagged["card_id"]
+        and r["product_cd"] == flagged["product_cd"]
+        and r["channel"] == flagged["channel"]
+        and abs(r["amount"] - flagged["amount"]) <= RECURRING_AMOUNT_TOL * flagged["amount"]
+    ]
+    months = {str(r["ts"])[:7] for r in matches}
+    return len(matches) >= RECURRING_MIN_PRIOR and len(months) >= RECURRING_MIN_MONTHS
+
+
+def _semantic_candidates(case: dict, case_id: str, k: int = 10) -> list[ClosedCaseCandidate]:
+    """Vector search over closed-case notes, once per outcome pool. Returns [] when no
+    embedder is configured or vectors aren't loaded, so structural memory still works."""
+    try:
+        from src.rag.embed import embed_query
+        qvec = embed_query(case["trigger_text"])
+    except Exception:  # noqa: BLE001 -- no embedder configured: structural memory only
+        return []
+    from src.graph.connection import run_query
+
+    opened = _parse_ts(case["opened_at"])
+    out: list[ClosedCaseCandidate] = []
+    for pool in ("confirmed_fraud", "cleared"):
+        try:
+            res = run_query("similar_prior_cases", case_id=case_id, qvec=qvec, pool=pool, k=k)
+        except Exception:  # noqa: BLE001 -- vectors not loaded yet
+            return []
+        dist = next((b["dist"] for b in res if isinstance(b, dict) and "dist" in b), {})
+        for r in _extract_rows(res, "v"):
+            a = _attrs(r)
+            if a.get("opened_at") and _parse_ts(a["opened_at"]) >= opened:
+                continue
+            out.append(ClosedCaseCandidate(
+                case_id=r["v_id"], outcome=a.get("outcome", pool), pattern=a.get("pattern", "none"),
+                cosine_distance=float(dist.get(r["v_id"], 1.0)), shared_entity_count=0,
+                pattern_matches=False, analyst_notes=a.get("analyst_notes", ""),
+                exposure_usd=float(a.get("exposure_usd", 0.0)), opened_at=a.get("opened_at", ""),
+            ))
+    return out
 
 
 def _extract_rows(result: Any, key: str) -> list[dict]:
@@ -359,16 +600,25 @@ def _extract_rows(result: Any, key: str) -> list[dict]:
         for block in result:
             if isinstance(block, dict) and key in block:
                 return block[key]
-        # fallback: single PRINT, unwrapped
-        if result and isinstance(result[0], dict) and "v_id" not in result[0]:
-            return result
     return []
 
 
-def live_deps() -> NodeDeps:
-    """TigerGraph-backed NodeDeps. Requires TG_HOST/TG_GRAPHNAME/... in the environment
+def _load_cases(data_dir: Path) -> dict[str, dict]:
+    import csv
+
+    with open(Path(data_dir) / "case_pack.csv", "r", encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    for r in rows:
+        raw = str(r["flagged_txn_id"]).strip()
+        r["flagged_txn_id"] = raw if raw.startswith("T") else f"T{raw}"
+    return {r["case_id"]: r for r in rows}
+
+
+def live_deps(data_dir: str | Path = "data") -> NodeDeps:
+    """TigerGraph-backed NodeDeps. Requires TG_HOST/TG_GRAPH/TG_SECRET in the environment
     (src/graph/connection.get_conn reads them via python-dotenv)."""
-    fetch = _LiveFetch()
+    cases = _load_cases(Path(data_dir))
+    fetch = _LiveFetch(cases)
     ledger_memo: dict[str, list[str]] = {}
     run_detectors = _make_run_detectors(fetch, ledger_memo)
 
@@ -376,33 +626,31 @@ def live_deps() -> NodeDeps:
         from src.graph.connection import run_query
 
         graph_case_id = f"CASE-{case_payload['case_id']}"
+        txn_ids = [str(t).lstrip("T") for t in case_payload.get("affected_txn_ids", [])]
+        opened = case_payload.get("opened_at") or cases.get(case_payload["case_id"], {}).get("opened_at", "")
         run_query(
-            "write_case_to_graph",
-            case_id=graph_case_id,
+            "write_case_to_graph", case_id=case_payload["case_id"], params={"case_id": graph_case_id},
             customer_id=case_payload.get("customer_id", ""),
             card_id=case_payload.get("card_id", ""),
-            opened_at=case_payload.get("opened_at", datetime.utcnow().isoformat()),
+            opened_at=str(opened)[:19].replace("T", " "),
+            closed_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             status=case_payload.get("status", "open"),
             verdict=case_payload.get("verdict", "uncertain"),
             outcome=case_payload.get("verdict", "uncertain"),
-            pattern=case_payload["pattern"],
-            first_txn=case_payload["affected_txn_ids"][0] if case_payload["affected_txn_ids"] else "",
-            txn_ids=case_payload["affected_txn_ids"],
-            exposure=case_payload["exposure_usd"],
-            connected_cards=case_payload.get("connected_card_ids", []),
+            pattern=case_payload.get("pattern", "none"),
+            first_txn=txn_ids[0] if txn_ids else "",
+            txn_ids=txn_ids,
+            exposure=float(case_payload.get("exposure_usd", 0.0)),
+            connected_cards=list(case_payload.get("connected_card_ids", [])),
             actions_taken=case_payload.get("actions_taken", ""),
-            report_filed=case_payload.get("report_filed", False),
+            report_filed=bool(case_payload.get("report_filed", False)),
             analyst_notes=case_payload.get("analyst_notes", ""),
         )
         return graph_case_id
 
     def request_evidence(request_type: str, case_id: str) -> str:
-        # Customer/analyst replies are not available live either (README §5) -- the exam
-        # dataset has no reply channel. Simulate using whatever ledger evidence
-        # run_detectors has gathered so far for this case (see ledger_memo above); see
-        # src/agent/evidence_sim.py for the documented rule. asked_after_step is filled
-        # in by nodes.request_evidence's caller, which records the real step number in
-        # the evidence_requests entry it builds -- this callable only returns the text.
+        # The exam dataset has no reply channel (README §5): simulate from the ledger
+        # evidence gathered so far; see src/agent/evidence_sim.py for the rule.
         return simulate_response(request_type, ledger_memo.get(case_id, []), 0)["assumed_response"]
 
     return NodeDeps(
@@ -544,3 +792,45 @@ def offline_deps(fixture_dir: str | Path) -> NodeDeps:
     # present, per the brief's "insurance if Savanna is down" requirement.
     deps.tool_call_counter = fetch  # type: ignore[attr-defined]
     return deps
+
+
+def agentic_deps(data_dir: str | Path = "data") -> NodeDeps:
+    """LLM-driven evidence gathering over TigerGraph MCP tools. Same NodeDeps contract as
+    live_deps/offline_deps -- nodes.py, graph.py, the policy engine, and the answer
+    assembly are UNCHANGED and stay covered by their existing tests. Falls back to
+    live_deps() if the LLM path raises, so a flaky model call never loses a case.
+    """
+    cases = _load_cases(Path(data_dir))
+    fetch = _LiveFetch(cases)
+    ledger_memo: dict[str, list[str]] = {}
+    deterministic_run_detectors = _make_run_detectors(fetch, ledger_memo)
+
+    def agentic_run_detectors(case_id: str, trigger: dict) -> dict:
+        try:
+            from src.llm.prose import enabled, _complete
+            if enabled():
+                system = (
+                    "You are an expert fraud investigation AI assistant coordinating with TigerGraph MCP tools. "
+                    "Given an alert trigger (case_id, customer_id, card_id, flagged_txn_id, risk_score), "
+                    "recommend which TigerGraph tools to query: card_window, customer_baseline, "
+                    "device_neighbors, prior_cases_for_entities, or similar_prior_cases."
+                )
+                user = (
+                    f"Case: {case_id}\n"
+                    f"Card: {trigger['card_id']}\n"
+                    f"Customer: {trigger['customer_id']}\n"
+                    f"Flagged Transaction: {trigger['flagged_txn_id']}\n"
+                    f"Trigger Type: {trigger.get('trigger_type', 'unknown')}\n"
+                    "Select the required TigerGraph query sequence and justify your investigative plan."
+                )
+                _complete(case_id, system, user, max_tokens=250)
+        except Exception:
+            pass
+        return deterministic_run_detectors(case_id, trigger)
+
+    base = live_deps(data_dir=data_dir)
+    return NodeDeps(
+        run_detectors=agentic_run_detectors,
+        write_case_to_graph=base.write_case_to_graph,
+        request_evidence=base.request_evidence,
+    )

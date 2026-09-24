@@ -79,10 +79,26 @@ def _now_iso() -> str:
 
 
 def trigger(state: InvestigationState, deps: NodeDeps) -> dict:
-    """Seed state from the case_pack trigger row. Pure, no side effects."""
+    """Seed state from the case_pack trigger row. Pure, no side effects.
+
+    A customer_report trigger *is* the cardholder disputing the charge ("I never made this
+    purchase"), so it enters the ledger as customer_denies from the start -- that is what
+    makes R2 (deny -> block) and R7 (a disputed charge matching their own recurring
+    pattern -> don't block) reachable for the report-triggered cases.
+    """
+    trig = state.get("trigger", {}) or {}
+    reported = trig.get("trigger_type") == "customer_report"
+    evidence = [{
+        "claim": f"Cardholder disputes the charge: {trig.get('trigger_text', '')}",
+        "source": "customer",
+        "ref": f"trigger:customer_report({state['case_id']})",
+        "entity_ids": [trig["flagged_txn_id"]] if trig.get("flagged_txn_id") else [],
+    }] if reported else []
     return {
-        "evidence": [],
-        "ledger": [],
+        "evidence": evidence,
+        "ledger": [{"key": "customer_denies", "source": "trigger:customer_report"}] if reported else [],
+        "_customer_response": "deny" if reported else None,
+        "txn_timestamps": {},
         "p_fraud": 0.0,
         "pattern": "none",
         "affected_txn_ids": [],
@@ -120,6 +136,7 @@ def investigate(state: InvestigationState, deps: NodeDeps) -> dict:
         "pattern": result.get("pattern", state["pattern"]),
         "affected_txn_ids": result.get("affected_txn_ids", state["affected_txn_ids"]),
         "exposure_usd": result.get("exposure_usd", state["exposure_usd"]),
+        "txn_timestamps": {**state.get("txn_timestamps", {}), **result.get("txn_timestamps", {})},
         # True only when this pass actually grew the ledger. deps.run_detectors is
         # expected to dedup internally (a second call against a deterministic, already-
         # queried snapshot has nothing new to add -- see deps.py's `_seen` guard), so a
@@ -199,8 +216,14 @@ def request_evidence(state: InvestigationState, deps: NodeDeps) -> dict:
     p = compute_probability(ledger_keys)
     indep = independent_evidence_count(item["source"] for item in state["ledger"])
     already_requested = bool(state["evidence_requests"])
+    # R7 prescribes VERIFY_WITH_CUSTOMER: a disputed charge that matches the customer's own
+    # recurring pattern goes back to the customer before closing, however low p already is.
+    disputed_recurring = (
+        (state.get("trigger") or {}).get("trigger_type") == "customer_report"
+        and "recurring_merchant_match" in ledger_keys
+    )
 
-    if can_stop(p, indep, verification_settled=False):
+    if can_stop(p, indep, verification_settled=False) and not disputed_recurring:
         return {}  # nothing to request; investigation can already stop
 
     if not already_requested:
@@ -305,12 +328,29 @@ def explain(state: InvestigationState, deps: NodeDeps) -> dict:
 
 def write_case(state: InvestigationState, deps: NodeDeps) -> dict:
     """Side effect: writes the case to TigerGraph via the injected callable."""
+    trig = state.get("trigger", {}) or {}
+    p = state["p_fraud"]
+    verdict = "fraud" if p >= 0.85 else "legitimate" if p <= 0.15 else "uncertain"
+    final = next((s for s in reversed(state.get("snapshots", [])) if s.get("phase") == "final"),
+                 (state.get("snapshots") or [{}])[-1])
+    actions = [a.get("action", "") for a in final.get("action_list", [])]
+    connected = sorted({eid for e in state.get("evidence", []) for eid in e.get("entity_ids", [])
+                        if "-K" in str(eid) and eid != trig.get("card_id")})
     case_payload = {
         "case_id": state["case_id"],
+        "customer_id": trig.get("customer_id", ""),
+        "card_id": trig.get("card_id", ""),
+        "opened_at": trig.get("opened_at", ""),
+        "status": {"fraud": "closed_fraud", "legitimate": "closed_legitimate"}.get(verdict, "open"),
+        "verdict": verdict,
         "pattern": state["pattern"],
         "affected_txn_ids": state["affected_txn_ids"],
+        "connected_card_ids": connected,
         "exposure_usd": state["exposure_usd"],
-        "p_fraud": state["p_fraud"],
+        "actions_taken": "|".join(a for a in actions if a),
+        "report_filed": "FILE_REPORT" in actions,
+        "analyst_notes": "; ".join(e.get("claim", "") for e in state.get("evidence", []))[:4000],
+        "p_fraud": p,
         "prior_cases": state["prior_cases"],
     }
     graph_case_id = deps.write_case_to_graph(case_payload)
@@ -385,6 +425,10 @@ def _build_snapshot(state: InvestigationState, phase: str) -> RecommendationSnap
         shared_device_profile=any(item["key"] == "shared_device_across_cards" for item in state["ledger"]),
         shared_billing_region=any(item["key"] == "shared_region_cluster" for item in state["ledger"]),
         card_testing_detected=any(item["key"] == "card_testing_sequence" for item in state["ledger"]),
+        disputed_matches_recurring_pattern=(
+            (state.get("trigger") or {}).get("trigger_type") == "customer_report"
+            and any(item["key"] == "recurring_merchant_match" for item in state["ledger"])
+        ),
     )
     rule_actions = apply_rules(cs)
     action_list = []
