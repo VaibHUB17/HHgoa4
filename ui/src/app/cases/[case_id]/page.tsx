@@ -13,6 +13,8 @@ import { SimilarCases } from "@/components/SimilarCases";
 import { SarPanel } from "@/components/SarPanel";
 import { InstrumentationStrip } from "@/components/InstrumentationStrip";
 import { CaseGraphView } from "@/components/CaseGraphView";
+import { RuleTrace } from "@/components/RuleTrace";
+import { PrecedentPanel } from "@/components/PrecedentPanel";
 
 export function generateStaticParams() {
   const { cases } = loadCases();
@@ -119,6 +121,18 @@ export default async function CaseDetailPage(props: PageProps<"/cases/[case_id]"
         {/* ── The graph ──────────────────────────────────────────────────────── */}
         <div className="mb-6">
           <CaseGraphView graph={graph} primaryCardId={primaryCardId} />
+        </div>
+
+        {/* ── The policy, evaluated ──────────────────────────────────────────
+            Showing the rules that did NOT fire matters as much as the ones that
+            did: it demonstrates the whole policy was evaluated, rather than an
+            outcome being asserted. */}
+        <div className="mb-6 grid gap-6 lg:grid-cols-2">
+          <RuleTrace finalActions={c.next_best_actions.final} />
+          <PrecedentPanel
+            similarPriorCases={c.case.similar_prior_cases}
+            evidence={c.case.evidence}
+          />
         </div>
 
         {/* ── Supporting record ─────────────────────────────────────────────── */}
