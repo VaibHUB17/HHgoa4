@@ -8,11 +8,16 @@ from datetime import datetime, timedelta
 
 from src.detectors.patterns import (
     detect_account_takeover,
+    detect_amount_unusual_but_isolated,
     detect_card_testing,
     detect_cnp_burst,
     detect_new_device,
+    detect_new_device_otherwise_in_character,
     detect_out_of_region,
+    detect_proxy_device_ring,
     detect_shared_origin,
+    detect_threshold_structuring,
+    detect_travel_consistent_with_history,
 )
 
 T0 = datetime(2016, 11, 12, 0, 0, 0)
@@ -300,4 +305,218 @@ def test_shared_origin_does_not_fire_outside_window():
         txn("T2", minutes=60 * 24 * 180, card_id="C08877-K1", customer_id="C08877"),
     ]
     findings = detect_shared_origin("device_profile", "SAMSUNG|Android7|Chrome|1920x1080", txns)
+    assert findings == []
+
+
+# ---------------------------------------------------------------------------
+# threshold_structuring (undocumented, existing detector -- was untested)
+# ---------------------------------------------------------------------------
+
+def test_threshold_structuring_fires_on_four_just_under_500():
+    txns = [
+        txn("T1", minutes=0, amount=489.00),
+        txn("T2", minutes=10, amount=475.50),
+        txn("T3", minutes=20, amount=492.10),
+    ]
+    findings = detect_threshold_structuring("C04570-K1", txns)
+    assert len(findings) == 1
+    assert findings[0].pattern == "undocumented"
+    assert "cnp_burst_pattern" in findings[0].weight_keys
+
+
+def test_threshold_structuring_does_not_fire_on_amounts_well_under_floor():
+    """Near-miss: small purchases, nowhere near the $500 threshold -- ordinary spend,
+    not structuring."""
+    txns = [
+        txn("T1", minutes=0, amount=20.00),
+        txn("T2", minutes=10, amount=35.50),
+        txn("T3", minutes=20, amount=42.10),
+    ]
+    findings = detect_threshold_structuring("C04570-K1", txns)
+    assert findings == []
+
+
+def test_threshold_structuring_does_not_fire_on_amounts_at_or_over_ceiling():
+    """Near-miss: amounts at/over $500 -- not staying under the authorization threshold,
+    so not structuring even if clustered in time."""
+    txns = [
+        txn("T1", minutes=0, amount=500.00),
+        txn("T2", minutes=10, amount=520.00),
+        txn("T3", minutes=20, amount=510.00),
+    ]
+    findings = detect_threshold_structuring("C04570-K1", txns)
+    assert findings == []
+
+
+# ---------------------------------------------------------------------------
+# proxy_device_ring (undocumented -- CC-2649/2971/2985/3035)
+# ---------------------------------------------------------------------------
+
+def _ring_txn(txn_id, minutes=0, customer_id="C04570", card_id="C04570-K1",
+              device_key="SM-G935F|Chrome|Android"):
+    return txn(txn_id, minutes=minutes, channel="online", id_15="New", id_23="Anonymous",
+               device_key=device_key, customer_id=customer_id, card_id=card_id)
+
+
+def test_proxy_device_ring_fires_on_full_signature():
+    txns = [_ring_txn("T1"), _ring_txn("T2", minutes=5)]
+    other_txns = [
+        _ring_txn("T3", customer_id="C08877", card_id="C08877-K1"),
+        _ring_txn("T4", customer_id="C09998", card_id="C09998-K1"),
+    ]
+    findings = detect_proxy_device_ring(
+        "C04570-K1", "C04570", txns, customer_denies=True,
+        device_key="SM-G935F|Chrome|Android", other_customer_txns=other_txns,
+    )
+    assert len(findings) == 1
+    assert findings[0].pattern == "undocumented"
+    assert "proxy_device_ring" in findings[0].weight_keys
+    assert set(findings[0].entity_ids) == {"T1", "T2"}
+
+
+def test_proxy_device_ring_does_not_fire_without_denial():
+    """Near-miss: same device/proxy/corroboration shape, but the cardholder never
+    reported these as unrecognized -- must not fire on customer_denies=False."""
+    txns = [_ring_txn("T1"), _ring_txn("T2", minutes=5)]
+    other_txns = [
+        _ring_txn("T3", customer_id="C08877", card_id="C08877-K1"),
+        _ring_txn("T4", customer_id="C09998", card_id="C09998-K1"),
+    ]
+    findings = detect_proxy_device_ring(
+        "C04570-K1", "C04570", txns, customer_denies=False,
+        device_key="SM-G935F|Chrome|Android", other_customer_txns=other_txns,
+    )
+    assert findings == []
+
+
+def test_proxy_device_ring_does_not_fire_without_proxy():
+    """Near-miss: new device, denied, corroborated by other cardholders -- but NOT behind
+    a proxy. That's card_not_present_new_device territory, not the ring."""
+    txns = [txn("T1", channel="online", id_15="New", id_23=None,
+                 device_key="SM-G935F|Chrome|Android")]
+    other_txns = [
+        _ring_txn("T3", customer_id="C08877", card_id="C08877-K1"),
+        _ring_txn("T4", customer_id="C09998", card_id="C09998-K1"),
+    ]
+    findings = detect_proxy_device_ring(
+        "C04570-K1", "C04570", txns, customer_denies=True,
+        device_key="SM-G935F|Chrome|Android", other_customer_txns=other_txns,
+    )
+    assert findings == []
+
+
+def test_proxy_device_ring_does_not_fire_with_only_one_other_customer():
+    """Near-miss: device shared with only ONE other cardholder, not the two+ the
+    precedent notes require -- could be coincidence, not a ring."""
+    txns = [_ring_txn("T1")]
+    other_txns = [_ring_txn("T3", customer_id="C08877", card_id="C08877-K1")]
+    findings = detect_proxy_device_ring(
+        "C04570-K1", "C04570", txns, customer_denies=True,
+        device_key="SM-G935F|Chrome|Android", other_customer_txns=other_txns,
+    )
+    assert findings == []
+
+
+# ---------------------------------------------------------------------------
+# travel_consistent_with_history (exonerating)
+# ---------------------------------------------------------------------------
+
+def test_travel_consistent_with_history_fires_on_clean_sequential_move():
+    txns = [
+        txn("T1", minutes=0, addr1="204"),
+        txn("T2", minutes=60, addr1="204"),
+        txn("T3", minutes=10000, addr1="410"),
+        txn("T4", minutes=10100, addr1="410"),
+    ]
+    findings = detect_travel_consistent_with_history("C04570-K1", txns, historical_regions={"204"})
+    assert len(findings) == 1
+    assert findings[0].pattern == "none"
+    assert "travel_consistent_with_history" in findings[0].weight_keys
+    assert set(findings[0].entity_ids) == {"T3", "T4"}
+
+
+def test_travel_consistent_with_history_does_not_fire_when_home_concurrently_active():
+    """Near-miss: home region interleaved with the new region -- that's the clone shape
+    (detect_out_of_region's territory), not travel. Must not exonerate a clone."""
+    txns = [
+        txn("T1", minutes=0, addr1="204"),
+        txn("T2", minutes=100, addr1="410"),
+        txn("T3", minutes=200, addr1="204"),
+        txn("T4", minutes=300, addr1="410"),
+    ]
+    findings = detect_travel_consistent_with_history("C04570-K1", txns, historical_regions={"204"})
+    assert findings == []
+
+
+def test_travel_consistent_with_history_does_not_fire_with_no_new_region():
+    """Near-miss: all activity stays inside the historical region set -- nothing to
+    exonerate, not a travel episode at all."""
+    txns = [
+        txn("T1", minutes=0, addr1="204"),
+        txn("T2", minutes=60, addr1="204"),
+    ]
+    findings = detect_travel_consistent_with_history("C04570-K1", txns, historical_regions={"204"})
+    assert findings == []
+
+
+# ---------------------------------------------------------------------------
+# new_device_otherwise_in_character (exonerating)
+# ---------------------------------------------------------------------------
+
+def test_new_device_otherwise_in_character_fires_when_in_baseline():
+    txns = [txn("T1", channel="online", id_15="New", id_23=None, product_cd="C", addr1="204")]
+    findings = detect_new_device_otherwise_in_character(
+        "C04570-K1", txns, baseline_products={"C", "W"}, historical_regions={"204"},
+    )
+    assert len(findings) == 1
+    assert findings[0].pattern == "none"
+    assert "new_device_otherwise_in_character" in findings[0].weight_keys
+
+
+def test_new_device_otherwise_in_character_does_not_fire_behind_proxy():
+    """Near-miss: new device behind a proxy -- that combination is fraud territory
+    (detect_proxy_device_ring / new_device+proxy_flag), never exonerating on its own."""
+    txns = [txn("T1", channel="online", id_15="New", id_23="Anonymous", product_cd="C", addr1="204")]
+    findings = detect_new_device_otherwise_in_character(
+        "C04570-K1", txns, baseline_products={"C", "W"}, historical_regions={"204"},
+    )
+    assert findings == []
+
+
+def test_new_device_otherwise_in_character_does_not_fire_on_product_mismatch():
+    """Near-miss: new device AND the product category is outside baseline -- not
+    'otherwise in character', a real corroborating anomaly."""
+    txns = [txn("T1", channel="online", id_15="New", id_23=None, product_cd="H", addr1="204")]
+    findings = detect_new_device_otherwise_in_character(
+        "C04570-K1", txns, baseline_products={"C", "W"}, historical_regions={"204"},
+    )
+    assert findings == []
+
+
+# ---------------------------------------------------------------------------
+# amount_unusual_but_isolated (exonerating)
+# ---------------------------------------------------------------------------
+
+def test_amount_unusual_but_isolated_fires_on_clear_outlier():
+    flagged = txn("T1", amount=300.0)
+    findings = detect_amount_unusual_but_isolated("C04570-K1", flagged, historical_amounts=[50.0, 60.0, 55.0, 45.0])
+    assert len(findings) == 1
+    assert findings[0].pattern == "none"
+    assert "amount_unusual_but_isolated" in findings[0].weight_keys
+    assert findings[0].entity_ids == ["T1"]
+
+
+def test_amount_unusual_but_isolated_does_not_fire_within_normal_range():
+    """Near-miss: amount is only slightly above average -- not 'unusual', just a bigger
+    day. Must not exonerate (or flag) on ordinary variance."""
+    flagged = txn("T1", amount=70.0)
+    findings = detect_amount_unusual_but_isolated("C04570-K1", flagged, historical_amounts=[50.0, 60.0, 55.0, 45.0])
+    assert findings == []
+
+
+def test_amount_unusual_but_isolated_does_not_fire_with_no_history():
+    """Near-miss: no historical amounts at all -- nothing to compare against, can't call
+    it 'unusual'."""
+    flagged = txn("T1", amount=300.0)
+    findings = detect_amount_unusual_but_isolated("C04570-K1", flagged, historical_amounts=[])
     assert findings == []

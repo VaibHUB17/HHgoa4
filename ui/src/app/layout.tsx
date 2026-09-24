@@ -1,38 +1,53 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter_Tight, IBM_Plex_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import { Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+/* One display serif, used only for the hero statement and the SAR headline.
+   The event's own site pairs a high-contrast display face directly against
+   dense monospace — signal and noise set against each other typographically.
+   That idea is worth borrowing; their actual typefaces are not, since using
+   Imbue and Victor Mono would read as a reskin rather than a sibling.
+   Instrument Serif has the contrast without the costume. */
+const displaySerif = Instrument_Serif({
+  variable: "--font-serif-face",
   subsets: ["latin"],
-  weight: ["500", "600"],
-  style: ["normal", "italic"],
+  weight: "400",
 });
 
-const interTight = Inter_Tight({
-  variable: "--font-inter-tight",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
+/* Geist Sans + Geist Mono, one family in two cuts rather than a serif/sans
+   pairing. This surface is almost entirely labels, IDs, amounts and scores, and
+   product UI does not need a display face — a well-tuned sans carries headings,
+   buttons and body alike. The mono is doing signal work, not decoration: it is
+   what makes a probability or a transaction id read as measured data.
+   Geist over JetBrains Mono deliberately; JetBrains is now the everywhere
+   default and reads as the unconsidered choice. */
 
 export const metadata: Metadata = {
-  title: "HHGoa Case Console",
-  description: "Fraud investigation case console — case review, evidence, and approval gate.",
+  title: "Case Console — Fraud Investigation",
+  description:
+    "Analyst console for an agentic fraud investigation: evidence, graph relationships, recommendation history and the approval gate.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${interTight.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${displaySerif.variable} h-full antialiased`}
+      style={
+        {
+          "--font-body-face": "var(--font-geist-sans)",
+          "--font-data-face": "var(--font-geist-mono)",
+          "--font-display-face": "var(--font-serif-face)",
+        } as React.CSSProperties
+      }
     >
-      <body className="min-h-full flex flex-col bg-slate text-paper">{children}</body>
+      <body className="min-h-full">
+        <div id="app-root" className="flex min-h-dvh flex-col">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }

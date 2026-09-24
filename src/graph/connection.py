@@ -15,12 +15,17 @@ below rather than assumed to be a clean HTTPError.
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
+import time
 from typing import Any
 
 import pyTigerGraph as tg
+import requests
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -94,7 +99,17 @@ def get_conn(force_new: bool = False) -> tg.TigerGraphConnection:
         if api_token:
             conn.apiToken = api_token
         elif secret:
-            token = conn.getToken(secret)
+            try:
+                token = conn.getToken(secret)
+            except Exception as exc:  # noqa: BLE001 - we re-raise unless it is a suspend
+                if not _is_suspended_error(exc):
+                    raise
+                # The workspace was asleep. Ask it to wake, wait for it, then retry once
+                # rather than failing a whole batch run on the first call of the session.
+                logger.warning("workspace appears suspended; waking it")
+                if not wake_workspace():
+                    raise
+                token = conn.getToken(secret)
             conn.apiToken = token[0] if isinstance(token, tuple) else token
         else:
             raise ValueError(
@@ -109,6 +124,58 @@ def get_conn(force_new: bool = False) -> tg.TigerGraphConnection:
 def _is_auth_error(exc: Exception) -> bool:
     msg = str(exc).lower()
     return "401" in msg or "authoriz" in msg or "token" in msg and "expir" in msg
+
+
+def _is_suspended_error(exc: Exception) -> bool:
+    """A suspended Savanna workspace answers every endpoint with HTTP 500 and an HTML
+    body reading "Failed to start workspace / Auto start is not enabled for this
+    workspace" -- not a normal server error, and nothing a token refresh can fix.
+    """
+    msg = str(exc).lower()
+    return "failed to start workspace" in msg or "auto start is not enabled" in msg
+
+
+def wake_workspace(timeout_s: float = 180.0, poll_s: float = 6.0) -> bool:
+    """Poke the workspace and wait for it to come up. Returns True once it answers.
+
+    Savanna suspends an idle workspace and, when Auto Resume is switched on, brings it
+    back the moment a request arrives -- but that takes one to two minutes, during which
+    every call still fails. Without this, the first query of a session fails against a
+    workspace that is in the middle of waking up, which reads as an outage.
+
+    Auto Resume genuinely has to be ON in Workspace Configuration -> Advanced Settings.
+    If it is off, the platform refuses to start the workspace at all and no amount of
+    polling helps: the request never reaches the database, it is turned away at the
+    edge. That case is detected and reported rather than retried for three minutes.
+    """
+    host = (os.environ.get("TG_HOST") or os.environ.get("TIGERGRAPH_HOST", "")).rstrip("/")
+    if not host:
+        return False
+
+    deadline = time.monotonic() + timeout_s
+    attempt = 0
+    while time.monotonic() < deadline:
+        attempt += 1
+        try:
+            resp = requests.get(f"{host}/echo", timeout=15)
+            if resp.status_code < 500:
+                if attempt > 1:
+                    logger.info("workspace is up after %d attempt(s)", attempt)
+                return True
+            if "auto start is not enabled" in resp.text.lower():
+                logger.error(
+                    "Workspace is suspended and Auto Resume is OFF, so it cannot wake on "
+                    "demand. Turn it on: Savanna -> Workspace Configuration -> Advanced "
+                    "Settings -> Auto Resume, then Resume the workspace once."
+                )
+                return False
+            logger.info("workspace still starting (HTTP %s), waiting...", resp.status_code)
+        except requests.RequestException as exc:
+            logger.info("workspace not reachable yet (%s), waiting...", exc)
+        time.sleep(poll_s)
+
+    logger.error("workspace did not come up within %.0fs", timeout_s)
+    return False
 
 
 def run_query(name: str, case_id: str | None = None, params: dict | None = None, **kw: Any) -> Any:

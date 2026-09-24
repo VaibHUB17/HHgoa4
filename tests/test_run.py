@@ -242,3 +242,43 @@ def test_cli_stamps_synthetic_source_for_synthetic_fixture(tmp_path):
     with open(tmp_path / "HHG-014.json", "r", encoding="utf-8") as f:
         answer = json.load(f)
     assert answer.get("_synthetic_source") is True
+
+
+# ---------------------------------------------------------------------------
+# verdict must not contradict the actions taken
+# ---------------------------------------------------------------------------
+
+class TestVerdictCoherence:
+    """A SAR filed on an 'uncertain' verdict is indefensible under policy §3a, which
+    permits one only when fraud is "confirmed or strongly suspected".
+
+    The live run produced exactly that on HHG-014: a 17-card shared-device ring confirmed
+    by community detection, R6 and FinCEN cited, BLOCK_CARD + FILE_REPORT recommended, SAR
+    filed -- and the verdict still read `uncertain` because p was 0.8436 rather than 0.85.
+    """
+
+    def test_device_ring_with_block_and_sar_resolves_to_fraud(self):
+        from src.agent.run import _resolve_verdict
+        verdict = _resolve_verdict(
+            0.8436,
+            ["shared_device_across_cards", "new_device_marker"],
+            [{"action": "BLOCK_CARD"}, {"action": "FILE_REPORT"}],
+        )
+        assert verdict == "fraud"
+
+    def test_single_weak_signal_with_a_block_stays_uncertain(self):
+        """Committing to a block does not by itself settle the question -- one signal is
+        still one signal, and `uncertain` is explicitly a creditable verdict."""
+        from src.agent.run import _resolve_verdict
+        verdict = _resolve_verdict(0.5112, ["new_device_marker"], [{"action": "BLOCK_CARD"}])
+        assert verdict == "uncertain"
+
+    def test_high_probability_without_a_committed_action_stays_uncertain(self):
+        from src.agent.run import _resolve_verdict
+        verdict = _resolve_verdict(0.80, ["risk_score_alone"], [{"action": "MONITOR_CARD"}])
+        assert verdict == "uncertain"
+
+    def test_probability_bands_still_apply_at_the_extremes(self):
+        from src.agent.run import _resolve_verdict
+        assert _resolve_verdict(0.91, ["card_testing_sequence"], []) == "fraud"
+        assert _resolve_verdict(0.05, ["in_character_for_customer"], []) == "legitimate"

@@ -1,8 +1,36 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
+import {
+  motion,
+  AnimatePresence,
+  animate,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from "motion/react";
 import type { CaseAnswer, Verdict } from "@/lib/types";
 import { CaseListRow } from "./CaseListRow";
+
+// A tab's own count ticks up/down rather than jumping to the new digit — the
+// same count-up idiom ProbabilityMeter uses for its reading, reused here so a
+// filter change reads as a recount rather than a re-render.
+function TickingCount({ value }: { value: number }) {
+  const reduce = useReducedMotion();
+  const raw = useMotionValue(value);
+  const text = useTransform(raw, (v) => Math.round(v).toString());
+
+  useEffect(() => {
+    if (reduce) {
+      raw.set(value);
+      return;
+    }
+    const controls = animate(raw, value, { duration: 0.32, ease: [0.16, 1, 0.3, 1] });
+    return () => controls.stop();
+  }, [value, raw, reduce]);
+
+  return <motion.span className="ml-1.5 readout text-[10px] text-ink-faint">{text}</motion.span>;
+}
 
 const FILTERS: { value: Verdict | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -13,6 +41,7 @@ const FILTERS: { value: Verdict | "all"; label: string }[] = [
 
 export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
   const [filter, setFilter] = useState<Verdict | "all">("all");
+  const reduce = useReducedMotion();
 
   const filtered = useMemo(
     () => (filter === "all" ? cases : cases.filter((c) => c.case.verdict === filter)),
@@ -35,19 +64,32 @@ export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
             role="tab"
             aria-selected={filter === f.value}
             onClick={() => setFilter(f.value)}
-            className={`rounded-full border px-3 py-1.5 font-body text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-signal ${
+            className={`relative rounded-full border px-3 py-1.5 font-body text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-phosphor ${
               filter === f.value
-                ? "border-signal/50 bg-signal/15 text-signal"
-                : "border-line-hi bg-panel text-dim hover:text-paper"
+                ? "border-phosphor/50 text-phosphor"
+                : "border-seam-hi bg-bed text-ink-dim hover:text-bright"
             }`}
           >
-            {f.label}
-            <span className="ml-1.5 font-data text-[10px] text-faint">{counts[f.value] ?? 0}</span>
+            {filter === f.value && (
+              <motion.span
+                layoutId="verdict-filter-active"
+                className="absolute inset-0 rounded-full bg-phosphor/15"
+                transition={
+                  reduce
+                    ? { duration: 0 }
+                    : { type: "spring", stiffness: 500, damping: 22, mass: 0.7 }
+                }
+              />
+            )}
+            <span className="relative">
+              {f.label}
+              <TickingCount value={counts[f.value] ?? 0} />
+            </span>
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-[110px_1fr_170px_120px_140px] gap-4 px-4 pb-2 font-data text-[10px] uppercase tracking-wide text-faint">
+      <div className="grid grid-cols-[110px_1fr_170px_120px_140px] gap-4 px-4 pb-2 readout text-[10px] uppercase tracking-wide text-ink-faint">
         <span>Case</span>
         <span>Pattern</span>
         <span>Fraud probability</span>
@@ -55,14 +97,16 @@ export function VerdictFilter({ cases }: { cases: CaseAnswer[] }) {
         <span>Verdict / status</span>
       </div>
 
-      <div className="space-y-1.5">
-        {filtered.map((c) => (
-          <CaseListRow key={c.case_id} c={c} />
-        ))}
+      <motion.div layout className="space-y-1.5">
+        <AnimatePresence initial={false}>
+          {filtered.map((c, i) => (
+            <CaseListRow key={c.case_id} c={c} index={i} />
+          ))}
+        </AnimatePresence>
         {filtered.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-faint">No cases match this filter.</p>
+          <p className="px-4 py-8 text-center text-sm text-ink-faint">No cases match this filter.</p>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

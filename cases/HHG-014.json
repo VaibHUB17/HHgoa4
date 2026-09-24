@@ -1,9 +1,9 @@
 {
   "case_id": "HHG-014",
   "case": {
-    "status": "open",
-    "verdict": "uncertain",
-    "fraud_probability": 0.8436,
+    "status": "closed_fraud",
+    "verdict": "fraud",
+    "fraud_probability": 0.6118,
     "pattern": "card_not_present_new_device",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -35,7 +35,7 @@
     "exposure_usd": 74.96,
     "evidence": [
       {
-        "claim": "1 online transaction(s) on card C13487-K1 from a device marked 'New' for this account (id_15=New)",
+        "claim": "1 online transaction(s) on card C13487-K1 -- T3478561 ($74.96) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C13487-K1)",
         "entity_ids": [
@@ -43,7 +43,7 @@
         ]
       },
       {
-        "claim": "Shared device profile 'SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080' used by 18 distinct customers across cards ['C01289-K2', 'C01996-K2', 'C02910-K1', 'C02975-K1', 'C03676-K2', 'C04108-K2', 'C04274-K1', 'C06710-K1', 'C08168-K1', 'C09049-K1', 'C09906-K1', 'C09975-K2', 'C10193-K2', 'C11082-K1', 'C11670-K2', 'C12796-K1', 'C13291-K1', 'C13487-K1'] within a 7-day window",
+        "claim": "Shared device profile 'SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080' appears on 23 transactions across 18 unrelated customers (C01289 (card C01289-K2), C01996 (card C01996-K2), C02910 (card C02910-K1), C02975 (card C02975-K1), C03676 (card C03676-K2), C04108 (card C04108-K2), C04274 (card C04274-K1), C06710 (card C06710-K1), C08168 (card C08168-K1), C09049 (card C09049-K1), C09906 (card C09906-K1), C09975 (card C09975-K2), C10193 (card C10193-K2), C11082 (card C11082-K1), C11670 (card C11670-K2), C12796 (card C12796-K1), C13291 (card C13291-K1), C13487 (card C13487-K1)) within 6 day(s) of a 7-day window -- one device profile tying together cards ['C01289-K2', 'C01996-K2', 'C02910-K1', 'C02975-K1', 'C03676-K2', 'C04108-K2', 'C04274-K1', 'C06710-K1', 'C08168-K1', 'C09049-K1', 'C09906-K1', 'C09975-K2', 'C10193-K2', 'C11082-K1', 'C11670-K2', 'C12796-K1', 'C13291-K1', 'C13487-K1'] that share no other connection is the structural signature of a coordinated ring rather than 18 unrelated cardholders coincidentally using the same one",
         "source": "graph",
         "ref": "query:device_neighbors(device_profile=SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080)",
         "entity_ids": [
@@ -135,6 +135,14 @@
         "entity_ids": [
           "SAR"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The shared_device_across_cards finding indicates the compromise extends beyond this single cardholder, requiring an investigation of the connected network.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-014)",
+        "entity_ids": [
+          "C13487-K1"
+        ]
       }
     ],
     "similar_prior_cases": [
@@ -144,7 +152,7 @@
       "CC-0815",
       "CC-0488"
     ],
-    "summary": "Case HHG-014 regarding card C13487-K1 resulted in an uncertain verdict with a fraud probability of 0.84, driven by the card_not_present_new_device pattern and a shared device profile used by 18 distinct customers. The key evidence includes transaction T3478561 from a new device and graph community detection confirming a shared-device cluster, while the customer validation request confirmed the cardholder did not make the purchases and still possesses the card. The final actions include BLOCK_CARD (L1, R2, R10), CREATE_CASE (auto, R2, R6), FILE_REPORT (L2, R2, R6), and MONITOR_CONNECTED_CARDS (auto, R6). These actions were chosen because the customer's denial raised the fraud probability from 0.61 to 0.84, triggering the card block under R10 and R2 despite the evidence alone remaining below the 0.85 threshold.",
+    "summary": "Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by transaction T3478561 on card C13487-K1 which originated from a device profile shared across 18 unrelated customers, a structural signature of a coordinated ring. The request for customer validation yielded no reply within the 24-hour window, leaving the fraud probability unchanged and the initial action plan intact. Final actions include MONITOR_CARD (auto, R4), DECLINE_TRANSACTION (L1, R4), CREATE_CASE (auto, R6), FILE_REPORT (L2, R6), and MONITOR_CONNECTED_CARDS (auto, R6). These measures were selected to address the multi-account shared origin ring under Fraud Policy R6 and to comply with FinCEN Advisory requirements for syndicated account compromise.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-014"
   },
@@ -152,7 +160,7 @@
     {
       "type": "customer_validation",
       "asked_after_step": 3,
-      "assumed_response": "Customer states they did not make these purchases and still has the card in their possession (activity from a device they do not recognize)."
+      "assumed_response": "No reply received from the customer within the 24-hour window."
     }
   ],
   "next_best_actions": {
@@ -175,19 +183,24 @@
     ],
     "final": [
       {
-        "action": "BLOCK_CARD",
+        "action": "MONITOR_CARD",
+        "route": "auto",
+        "reason": "R4"
+      },
+      {
+        "action": "DECLINE_TRANSACTION",
         "route": "L1",
-        "reason": "R2, R10"
+        "reason": "R4"
       },
       {
         "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R2, R6"
+        "reason": "R6"
       },
       {
         "action": "FILE_REPORT",
         "route": "L2",
-        "reason": "R2, R6"
+        "reason": "R6"
       },
       {
         "action": "MONITOR_CONNECTED_CARDS",
@@ -195,12 +208,12 @@
         "reason": "R6"
       }
     ],
-    "what_changed": "The assumed customer validation response (Customer states they did not make these purchases and still has the card in their possession (activity from a device they do not recognize).) raised fraud probability from 0.61 to 0.84, changing the recommended actions."
+    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.61); actions are unchanged from the initial recommendation."
   },
   "sar": {
     "file": true,
     "reason": "3a: activity connects to a shared device/region or another customer's fraud",
-    "narrative": "Customer C13487 reported that they did not authorize the transactions associated with card C13487-K1 and confirmed they still possess the physical card. The suspicious activity occurred on 2016-11-22 via the online channel, involving transaction T3478561 from a device new to the account. The device profile SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080 was identified as the source of the unauthorized charges. Graph community detection linked this device to a shared cluster involving cards C01289-K2, C01996-K2, C02910-K1, C02975-K1, C03676-K2, C04108-K2, C04274-K1, C06710-K1, C08168-K1, C09049-K1, C09906-K1, C09975-K2, C10193-K2, C11082-K1, C11670-K2, C12796-K1, and C13291-K1. This pattern is consistent with card-not-present fraud, resulting in a total identified exposure of $74.96. Case HHG-014 was opened to investigate the activity, which initially presented a fraud probability of 0.61 based on the new device usage. The customer's explicit denial of the purchases elevated the fraud probability to 0.84, confirming the likelihood of unauthorized access. Prior investigations CC-0078, CC-0247, CC-0178, CC-0815, and CC-0488 were reviewed as case memory to contextualize the shared device profile. The card C13487-K1 was blocked, and a report was filed to document the suspected fraud. Connected cards are now under monitoring to detect further unauthorized activity from the same device cluster.",
+    "narrative": "Customer C13487, associated with card C13487-K1, was identified as a victim of suspected card-not-present fraud on 2016-11-22. The fraudulent activity occurred over the online channel and involved transaction T3478561, which originated from a device profile shared across 18 unrelated customers. This shared device profile, identified as SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080, serves as a structural signature indicating a coordinated ring. The account is connected to cards C01289-K2, C01996-K2, C02910-K1, C02975-K1, C03676-K2, C04108-K2, C04274-K1, C06710-K1, C08168-K1, C09049-K1, C09906-K1, C09975-K2, C10193-K2, C11082-K1, C11670-K2, C12796-K1, and C13291-K1. Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by the multi-account shared origin of the transaction. A request for customer validation was issued, but no reply was received within the 24-hour window, leaving the fraud probability unchanged. The total exposure identified in this case is $74.96. Related prior investigations reviewed as case memory include CC-0078, CC-0247, CC-0178, CC-0815, and CC-0488.",
     "subjects": [
       "C13487",
       "C13487-K1",
@@ -234,8 +247,8 @@
       "2016-11-22"
     ]
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.84 (uncertain); further steps are unlikely to change the decision.",
+  "stop_reason": "Evidence request settled the question: probability reached 0.61 (fraud); further steps are unlikely to change the decision.",
   "tool_calls": 7,
-  "tokens": 2564,
-  "latency_s": 4.976
+  "tokens": 4549,
+  "latency_s": 8.349
 }

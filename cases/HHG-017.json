@@ -36,7 +36,7 @@
       "CC-0776",
       "CC-0175"
     ],
-    "summary": "Case HHG-017 was reviewed after a real-time model scored transaction 3450629 at 0.57, but the investigation concluded with a verdict of legitimate and a fraud probability of 0.08. The key evidence indicated that the flagged transaction's product category and billing region matched the customer's established history, with no other corroborating signals found. No evidence request was issued, and the final action remained CLOSE_NO_FRAUD (auto, R3), which was selected because nothing changed from the initial assessment.",
+    "summary": "Case HHG-017 was reviewed after a real-time model scored transaction 3450629 at 0.57, but the final verdict is legitimate with a fraud probability of 0.08. The key evidence indicates that the flagged transaction's product category and billing region match the customer's established history, and no other corroborating signal was found. No evidence request was made, and the final action remains CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered) because nothing changed from the initial assessment.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-017"
   },
@@ -46,14 +46,14 @@
       {
         "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, settled low, no rule triggered"
       }
     ],
     "final": [
       {
         "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, settled low, no rule triggered"
       }
     ],
     "what_changed": "nothing"
@@ -68,6 +68,6 @@
   },
   "stop_reason": "Probability 0.08 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 7,
-  "tokens": 499,
-  "latency_s": 8.231
+  "tokens": 703,
+  "latency_s": 9.57
 }

@@ -3,7 +3,7 @@
   "case": {
     "status": "open",
     "verdict": "uncertain",
-    "fraud_probability": 0.4601,
+    "fraud_probability": 0.3334,
     "pattern": "card_not_present_new_device",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -30,7 +30,7 @@
         ]
       },
       {
-        "claim": "8 online transaction(s) on card C13171-K2 from a device marked 'New' for this account (id_15=New)",
+        "claim": "8 online transaction(s) on card C13171-K2 -- T3551412 ($4.67), T3553223 ($45.75), T3554288 ($78.56), T3554589 ($11.91), T3554683 ($85.57), T3555638 ($11.85), T3556719 ($8.33), T3557987 ($55.69) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C13171-K2)",
         "entity_ids": [
@@ -67,6 +67,26 @@
         "entity_ids": [
           "R7"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with a closed case match suggests the device may be linked to other compromised accounts, warranting a check for shared device connections.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-008)",
+        "entity_ids": [
+          "C13171-K2"
+        ]
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-20 03:08:56', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-20 03:08:56', 'hours': 24}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=2)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -76,15 +96,15 @@
       "CC-4819",
       "CC-0553"
     ],
-    "summary": "Case HHG-008 remains uncertain with a fraud probability of 0.46, as the customer's dispute of a $55.68 charge on card C13171-K2 was not resolved by the lack of a reply to the customer validation request within the 24-hour window. Key evidence includes eight online transactions from a new device and a structural match with confirmed fraud case CC-0056, which is counterbalanced by the disputed charge matching the customer's established recurring subscription pattern. The final actions consist of CREATE_CASE (auto, R2, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), selected because Fraud Policy R7 forbids an immediate card block when the disputed charge aligns with a recurring subscription. The investigation was escalated per policy because the unresolved validation response left the card_not_present_new_device pattern unconfirmed.",
+    "summary": "Case HHG-008 remains uncertain with a fraud probability of 0.33, as the investigation into the card_not_present_new_device pattern could not reach a confident verdict. Key evidence includes the customer's dispute of a $55.68 charge, eight online transactions on card C13171-K2 from a new device, and a structural match with confirmed-fraud case CC-0056, though the disputed charge also aligns with the customer's recurring subscription pattern. An attempt to query device neighbors for id_15 failed due to a conversion error, and the step-up authentication request expired unanswered, which raised the probability from 0.29 to 0.33. Consequently, the final actions were limited to CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), as Fraud Policy R7 forbids an immediate card block when the disputed charge matches an established recurring subscription.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-008"
   },
   "evidence_requests": [
     {
-      "type": "customer_validation",
+      "type": "step_up_auth",
       "asked_after_step": 3,
-      "assumed_response": "No reply received from the customer within the 24-hour window."
+      "assumed_response": "Step-up authentication request expired unanswered within the window."
     }
   ],
   "next_best_actions": {
@@ -109,7 +129,7 @@
       {
         "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R2, R7"
+        "reason": "R7"
       },
       {
         "action": "VERIFY_WITH_CUSTOMER",
@@ -122,7 +142,7 @@
         "reason": "R7"
       }
     ],
-    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.46); actions are unchanged from the initial recommendation."
+    "what_changed": "The assumed step up auth response (Step-up authentication request expired unanswered within the window.) raised fraud probability from 0.29 to 0.33, changing the recommended actions."
   },
   "sar": {
     "file": false,
@@ -132,8 +152,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.46 (uncertain); further steps are unlikely to change the decision.",
+  "stop_reason": "Evidence request settled the question: probability reached 0.33 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 876,
-  "latency_s": 9.565
+  "tokens": 4918,
+  "latency_s": 33.844
 }

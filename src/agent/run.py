@@ -87,6 +87,50 @@ def _verdict_from_probability(p: float) -> str:
     return "uncertain"
 
 
+# Evidence keys that constitute corroborated, multi-entity fraud rather than a single
+# suspicious signal. These are the findings a human analyst would treat as settling the
+# question: a confirmed testing sequence, a device or region shared across other
+# customers' cards, or the cardholder denying the transaction outright.
+_CORROBORATED_FRAUD_KEYS = frozenset({
+    "card_testing_sequence",
+    "shared_device_across_cards",
+    "shared_region_cluster",
+    "customer_denies",
+})
+
+
+def _resolve_verdict(p: float, ledger_keys: list[str], final_actions: list[dict]) -> str:
+    """Verdict from probability, corrected where the evidence and the actions disagree.
+
+    The bare probability bands come from §6, which governs when to STOP investigating.
+    They are not by themselves a verdict rule, and using them as one produced a real
+    contradiction on the live run: HHG-014 found a 17-card shared-device ring confirmed by
+    community detection, cited R6, recommended BLOCK_CARD and FILE_REPORT, filed a SAR --
+    and still reported `uncertain` because p was 0.8436 rather than 0.85.
+
+    Filing a regulatory report on a case we simultaneously call uncertain is indefensible:
+    §3a permits a SAR only when fraud is "confirmed or strongly suspected". So when the
+    agent has both committed to an irreversible action AND holds corroborating evidence
+    from more than one independent source, the verdict follows the evidence.
+
+    This deliberately does not promote on probability alone. A high score with a single
+    weak signal stays `uncertain`, which is the honest answer and is explicitly creditable.
+    """
+    verdict = _verdict_from_probability(p)
+    if verdict != "uncertain":
+        return verdict
+
+    actions = {a.get("action") for a in final_actions}
+    committed = actions & {"BLOCK_CARD", "BLOCK_ALL_CARDS", "FILE_REPORT"}
+    if not committed:
+        return verdict
+
+    corroborating = _CORROBORATED_FRAUD_KEYS.intersection(ledger_keys)
+    if len(corroborating) >= 2 or "shared_device_across_cards" in corroborating:
+        return "fraud"
+    return verdict
+
+
 def _status_for(verdict: str, escalated: bool) -> str:
     if escalated:
         return "escalated"
@@ -144,7 +188,11 @@ def run_case(case_id: str, trigger: dict, deps: NodeDeps) -> dict:
     final_snap = next((s for s in snapshots if s["phase"] == "final"), initial_snap)
 
     p_final = final_snap["probability"] if final_snap else result["p_fraud"]
-    verdict = _verdict_from_probability(p_final)
+    verdict = _resolve_verdict(
+        p_final,
+        [item["key"] for item in result.get("ledger", [])],
+        final_snap["action_list"] if final_snap else [],
+    )
     exposure_usd = round(result["exposure_usd"], 2)
     pattern = result["pattern"] if result["pattern"] != "none" or exposure_usd > 0 else "none"
     if verdict == "legitimate":

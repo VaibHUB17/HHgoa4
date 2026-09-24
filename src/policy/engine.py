@@ -292,23 +292,36 @@ def apply_rules(s: CaseState) -> list[dict]:
     # fine matches none of them and would otherwise produce no action at all. That is not
     # a valid answer: the bank asked what to do, and "nothing" is not an instruction. The
     # policy already has the right verbs for this, so pick the one the evidence supports.
+    #
+    # None of these three branches are R3/R4: those rule numbers are specifically "customer
+    # confirms" / "no reply within 24h" (a customer_validation reply on record). A case that
+    # settles low or stays under the case-creation line purely on its own gathered evidence,
+    # with no evidence request ever made, isn't citing either -- it's the policy's own
+    # default disposition (README §3a/§6), not a numbered rule. Citing R3/R4 here used to
+    # make the answer-file validator (which cross-checks a cited rule against an actual
+    # recorded customer response, see src/answer/validator.py's rule/response consistency
+    # check) correctly reject these cases once evidence-request-free settlement started
+    # happening in practice (the live agentic run's risk_score cases, which settle without
+    # R1 ever needing to ask). "R0" is this fallback's own sentinel -- not one of the
+    # policy's R1-R10, deliberately outside every rule-specific consistency check, but still
+    # matching the "every action cites an R-number" schema requirement honestly.
     if not ordered_actions:
         if s.fraud_probability <= STOP_LOW:
             # Settled: low probability on adequate evidence. Close it (§3a: a case is only
             # opened at >= 0.30, so there is nothing to keep open here).
             ordered_actions = ["CLOSE_NO_FRAUD"]
-            reasons["CLOSE_NO_FRAUD"] = ["R3"]
+            reasons["CLOSE_NO_FRAUD"] = ["R0: policy default, settled low, no rule triggered"]
         elif s.fraud_probability < CASE_CREATION_THRESHOLD:
             # Below the case-creation line but not settled low enough to close outright.
             # Keep watching rather than acting or walking away.
             ordered_actions = ["MONITOR_CARD"]
-            reasons["MONITOR_CARD"] = ["R4"]
+            reasons["MONITOR_CARD"] = ["R0: policy default, below case-creation threshold"]
         else:
             # At or above 0.30 with nothing else triggered: open the case (§3a) and keep
             # the card under watch while it is worked.
             ordered_actions = ["CREATE_CASE", "MONITOR_CARD"]
-            reasons["CREATE_CASE"] = ["R8"]
-            reasons["MONITOR_CARD"] = ["R4"]
+            reasons["CREATE_CASE"] = ["R0: 3a, fraud_probability >= 0.30"]
+            reasons["MONITOR_CARD"] = ["R0: policy default, keep watching while case is open"]
 
     return [
         {"action": a, "reason_rules": reasons.get(a, [])}

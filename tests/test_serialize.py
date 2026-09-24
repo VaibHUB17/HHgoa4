@@ -99,13 +99,22 @@ class TestTokenBudgetTrimming:
         rows_b = [{"txn_id": f"B{i}", "risk_score": 0.9, "amount": 5.0} for i in range(10)]
         qa = QueryResult(ref="query:a()", rows=rows_a, entity_ids=[r["txn_id"] for r in rows_a], title="A")
         qb = QueryResult(ref="query:b()", rows=rows_b, entity_ids=[r["txn_id"] for r in rows_b], title="B")
-        # A mild budget: block A's low-risk rows (0..~0.44) should be trimmed first,
-        # before block B's uniformly high-risk (0.9) rows are touched at all.
-        text, trimmed = fit_to_budget("Header.", [qa, qb], max_tokens=300)
+        # The budget has to be tight enough to actually force trimming. At max_tokens=300
+        # both blocks fit whole (~170 tokens total), so nothing was trimmed and the test
+        # asserted against a no-op. Size it from the real rendered cost instead.
+        full_text, _ = fit_to_budget("Header.", [qa, qb], max_tokens=10_000)
+        budget = max(1, (len(full_text) // 4) * 2 // 3)  # ~two thirds of what it needs
+        text, trimmed = fit_to_budget("Header.", [qa, qb], max_tokens=budget)
         a_remaining = len(trimmed[0].rows)
         b_remaining = len(trimmed[1].rows)
         assert a_remaining < 10, "low-risk block should be trimmed first"
-        assert b_remaining == 10, "high-risk block should be untouched while low-risk block still has rows to give"
+        # The real invariant: the low-risk block gives up every row it can (down to the
+        # one row fit_to_budget always leaves) before the high-risk block loses any. Once
+        # A is exhausted, B necessarily starts giving rows too, so asserting B is wholly
+        # untouched only holds at budgets loose enough that A alone covers the shortfall.
+        assert a_remaining <= b_remaining, "low-risk block should be trimmed harder than high-risk"
+        if b_remaining < 10:
+            assert a_remaining == 1, "high-risk rows should only go once the low-risk block is exhausted"
 
 
 class TestEntityIdsRoundTrip:

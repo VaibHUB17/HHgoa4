@@ -3,7 +3,7 @@
   "case": {
     "status": "open",
     "verdict": "uncertain",
-    "fraud_probability": 0.5112,
+    "fraud_probability": 0.3804,
     "pattern": "card_not_present_new_device",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -23,11 +23,54 @@
         ]
       },
       {
-        "claim": "1 online transaction(s) on card C09988-K1 from a device marked 'New' for this account (id_15=New)",
+        "claim": "1 online transaction(s) on card C09988-K1 -- T3534820 ($59.67) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C09988-K1)",
         "entity_ids": [
           "T3534820"
+        ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker indicates a potential shared device that could be linked to other compromised cards or customers.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-016)",
+        "entity_ids": [
+          "C09988-K1"
+        ]
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-12 01:39:08', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "card_window returned 14 connected entities at depth 2. Reasoning: The goal is to retrieve the full transaction history for the specific card associated with customer C09988 in the 720 hours preceding the case opening time. The 'card_window' query is designed to fetch transactions for a specific card within a defined time window anchored at a specific timestamp, which directly addresses the need to identify other transactions on device id_15 or new devices and check for signs of takeover.",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C09988-K1, anchor=2016-12-12 01:39:08, hours=720)",
+        "entity_ids": [
+          "3550014",
+          "3556269",
+          "3571514",
+          "3534820",
+          "3557399",
+          "3474173",
+          "3558449",
+          "3571970",
+          "3570589",
+          "3565172",
+          "3549903",
+          "3554344",
+          "3569366",
+          "3568791"
+        ]
+      },
+      {
+        "claim": "card_window returned 1 connected entities at depth 3. Reasoning: The goal is to retrieve the specific details of the other 13 transactions associated with card C09988-K1 to analyze them for fraud indicators. The 'card_window' query is the installed tool designed to fetch transactions for a specific card within a time window anchored to the case opening time. Using a 24-hour window is a standard initial scope to capture recent activity around the incident.",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C09988-K1, anchor=2016-12-12 01:39:08, hours=24)",
+        "entity_ids": [
+          "3534820"
         ]
       }
     ],
@@ -38,15 +81,15 @@
       "CC-0534",
       "CC-0620"
     ],
-    "summary": "Case HHG-016 remains uncertain with a fraud probability of 0.51, as the cardholder's denial of the $59.67 charge on card C09988-K1 and the detection of a new device did not yield a definitive conclusion. The request for customer validation resulted in no reply within the 24-hour window, leaving the fraud probability unchanged and the case unresolved. Consequently, the final actions include BLOCK_CARD via route L1 under rules R2 and R10, and CREATE_CASE via the auto route under rule R2. These actions were selected because the cardholder explicitly denied the transaction, triggering a precautionary block despite the evidence staying below the 0.85 fraud threshold.",
+    "summary": "Case HHG-016 resulted in an uncertain verdict with a fraud probability of 0.38, driven by customer C09988's dispute of a $59.67 charge on card C09988-K1 that originated from a device marked as new. The investigation attempted to expand to the shared-device neighborhood but failed due to a query error, while the step-up authentication request expired unanswered, which raised the probability from 0.33 to 0.38. Consequently, the final actions remained CREATE_CASE (auto, R0: 3a, fraud_probability >= 0.30) and MONITOR_CARD (auto, R0: policy default, keep watching while case is open). The case was escalated per policy because the investigation could not reach a confident verdict regarding the card_not_present_new_device pattern.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-016"
   },
   "evidence_requests": [
     {
-      "type": "customer_validation",
+      "type": "step_up_auth",
       "asked_after_step": 3,
-      "assumed_response": "No reply received from the customer within the 24-hour window."
+      "assumed_response": "Step-up authentication request expired unanswered within the window."
     }
   ],
   "next_best_actions": {
@@ -54,27 +97,27 @@
       {
         "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R8"
+        "reason": "R0: 3a, fraud_probability >= 0.30"
       },
       {
         "action": "MONITOR_CARD",
         "route": "auto",
-        "reason": "R4"
+        "reason": "R0: policy default, keep watching while case is open"
       }
     ],
     "final": [
       {
-        "action": "BLOCK_CARD",
-        "route": "L1",
-        "reason": "R2, R10"
-      },
-      {
         "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R2"
+        "reason": "R0: 3a, fraud_probability >= 0.30"
+      },
+      {
+        "action": "MONITOR_CARD",
+        "route": "auto",
+        "reason": "R0: policy default, keep watching while case is open"
       }
     ],
-    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.51); actions are unchanged from the initial recommendation."
+    "what_changed": "The assumed step up auth response (Step-up authentication request expired unanswered within the window.) raised fraud probability from 0.33 to 0.38, changing the recommended actions."
   },
   "sar": {
     "file": false,
@@ -84,8 +127,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.51 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 6,
-  "tokens": 735,
-  "latency_s": 2.715
+  "stop_reason": "Evidence request settled the question: probability reached 0.38 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 8,
+  "tokens": 4898,
+  "latency_s": 40.986
 }

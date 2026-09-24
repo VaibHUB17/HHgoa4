@@ -51,6 +51,31 @@ class ClosedCaseCandidate:
     exposure_usd: float = 0.0
     opened_at: str = ""
 
+    @property
+    def relevance_reason(self) -> str:
+        """One-line, data-true reason this precedent was retrieved -- so the answer file
+        shows WHY a prior case is relevant rather than just citing its id. Built only from
+        fields already on this candidate (no invented figures): which signal drove the
+        match (structural overlap, same provisional pattern, or semantic similarity of
+        the notes alone) and what it actually outcomed as.
+        """
+        reasons = []
+        if self.shared_entity_count > 0:
+            reasons.append(
+                f"shares {self.shared_entity_count} entit{'y' if self.shared_entity_count == 1 else 'ies'} "
+                f"(card/device/region) with this alert"
+            )
+        if self.pattern_matches:
+            reasons.append(f"same provisional pattern ({self.pattern})")
+        if not reasons:
+            reasons.append(
+                f"semantically similar analyst notes (cosine distance "
+                f"{self.cosine_distance:.2f}), no direct structural overlap"
+            )
+        outcome_label = "confirmed fraud" if self.outcome == CONFIRMED else "cleared as legitimate"
+        exposure = f", ${self.exposure_usd:,.2f} exposure" if self.exposure_usd else ""
+        return f"{self.case_id} ({outcome_label}{exposure}): {'; '.join(reasons)}"
+
 
 @dataclass
 class RetrievalResult:
@@ -68,6 +93,25 @@ class RetrievalResult:
             if c.case_id not in seen:
                 seen.append(c.case_id)
         return seen
+
+    def precedent_evidence(self, ref_prefix: str = "query:prior_case_candidates") -> list[dict]:
+        """Evidence-dict items (claim/source/ref/entity_ids, matching the shape every
+        detector's Finding produces) for the retrieved precedent, one per case, each
+        carrying its own outcome and relevance_reason so the answer file shows why a
+        prior case is relevant rather than just citing an id. Confirming and
+        disconfirming stay distinguishable via the claim text itself; the caller decides
+        whether to include both pools or handle any conflict between them in the
+        narrative -- that reasoning is the point (see module docstring)."""
+        items = []
+        for pool_label, pool in (("confirming", self.confirming), ("disconfirming", self.disconfirming)):
+            for c in pool:
+                items.append({
+                    "claim": f"Precedent ({pool_label}): {c.relevance_reason}",
+                    "source": "graph",
+                    "ref": f"{ref_prefix}(case={c.case_id})",
+                    "entity_ids": [c.case_id],
+                })
+        return items
 
 
 def semantic_score(cosine_distance: float) -> float:
@@ -160,6 +204,16 @@ def demo() -> None:
     assert len(result.confirming) == 3
     assert len(result.disconfirming) == 2
     assert {c.case_id for c in result.disconfirming} == {"CC-clear-1", "CC-clear-2"}
+
+    # relevance_reason / precedent_evidence: outcome + reason travel with each precedent
+    evidence = result.precedent_evidence()
+    assert len(evidence) == 5
+    assert all("Precedent (" in e["claim"] for e in evidence)
+    conf_claims = [e["claim"] for e in evidence if "confirming" in e["claim"]]
+    assert any("confirmed fraud" in c for c in conf_claims)
+    disconf_claims = [e["claim"] for e in evidence if "disconfirming" in e["claim"]]
+    assert all("cleared as legitimate" in c for c in disconf_claims)
+
     print("retrieve.py demo OK:", result.similar_prior_cases)
 
 

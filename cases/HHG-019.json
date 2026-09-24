@@ -13,7 +13,7 @@
     "exposure_usd": 0.0,
     "evidence": [
       {
-        "claim": "1 online transaction(s) on card C07987-K2 from a device marked 'New' for this account (id_15=New)",
+        "claim": "1 online transaction(s) on card C07987-K2 -- T3503878 ($99.92) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C07987-K2)",
         "entity_ids": [
@@ -27,6 +27,26 @@
         "entity_ids": [
           "T3503878"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character activity suggests a potential shared device compromise that may extend to other cards.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-019)",
+        "entity_ids": [
+          "C07987-K2"
+        ]
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-12-01 22:28:53', 'hours': 72}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Generated traversal passed the guard but failed to execute: (\"line 1:96 extraneous input ''' expecting {ABORT, ALL, AND, ANY, AVG, BY, CANDIDATE_SET, CASE, COALESCE, COLLECT, COLUMN, COMMIT, COUNT, DATETIME_ADD, DATETIME_SUB, DEFAULT, DIRECTED, DISTINCT, FALSE, FILE, FILTERTYPE, FUNCTION, GROUP, INIT, INSERT, ISEMPTY, JOIN, LASTHOP, LEFT, LIST, LOG, MAP, MATCH, MAX, MIN, NOW, NULL, ON, OR, PATH, PER, PROJECT, RANGE, REPLACE, STDEV, STDEVP, SELECT_VERTEX, SEMIJOIN, SET, SRC, SUM, TGT, TO_DATETIME, TRIM, TRUE, UNDIRECTED, UNWIND, UPDATE, VECTOR, VIRTUAL, GSQL_INT_MAX, GSQL_INT_MIN, GSQL_UINT_MAX, '__ENGINE__E_ATTR', '__ENGINE__SRC_ATTR', '__ENGINE__TGT_ATTR', '__ENGINE__V_ATTR', '__ENGINE__SRC_VAL', '__ENGINE__TGT_VAL', '__ENGINE__V_VAL', '__ENGINE__MESSAGE', '__ENGINE__CONTEXT', '__ENGINE__REQUEST', '__ENGINE__SERVICEAPI', 'type', '(', '[', '-', '.', '_', '~', CONST_INT, CONST_STR, NAME, GACCNAME}\\nline 1:101 mismatched input ''' expecting {ACCUM, AND, GROUP, HAVING, INTERSECT, LIMIT, MINUS, OR, ORDER, PER, POST_ACCUM, SET, UNION, '%', '&', '+', '-', '*', '/', '.', ';', '>', '|', '<<'}\\nParsing encountered 2 syntax error(s)\\n\\nSemantic Check Fails: Fail to generate the query list because of a query syntax error.\\nSemantic Check Fails: The data file in the JSONObject format for an interpret query is invalid. Please refer to log.ERROR for details.\\n\", None). Query verbatim: INTERPRET QUERY () FOR GRAPH FraudInvestigation { r = SELECT d FROM Device:d WHERE d.id_15 == 'New' LIMIT 50; PRINT r; }",
+        "source": "graph",
+        "ref": "llm_generated_query:failed(depth=2)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -36,7 +56,7 @@
       "CC-0678",
       "CC-0388"
     ],
-    "summary": "Case HHG-019 was reviewed after a real-time model scored transaction 3503878 for $99.92 at a high risk of 0.90, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that while the transaction originated from a new device, the product category and billing region align with the customer's established history for card C07987-K2. No evidence requests were made, and the final actions remained unchanged from the initial assessment, resulting in the case being closed via the CLOSE_NO_FRAUD route under rule R3.",
+    "summary": "Case HHG-019 was closed as legitimate with a fraud probability of 0.12, as the single online transaction T3503878 for $99.92 on card C07987-K2 exhibited product and billing characteristics consistent with the customer's established history. Although the transaction originated from a device marked as new, an attempt to expand the investigation to the shared-device neighborhood failed due to a syntax error in the generated query, leaving no additional corroborating evidence of compromise. The final action of CLOSE_NO_FRAUD was executed via the auto route under rule R0: policy default, settled low, no rule triggered, which remained unchanged from the initial assessment.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-019"
   },
@@ -46,14 +66,14 @@
       {
         "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, settled low, no rule triggered"
       }
     ],
     "final": [
       {
         "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, settled low, no rule triggered"
       }
     ],
     "what_changed": "nothing"
@@ -68,6 +88,6 @@
   },
   "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 6,
-  "tokens": 533,
-  "latency_s": 2.771
+  "tokens": 4714,
+  "latency_s": 45.25
 }

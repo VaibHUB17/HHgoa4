@@ -1,233 +1,203 @@
 <!--
-VERIFIED-REAL (from committed code/tests/handover docs as of this writing):
-  - README/policy text, action names, approval routes, rules R1-R10: quoted from README.md.
-  - HHG-017 before/after numbers (p=0.410 -> p=0.704, VERIFY_WITH_CUSTOMER -> BLOCK_CARD at L1):
-    from handover/02-how-it-works.md, described there as "actually executing today (offline
-    fixtures, verified output)". Not yet verified against a live Savanna instance.
-  - Ledger formula sigmoid(-1.8 + 4.1 x sum(weights)) and the bias-term bug/fix: src/policy/ledger.py.
-  - Two-pool retrieval (4,665 confirmed vs 900 cleared, top-3/top-2 split): src/rag/retrieve.py,
-    counts from README.md's closed_cases_history.csv description.
-  - Out-of-region detector inversion bug, the dead initial/final bug (step_up_auth vs
-    customer_validation, dedup loop, dropped state key): handover/06-decisions-and-gotchas.md.
-  - Test count (105 tests) and module line counts: handover/03-codebase-tour.md.
-  - Column loading split (30 of 393 columns to graph, V1-V339 to parquet): handover/06 and
-    src/graph/load.py per codebase tour.
-<!--
-VERIFIED-REAL (from live TigerGraph Savanna 4.2.5 run):
-  - Final verdict distribution across the 20 submitted cases: 1 fraud (HHG-006), 10 legitimate (HHG-001, HHG-003, HHG-004, HHG-005, HHG-007, HHG-009, HHG-010, HHG-012, HHG-017, HHG-019), 9 uncertain (HHG-002, HHG-008, HHG-011, HHG-013, HHG-014, HHG-015, HHG-016, HHG-018, HHG-020). Exactly 50% legitimate, matching the brief's real-world prior.
-  - Zero over-blocking alarm: 1 fraud / 20 cases.
-  - Actual tool_calls: 6 to 7 live queries per case via the tigergraph-mcp query execution path.
-  - Actual tokens: 500 to 2,573 tokens per case via Groq Qwen 3.8-27b with strict ID hallucination guards.
-  - Actual latency: 4.6s to 7.2s per case live against Savanna.
-  - Graph algorithms: Weakly Connected Components (tg_wcc) executed live over Card-DeviceProfile, uncovering an 18-customer proxy syndicate in HHG-014.
-  - Document GraphRAG: 56 PolicyChunk and FinCEN regulatory vertices loaded on TigerGraph, cited with source: "document".
-  - Vector search: 1536-dimensional Gemini embeddings on ClosedCase.notesEmb returning top semantic precedents from both confirmed_fraud and cleared pools.
-  - Test suite: 115 passing tests.
--->
+SOURCING NOTES (for whoever publishes this):
 
+VERIFIED-REAL, from running the checker script against cases/*.json on the
+regen-agentic-live branch, 24 Sept, against the live TigerGraph Savanna graph:
+  verdicts: {'legitimate': 9, 'uncertain': 10, 'fraud': 1}
+  llm_decision refs: 12/20 cases
+  sar.file=true: 2 cases
+  next_best_actions initial != final: 10/20 cases
+  total LLM tokens: 20,365
+  distinct prior cases cited: 89
+
+This matches docs/REGEN_REVIEW.md exactly, so it is the current state of
+cases/ as of this writing, not a stale number.
+
+[VERIFY] tags below mark anything that depends on:
+  (a) the open R2/R4 policy defect (docs/REGEN_REVIEW.md) — HHG-004, HHG-006,
+      HHG-016 currently recommend BLOCK_CARD citing R2 on a "no reply"
+      customer response, which should be R4. Another agent is fixing this on
+      this branch concurrently, so re-run the checker script before
+      publishing and re-verify every case ID and number named below.
+  (b) graph vertex/query counts, which the task brief says may shift.
+
+CONTRADICTION FOUND, not silently resolved: the previous draft of this blog
+post used HHG-017's offline-fixture run (p=0.41 -> p=0.70, VERIFY_WITH_CUSTOMER
+-> BLOCK_CARD) as its worked before/after example. In the live run, HHG-017
+does not change at all (what_changed: "nothing", stays legitimate throughout,
+p=0.082). That example has been replaced below with HHG-006, which does
+change in the live data and is independently the undocumented-pattern case.
+HHG-006 is however one of the three cases touched by the open R2/R4 defect
+above, so its exact action list is marked [VERIFY] too.
+-->
 
 # Judgement under uncertainty: an agent that knows when not to act
 
-We built this for the TigerGraph x Hacker House Goa fraud investigation task: twenty card-fraud
-alerts, a graph database, and an agent that decides what happened and what the bank should do
-about it. The interesting part of this brief isn't fraud detection. There is no fraud label
-anywhere in the dataset, half the twenty exam cases are legitimate, and the bank's own risk score
-is wrong in both directions — above 0.7 most flagged transactions turn out fine, and some real
-fraud scores near zero. You cannot train a classifier against a target that doesn't exist. What
-you can build is a system that gathers evidence, says how confident it is and why, and is honest
-when it isn't sure.
-
-That reframing drove almost every design decision below.
+We built this for a TigerGraph fraud-investigation hackathon: twenty card-fraud alerts, a graph
+database, and an agent that has to decide what happened and what the bank should do about it. The
+interesting part of this brief is not fraud detection. There is no fraud label anywhere in the
+dataset. Half the twenty exam cases are legitimate by construction, and the bank's own risk score is
+wrong in both directions — above 0.7 most flagged transactions turn out fine, and some real fraud
+scores near zero. You cannot train a classifier against a target that doesn't exist. What you can
+build is a system that gathers evidence, states how confident it is and why, and is honest when it
+isn't sure. That reframing drove most of the decisions below.
 
 ## What we built
 
 The pipeline is a LangGraph state machine over a TigerGraph instance. For each case: pull the graph
 neighbourhood of the flagged transaction (other activity on the card, the device it came from, the
-customer's baseline, prior closed cases), run it through six pattern detectors, score the
-accumulated evidence into a probability, decide whether that's enough to stop, and if not, ask for
-more evidence (a simulated customer reply, since the dataset doesn't provide real ones) and go
-around again. It writes three things per case into one JSON file: the internal case record, a
-suspicious activity report when policy requires one, and a next-best-action recommendation — before
-and after evidence came back.
+customer's baseline, prior closed cases), run it through pattern detectors, score the accumulated
+evidence into a probability, decide whether that's enough to stop, and if not, ask for more evidence
+(a simulated customer reply, since the dataset doesn't provide real ones) and go around again. It
+writes three things per case into one JSON file: the case record, a SAR when policy requires one,
+and a next-best-action recommendation — before and after the evidence came back. The case is also
+written back into the graph as precedent for the next investigation: closing a case on a shared
+device profile makes that profile evidence for whoever gets flagged next.
 
-The case is also written back into the graph, so the next investigation can retrieve it — the case
-memory the brief asks for. An agent that closes a case on a shared device profile makes that device
-profile evidence for whoever gets flagged next.
+**Live, `[VERIFY]` before publishing:** the current run resolves to 9 legitimate, 10 uncertain, 1
+fraud across 20 cases; 2 file a SAR; 12 carry a real `llm_decision` evidence ref (the model chose to
+widen the investigation); 10 have a recommendation that changed between initial and final; total
+LLM spend is 20,365 tokens; 89 distinct prior closed cases are cited. Another agent is fixing a
+policy defect on this branch concurrently (see below), so re-run the checker before quoting these
+publicly.
 
 ## Why a graph and not a table
 
-Three of the five documented fraud patterns are not visible to a model scoring one transaction at
-a time, because the signal lives in the relationship between entities, not in any single row.
+Some fraud patterns in this brief are invisible to a model scoring one transaction at a time,
+because the signal lives in the relationship between entities, not in any single row. One case turns
+on an analyst's note saying, in substance, that several cards that month show purchases from the
+same unusual device profile — a shared-device ring. A model scoring the flagged transaction on card
+A has no way to know the same physical device also made a purchase on a different customer's card
+that week. A two-hop graph query
+(`Transaction -> FROM_DEVICE -> DeviceProfile <- FROM_DEVICE <- Transaction`) sees it immediately,
+because it's a query about the shape of the graph, not any one row's features.
 
-Case HHG-014 makes this concrete. Its trigger text, verbatim from the case pack, is an analyst
-saying: "several cards this month show purchases from the same unusual device profile." That
-sentence describes a shared-device ring, and it is unsolvable by a per-transaction model. A model
-scoring the flagged transaction on card A has no way to know that the same physical device — same
-`DeviceInfo`, same OS, same browser, same screen resolution — also made a purchase on customer
-B's card that week. A two-hop graph query (`Transaction -> FROM_DEVICE -> DeviceProfile <-
-FROM_DEVICE <- Transaction`) sees it immediately, because it's a query about the shape of the
-graph, not about any one row's features.
+The schema is built around `Customer -> OWNS -> Card -> MADE -> Transaction`, fanning out to
+`DeviceProfile`, `BillingRegion`, `EmailDomain`, and `ProductCategory`. Closed cases hang off the
+same transactions and cards they involve, so a closed case is graph-reachable evidence, not a
+separate lookup table. We load a minority of the original transaction columns; the bulk of the file
+is engineered features with no published meaning, and since the brief says not to pretend to know
+what an unlabelled feature means, those stay out of the graph entirely. Fully loaded: 590,742
+Transaction, 14,780 Card, 13,553 Customer, 9,704 DeviceProfile, 5,565 ClosedCase, and 56 PolicyChunk
+vertices, six installed GSQL queries, and TigerGraph's `tg_wcc` community detection algorithm.
 
-The schema is ten vertex types and fourteen edge types: `Customer -> OWNS -> Card -> MADE ->
-Transaction`, with `Transaction` fanning out to `DeviceProfile`, `BillingRegion`, `EmailDomain`,
-`ProductCategory`, and a time-ordered `NEXT` edge per card. `ClosedCase` and our own `Case`
-vertices hang off the same transactions and cards they involve, so a closed case is graph-reachable
-evidence, not a separate lookup table. We load about 30 of the 393 original columns into the graph;
-the V1–V339 block (85% of the file) is Vesta's engineered features with no published meaning, and
-since the brief says not to pretend to know what V127 means, those can't be cited as evidence and
-go to a parquet sidecar instead of bloating every transaction vertex.
+## Two-pool memory retrieval, and a pattern the labels missed
+
+`closed_cases_history.csv` has 5,565 closed investigations: 4,665 confirmed fraud, 900 cleared —
+the agent's only source of ground truth, and the thing that will quietly bias it if retrieved
+carelessly. Run one similarity search over the whole history and take the top five, and you get
+five confirmed-fraud cases almost every time, not because they're better matches but because there
+are more than five of them competing for every ranking slot. The agent then only sees precedent that
+argues for fraud, and drifts toward blocking — the failure mode that costs the most points given
+that half the exam cases are legitimate. The retrieval layer splits the candidate pool by outcome
+before ranking, not after: a handful of top matches from the confirmed-fraud pool, a couple from the
+cleared pool, independently sorted, never merged before truncation. The agent sees "this looked like
+card testing and turned out to be fraud" next to "this looked like card testing and turned out to be
+a recurring subscription charge," and has to reconcile them.
+
+Nine rows in that file carry `pattern == undocumented` — the label pipeline that tagged the other
+5,556 rows had no name for whatever these were. The brief scores finding a pattern the labels
+missed, and the mechanism is readable directly in the analyst's own words once you read all nine
+notes by hand rather than expect a model to summarize them. Five of the nine — CC-3748, CC-3841,
+CC-3907, CC-4086, CC-4124 — describe the same shape: several online purchases on one card within
+about half an hour, each priced just under $500. The notes name it themselves: amounts chosen to
+stay under a $500 authorization ceiling that would otherwise trigger stronger verification. That's
+authorization-threshold structuring, not one of the five documented patterns in the brief. We wrote
+a detector for it — three or more online purchases within an hour, each between $450 and $500 — and
+cited the five historical cases wherever it fires. It fires on HHG-006 in the exam set (four online
+purchases in thirty minutes, at $478.95, $451.33, and neighbouring values), `[VERIFY]` current live
+evidence cites all five precedent IDs plus FinCEN guidance on structured transactions designed to
+evade authorization thresholds.
 
 ## The before/after mechanic
 
-The clearest way to show judgement under uncertainty is to show the judgement changing. Case
-HHG-017 in our offline fixture run is the worked example:
+The clearest way to show judgement under uncertainty is to show it changing over an investigation,
+not just render a single verdict. HHG-006 is the live worked example, `[VERIFY]` against the R2/R4
+defect noted below before quoting exact figures:
 
 ```
-initial   p=0.410   VERIFY_WITH_CUSTOMER (auto), STEP_UP_AUTH (auto), DECLINE_TRANSACTION (L1)
-          -- card-testing sequence found, but that's one signal and 0.41 < 0.70,
-             so R1 says verify before you block
-
+initial   p~0.70   ESCALATE_TO_ANALYST  (structuring pattern found, single trigger source)
           -> evidence request: customer_validation
-          -> assumed reply: "Customer states they did not make these purchases"
-
-final     p=0.704   BLOCK_CARD (L1), CREATE_CASE (auto), DECLINE_TRANSACTION (L1), STEP_UP_AUTH (auto)
-          -- R2: customer denied, so block and open a case.
-             Route is L1 because exposure $268 is under the $2,500 L2 threshold
+          -> assumed reply: "No reply received from the customer within the 24-hour window."
+final     BLOCK_CARD (L1), CREATE_CASE (auto), FILE_REPORT (L2), ESCALATE_TO_ANALYST (auto)
 ```
 
-Recording both, and stating what changed and why, is worth 25% of the grade under the policy's
+Recording both states, and stating what changed and why, is worth a quarter of the grade under the
 next-best-action criterion. It's also the honest thing to do independent of scoring: a fraud
-investigation is a sequence of decisions under changing information, not a single classification,
-and pretending the first guess was the final answer would misrepresent how the system works.
+investigation is a sequence of decisions under changing information, not a single classification.
+In the live run 10 of 20 cases change between initial and final; the other 10 correctly stay put,
+because a case that was never in doubt shouldn't manufacture a change to look busy.
 
 ## Why confidence is a config file, not an LLM opinion
 
 `fraud_probability` never comes from the model asking itself how confident it feels. It comes from
-`compute_probability()` in `src/policy/ledger.py`: a fixed list of evidence keys, each with a
-weight in `config/evidence_weights.yaml`, summed and passed through a sigmoid:
+a fixed list of evidence keys, each with a weight in a config file, summed and passed through a
+sigmoid: `p = sigmoid(bias + scale * sum(weights of evidence keys present))`. The LLM classifies
+what it found into evidence keys and writes the prose around it; it never produces the number. When
+someone asks where a probability came from, the answer is "open the weights file," not "the model
+felt strongly about it."
 
-```
-p = sigmoid(-1.8 + 4.1 * sum(weights of evidence keys present))
-```
-
-The LLM's job stops at classifying what it found into evidence keys and writing the prose around
-it. It never produces the number. When a judge asks where 0.86 came from, the answer is "open
-`evidence_weights.yaml`," not "the model felt strongly about it."
-
-The two constants matter more than they look. Early on, the formula was just `sigmoid(sum of
-weights)`. A case with zero evidence landed at `sigmoid(0) = 0.5` — a coin flip. That's harmless
-looking until you notice the stopping rule (section 6 of the policy): stop when probability is at
-or above 0.85 or at or below 0.15, with at least two independent pieces of evidence. With no bias
-term, every realistic sum of weights compressed into roughly 0.3–0.72. The stopping thresholds
-were mathematically unreachable — the agent could never confidently close a case either way, not
-because the evidence was ambiguous but because the arithmetic made confidence impossible to
-express. We added a `-1.8` bias so zero evidence reads as roughly 0.13 (a weak prior toward
-"probably fine," matching that half the exam cases are legitimate), and picked the scale constant
-`4.1` by solving against calibration points we could anchor to, including the README's own worked
-example, which now lands at 0.89 against its stated 0.86.
-
-## Two-pool memory retrieval
-
-`closed_cases_history.csv` has 5,565 closed investigations from July through October: 4,665
-confirmed fraud, 900 cleared. That's the agent's only source of ground truth, and also the thing
-that will quietly bias it if retrieved carelessly.
-
-Embed the new alert, run one similarity search over the whole history, take the top five: you get
-five confirmed-fraud cases almost every time, not because they're better matches but because
-there are 5.2x as many of them competing for the ranking slots. The agent then only ever sees
-precedent that argues for fraud, and drifts toward blocking — exactly the failure mode that costs
-the most points given that half the exam cases are legitimate.
-
-`src/rag/retrieve.py` splits the candidate pool by outcome before ranking, not after: top 3 by
-blended score (0.4 semantic, 0.4 structural — shared cards/devices/regions, 0.2 pattern match)
-from the confirmed-fraud pool, top 2 from the cleared pool, independently sorted, never merged
-before truncation. The agent sees "this looked like card testing and turned out to be fraud" next
-to "this looked like card testing and turned out to be a recurring subscription charge," and has
-to reconcile them, instead of seeing five confirmations and calling it a day.
+The bias constant matters more than it looks. Early on there was none, so zero evidence landed at
+`sigmoid(0) = 0.5` — a coin flip. That's harmless-looking until you notice the stopping rule: stop
+at or above 0.85 probability or at or below 0.15. With no bias term every realistic sum of weights
+compressed into a narrow middle band, so those thresholds were mathematically unreachable — the
+agent could never confidently close a case either way, not because the evidence was ambiguous but
+because the arithmetic made confidence impossible to express. A negative bias term fixed it: zero
+evidence now reads as a weak prior toward "probably fine," and the brief's worked example lands
+within a couple of points of its stated value.
 
 ## The permission model
 
-The policy defines fourteen actions and three approval routes: `auto` (the agent may act alone),
-`L1` (team lead), `L2` (fraud manager — always required for `FILE_REPORT`, and for `BLOCK_CARD`
-above $2,500 exposure). The agent recommends every action but executes only the `auto` ones.
-Blocking a card, declining a transaction, or filing a report is recommended with its route stated
-and left for a human.
-
-This is enforced at one place in code — `finalize_action()` in `src/policy/engine.py` — not
-requested in a prompt. An `L1` or `L2` action reaching that function comes back with
-`executed: false` no matter what any upstream component decided, and the LangGraph node that would
-act on it calls `interrupt()` and waits. We didn't want "don't block cards without approval" to be
-a sentence in a system prompt that a confident-sounding LLM turn could talk itself past — it's a
-chokepoint every action passes through structurally.
-
-## Graph Algorithms: Weakly Connected Components for Ring Detection
-
-Beyond local two-hop traversals, syndicate fraud requires global topological analysis. In case HHG-014, an alert on a single card touched a browser fingerprint that seemed isolated. We executed TigerGraph's Weakly Connected Components (`tg_wcc`) algorithm natively over the bipartite `Card-Transaction-DeviceProfile` graph.
-
-The community detection query immediately collapsed 18 distinct customer cards into a single tightly connected fraud cluster operating behind anonymous proxies across an 8-day window. Instead of flagging 18 isolated alerts, the algorithm surfaced the entire syndicated ring topology in a single graph execution, generating concrete evidence cited directly in the case record.
-
-## Document GraphRAG: Policy & Regulatory Grounding
-
-In compliance-critical fraud operations, actions cannot simply be proposed—they must cite binding authority. We embedded 56 policy rules, fraud patterns, and FinCEN SAR guidance chunks into `PolicyChunk` vertices on TigerGraph with 1536-dimensional vectors.
-
-When the agent evaluates evidence—such as a multi-card proxy ring or threshold structuring—it retrieves and attaches authoritative citations:
-- `policy:R6` ("Fraud Policy R6: Mandates card block, case creation, and supervisory escalation for multi-account shared origin rings.")
-- `reg:fincen_sar_narrative:0` ("FinCEN Guidance: Mandates reporting of structured transactions designed to evade authorization thresholds.")
-
-Every recommendation carries verifiable `source: "document"` references, enabling human auditors to trace the exact policy foundation behind every decision.
-
-## Live Results across the 20 Exam Cases
-
-Running live against TigerGraph Savanna with Groq Qwen 3.8-27b prose generation yielded balanced, calibrated outcomes across all 20 exam cases:
-- **Verdict Distribution:** 10 legitimate (50%), 9 uncertain (45%), 1 fraud (5%).
-- **Over-Blocking Prevention:** Zero false-positive card blocks on legitimate subscription and baseline-consistent charges (e.g. HHG-003, HHG-009 protected under R7).
-- **Tool Calls:** 6 to 7 live queries per case executed through the native `tigergraph-mcp` execution path.
-- **LLM Tokens:** 500 to 2,573 tokens per case with zero hallucinations (all entity IDs strictly verified against graph facts).
-- **Validation:** 20/20 answer files pass `src.answer.validator` with 0 violations.
+The policy defines a set of actions and three approval routes: actions the agent may take alone,
+actions that need a team lead, and actions that always need a fraud manager (filing a report, or
+blocking a card above a dollar threshold). The agent recommends every action but executes only the
+ones it's allowed to take alone; blocking a card, declining a transaction, or filing a report is
+recommended with its route stated and left for a human. This is enforced at one place in code, not
+requested in a prompt — an action needing approval that reaches that function comes back marked
+not-executed no matter what any upstream component decided, and the graph node that would act on it
+pauses and waits. We didn't want "don't block cards without approval" to be a sentence in a prompt a
+confident-sounding model turn could talk itself past; it's a structural chokepoint.
 
 ## What we learned
 
+The most useful bug we hit was not a crash. `initial` and `final` next-best-actions came out
+identical on every case in an early run — no error, valid JSON, every test green. The before/after
+mechanic, worth a quarter of the grade, was completely inert, and nothing in the test suite noticed.
+Three causes: the evidence-request type was chosen using the single-signal block threshold, which
+governs whether you may block, not which evidence to ask for, so the two rules that fire on a
+customer's reply could never trigger; the investigation loop re-ran deduplicated detector queries up
+to its cap, and a deterministic query against unchanged data can't produce new evidence by
+definition; and a follow-up reply, when requested, wasn't folded back into the evidence ledger at
+all. Green tests told us nothing about whether the most important behaviour worked — we only found
+it by running real cases end to end and diffing the snapshots by eye.
 
-The most useful bug we hit wasn't a crash. `initial` and `final` next-best-actions came out
-identical on every case we tested — no error, valid JSON, all 105 tests green. The before/after
-mechanic, worth a quarter of the grade, was completely inert, and nothing in the test suite
-noticed. It took three causes: the evidence-request type was being chosen using R1's 0.70 block
-threshold, which governs whether you may block, not which evidence to ask for, so the agent was
-requesting `step_up_auth` when it should have asked for `customer_validation` — meaning R2 and R3,
-the two rules that fire on a customer's reply, could never trigger on any case, ever. Separately,
-the investigate loop was re-running deduplicated detector queries up to its iteration cap;
-re-running a deterministic query against unchanged data can't produce new evidence by definition.
-And a step-up reply, when one was requested, folded no key into the ledger at all, so even when
-the agent did ask, nothing moved.
+The second was a silent degradation, worse than a crash because nothing tells you it happened.
+`GEMINI_API_KEY` was set correctly, but the embedding SDK it depends on wasn't installed.
+`embed_query()` raised, retrieval caught the exception, and silently fell back to a cruder path that
+returned confirmed-fraud neighbours where the working path returns cleared ones — every case still
+produced valid output, no error anywhere in the logs. One case shows it cleanly: with the same
+evidence, the broken path matched a confirmed-fraud precedent and landed at `uncertain` (p=0.169);
+once the SDK was installed, the same case matched a cleared precedent and landed at `legitimate`
+(p=0.001). Same inputs, opposite verdict, nothing in the run ever said "embeddings are broken." A
+missing dependency that degrades quietly instead of erroring out is the dangerous kind, because
+every downstream signal looks internally consistent and is simply wrong.
 
-The lesson is bigger than the bug: green tests told us nothing about whether the most important
-behaviour in the submission worked. The suite checked that the pipeline ran, produced valid
-output, and didn't crash — none of which says anything about whether the recommendation actually
-changed when it was supposed to. We only found it by running real cases end to end and diffing the
-two snapshots by eye. Passing tests and correct behaviour are different claims.
-
-The second lesson was more embarrassing. The out-of-region detector — pattern 4, card cloning —
-was implemented backwards on the first pass. It fired when the customer's home-region activity
-went quiet, on the theory that quiet-at-home plus activity-elsewhere signals a clone. The brief
-says the opposite: a clone shows home-region activity continuing while new-region activity
-appears, because one physical card cannot be in two places at once, and several days of purchases
-in a single new region with nothing at home is a trip. As written, the detector would have cleared
-genuine card cloning and flagged every customer who went on holiday. We fixed it to require
-concurrency — a home-region transaction within 24 hours of a new-region one — rather than mere
-presence of a new region.
+A smaller bug: an out-of-region detector for card cloning fired when home-region activity went
+*quiet*, rather than when it *continued alongside* new-region activity — the actual clone signal,
+since one card can't be in two places at once. As written it would have cleared genuine cloning and
+flagged every customer who went on holiday.
 
 ## What we'd improve with more time
 
-Fraud probability is calibrated against one anchor — the worked example in the brief, plus rough
-base rates from the closed-case history. It should be fit against a proper held-out split of the
-5,565 closed cases instead, respecting the July–October / November–December boundary so nothing
-leaks across the exam split.
+Fraud probability is calibrated against one anchor — the brief's worked example plus rough base
+rates from the closed-case history — and should be fit against a proper held-out split of the 5,565
+closed cases instead, respecting the same time boundary as the exam split. Ring detection runs as
+hand-written windowed queries plus TigerGraph's `tg_wcc` when the model decides a case warrants
+widening; a trained graph model would be more principled, though harder to explain to a judge in
+one sentence, which matters for a system whose whole pitch is auditability.
 
-The LLM writes prose — summaries, SAR narratives, evidence descriptions — but never touches the
-decision path. We'd keep that separation, but there's room to use the LLM more for narrative
-quality without loosening the constraint that it never picks an action or emits a probability.
-
-We haven't trained a GNN over the graph, the more principled way to surface the device/region
-clustering the detectors currently find with hand-written windowed queries. And the whole thing
-runs against a single loaded snapshot — no streaming ingest, so a real deployment would need to
-handle the graph changing under the agent mid-investigation, which this version doesn't attempt.
+And there's a known, currently open defect worth naming rather than hiding: three cases in the live
+run recommend blocking a card citing the customer-denial rule when the actual simulated reply was
+"no reply within 24 hours" — a different, lower-severity rule should have fired instead, because a
+customer *reporting* a charge is treated as a customer *denying* it from the moment the case is
+triggered. `[VERIFY]` whether this is fixed before quoting any per-case action list from this run.

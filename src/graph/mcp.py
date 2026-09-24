@@ -150,6 +150,52 @@ def mcp_run_installed_query(
     return data.get("data", {}).get("result", [])
 
 
+def _run_mcp_coro(coro: Any) -> Any:
+    """Shared async-dispatch: run an MCP tool coroutine from sync code whether or not an
+    event loop is already running (tests import this module under pytest-asyncio and
+    plain sync callers both hit this path)."""
+    import concurrent.futures
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    if loop and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(asyncio.run, coro).result()
+    return asyncio.run(coro)
+
+
+def mcp_run_generated_query(
+    gsql_text: str,
+    graph_name: str | None = None,
+) -> list[dict]:
+    """Execute an LLM-generated, already-guarded interpreted GSQL statement through
+    tigergraph-mcp's `run_query` tool (INTERPRET QUERY ad-hoc execution).
+
+    Callers MUST pass `gsql_text` through `src.agent.investigator._guard_generated_query`
+    first -- this function does not re-check the read-only/keyword/row-cap allowlist; it
+    only bridges to MCP and unwraps the response, mirroring `mcp_run_installed_query`.
+    """
+    import json
+    import re
+    from tigergraph_mcp.tools.query_tools import run_query as mcp_run_query_tool
+
+    target_graph = graph_name or os.environ.get("TG_GRAPH", "") or os.environ.get("TG_GRAPHNAME", "")
+    res = _run_mcp_coro(mcp_run_query_tool(gsql_text, graph_name=target_graph))
+
+    if not res or not hasattr(res[0], "text"):
+        raise RuntimeError("tigergraph-mcp returned empty response for generated query")
+
+    m = re.search(r"```json\n(.*?)\n```", res[0].text, re.DOTALL)
+    data = json.loads(m.group(1)) if m else json.loads(res[0].text.strip())
+
+    if not data.get("success"):
+        raise RuntimeError(data.get("summary") or "generated query failed via MCP")
+
+    return data.get("data", {}).get("result", [])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="TigerGraph MCP bridge")
     parser.add_argument("--check", action="store_true", help="Smoke check MCP tools")

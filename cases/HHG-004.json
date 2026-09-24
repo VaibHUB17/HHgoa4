@@ -1,16 +1,19 @@
 {
   "case_id": "HHG-004",
   "case": {
-    "status": "closed_legitimate",
-    "verdict": "legitimate",
-    "fraud_probability": 0.0114,
-    "pattern": "none",
+    "status": "open",
+    "verdict": "uncertain",
+    "fraud_probability": 0.2128,
+    "pattern": "card_not_present_new_device",
     "pattern_description": "",
-    "affected_txn_ids": [],
-    "first_suspicious_txn_id": "",
+    "affected_txn_ids": [
+      "T3580804",
+      "T3583227"
+    ],
+    "first_suspicious_txn_id": "T3580804",
     "connected_card_ids": [],
     "connected_device_profiles": [],
-    "exposure_usd": 0.0,
+    "exposure_usd": 221.19,
     "evidence": [
       {
         "claim": "Cardholder disputes the charge: Customer C08106 message: 'I never made this $128.33 purchase. Please check my card.' Refers to 3583227.",
@@ -21,7 +24,7 @@
         ]
       },
       {
-        "claim": "2 online transaction(s) on card C08106-K1 from a device marked 'New' for this account (id_15=New)",
+        "claim": "2 online transaction(s) on card C08106-K1 -- T3580804 ($92.86), T3583227 ($128.33) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C08106-K1)",
         "entity_ids": [
@@ -36,6 +39,32 @@
         "entity_ids": [
           "CC-0696"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with a cleared precedent match suggests a potential shared device or broader campaign that could affect other cards.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-004)",
+        "entity_ids": [
+          "C08106-K1"
+        ]
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-12-29 07:53:54', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-12-29 07:53:54', 'hours': 72}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=2)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Generated traversal passed the guard but failed to execute: (\"line 1:103 extraneous input ''' expecting {ABORT, ALL, AND, ANY, AVG, BY, CANDIDATE_SET, CASE, COALESCE, COLLECT, COLUMN, COMMIT, COUNT, DATETIME_ADD, DATETIME_SUB, DEFAULT, DIRECTED, DISTINCT, FALSE, FILE, FILTERTYPE, FUNCTION, GROUP, INIT, INSERT, ISEMPTY, JOIN, LASTHOP, LEFT, LIST, LOG, MAP, MATCH, MAX, MIN, NOW, NULL, ON, OR, PATH, PER, PROJECT, RANGE, REPLACE, STDEV, STDEVP, SELECT_VERTEX, SEMIJOIN, SET, SRC, SUM, TGT, TO_DATETIME, TRIM, TRUE, UNDIRECTED, UNWIND, UPDATE, VECTOR, VIRTUAL, GSQL_INT_MAX, GSQL_INT_MIN, GSQL_UINT_MAX, '__ENGINE__E_ATTR', '__ENGINE__SRC_ATTR', '__ENGINE__TGT_ATTR', '__ENGINE__V_ATTR', '__ENGINE__SRC_VAL', '__ENGINE__TGT_VAL', '__ENGINE__V_VAL', '__ENGINE__MESSAGE', '__ENGINE__CONTEXT', '__ENGINE__REQUEST', '__ENGINE__SERVICEAPI', 'type', '(', '[', '-', '.', '_', '~', CONST_INT, CONST_STR, NAME, GACCNAME}\\nline 1:114 mismatched input ''' expecting {ACCUM, AND, GROUP, HAVING, INTERSECT, LIMIT, MINUS, OR, ORDER, PER, POST_ACCUM, SET, UNION, '%', '&', '+', '-', '*', '/', '.', ';', '>', '|', '<<'}\\nParsing encountered 2 syntax error(s)\\n\\nSemantic Check Fails: Fail to generate the query list because of a query syntax error.\\nSemantic Check Fails: The data file in the JSONObject format for an interpret query is invalid. Please refer to log.ERROR for details.\\n\", None). Query verbatim: INTERPRET QUERY () FOR GRAPH FraudInvestigation { r = SELECT t FROM Transaction:t WHERE t.card_id == 'C08106-K1' LIMIT 50; PRINT r; }",
+        "source": "graph",
+        "ref": "llm_generated_query:failed(depth=3)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -45,38 +74,33 @@
       "CC-0696",
       "CC-0308"
     ],
-    "summary": "Case HHG-004 was closed with a verdict of legitimate and a fraud probability of 0.01 after the customer confirmed they made the disputed $128.33 purchase and no longer disputed the charge. The initial concern regarding two online transactions from a new device was resolved by this validation, which lowered the fraud probability from 0.32 to 0.01. Consequently, the final action taken was CLOSE_NO_FRAUD via the auto route under rule R3.",
+    "summary": "Case HHG-004 remains uncertain with a fraud probability of 0.21, as the step-up authentication request for customer C08106 expired unanswered, raising the risk score from 0.18. Key evidence includes the cardholder's dispute of the $128.33 charge on transaction T3583227 and the detection of two online transactions on card C08106-K1 originating from a device first marked as new. Although the agent attempted to expand the investigation to the shared-device neighborhood due to a structural match with cleared case CC-0696, all device neighbor queries and the generated traversal failed to execute due to syntax and conversion errors. The final action is MONITOR_CARD (auto, R0: policy default, below case-creation threshold), which was chosen because the case remained below the threshold for more severe intervention despite the unresolved authentication status.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-004"
   },
   "evidence_requests": [
     {
-      "type": "customer_validation",
+      "type": "step_up_auth",
       "asked_after_step": 3,
-      "assumed_response": "Customer confirms they made this purchase and does not dispute the charge."
+      "assumed_response": "Step-up authentication request expired unanswered within the window."
     }
   ],
   "next_best_actions": {
     "initial": [
       {
-        "action": "CREATE_CASE",
-        "route": "auto",
-        "reason": "R8"
-      },
-      {
         "action": "MONITOR_CARD",
         "route": "auto",
-        "reason": "R4"
+        "reason": "R0: policy default, below case-creation threshold"
       }
     ],
     "final": [
       {
-        "action": "CLOSE_NO_FRAUD",
+        "action": "MONITOR_CARD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, below case-creation threshold"
       }
     ],
-    "what_changed": "The assumed customer validation response (Customer confirms they made this purchase and does not dispute the charge.) lowered fraud probability from 0.32 to 0.01, changing the recommended actions."
+    "what_changed": "The assumed step up auth response (Step-up authentication request expired unanswered within the window.) raised fraud probability from 0.18 to 0.21, changing the recommended actions."
   },
   "sar": {
     "file": false,
@@ -86,8 +110,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.01 (legitimate); further steps are unlikely to change the decision.",
+  "stop_reason": "Evidence request settled the question: probability reached 0.21 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 636,
-  "latency_s": 2.704
+  "tokens": 5312,
+  "latency_s": 33.095
 }

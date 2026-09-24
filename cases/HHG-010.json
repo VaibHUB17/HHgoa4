@@ -13,7 +13,7 @@
     "exposure_usd": 0.0,
     "evidence": [
       {
-        "claim": "1 online transaction(s) on card C10434-K1 from a device marked 'New' for this account (id_15=New)",
+        "claim": "1 online transaction(s) on card C10434-K1 -- T3506725 ($1000.03) -- came from a device first marked 'New' for this account (id_15=New)",
         "source": "graph",
         "ref": "query:card_window(card_id=C10434-K1)",
         "entity_ids": [
@@ -27,6 +27,26 @@
         "entity_ids": [
           "T3506725"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character activity suggests a potential shared device that may be linked to other compromised cards.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-010)",
+        "entity_ids": [
+          "C10434-K1"
+        ]
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-02 18:18:27', 'hours': 72}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-02 18:18:27', 'hours': 24}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=2)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -36,7 +56,7 @@
       "CC-0675",
       "CC-0567"
     ],
-    "summary": "Case HHG-010 was reviewed after a real-time model scored transaction 3506725 for $1,000.03 at a high risk of 0.90, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that while the transaction originated from a new device, the product category and billing region align with the customer's established history, and no evidence request was issued. The final action of CLOSE_NO_FRAUD was chosen via the auto route under rule R3 because the initial assessment found no corroborating evidence of fraud, resulting in no changes to the case status.",
+    "summary": "Case HHG-010 was closed as legitimate with a fraud probability of 0.12 after the real-time model initially scored transaction 3506725 at 0.90. The key evidence indicated that while the $1,000.03 online transaction on card C10434-K1 originated from a device marked as new (id_15), the product category and billing region aligned with the customer's established history. An attempt to expand the investigation to the shared-device neighborhood via device_neighbors queries failed due to a system error converting the user vertex id for parameter device_id. Consequently, the final action remained CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered) because no corroborating evidence of fraud was found to override the initial assessment.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-010"
   },
@@ -46,14 +66,14 @@
       {
         "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, settled low, no rule triggered"
       }
     ],
     "final": [
       {
         "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R3"
+        "reason": "R0: policy default, settled low, no rule triggered"
       }
     ],
     "what_changed": "nothing"
@@ -68,6 +88,6 @@
   },
   "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 6,
-  "tokens": 540,
-  "latency_s": 2.667
+  "tokens": 3911,
+  "latency_s": 43.174
 }

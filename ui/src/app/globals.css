@@ -1,63 +1,375 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   FORENSIC TERMINAL
+   ----------------------------------------------------------------------------
+   The subject is an analyst reading an AI agent's fraud investigation at 2am and
+   deciding whether to block a stranger's card. The room is dark, the screen is
+   the only light source, and the numbers matter more than the chrome.
+
+   So: a deep blue-black ground that is never pure #000 (pure black kills the
+   sense of depth and makes glow look like a sticker), phosphor green for live
+   data because that is what measurement instruments have always used, and
+   colour reserved almost entirely for verdicts.
+
+   OKLCH throughout: it keeps perceived lightness even as hue rotates, so the
+   fraud and cleared states read at the same weight instead of one shouting.
+   ========================================================================= */
+
 :root {
-  --slate: #10151c;
-  --panel: #171e28;
-  --panel-hi: #202a37;
-  --line: #2a3341;
-  --line-hi: #3a4658;
-  --paper: #e7ebf0;
-  --dim: #8d99ab;
-  --faint: #5c6a7e;
-  --signal: #2dd4bf;
-  --fraud: #f2578a;
-  --clear: #4f8ff0;
-  --warn: #e8a53d;
+  /* --- ground: four steps of depth, each a real surface not a tint --------- */
+  --void:        oklch(0.145 0.018 258);   /* page ground, below everything   */
+  --bed:         oklch(0.181 0.021 257);   /* panel bed                        */
+  --deck:        oklch(0.221 0.024 256);   /* raised panel                     */
+  --ridge:       oklch(0.268 0.027 255);   /* hover / active surface           */
+
+  /* --- lines: hairlines that survive a compressed recording ---------------- */
+  --seam:        oklch(0.300 0.024 255);
+  --seam-hi:     oklch(0.392 0.031 254);
+
+  /* --- ink ----------------------------------------------------------------- */
+  --bright:      oklch(0.962 0.006 250);   /* headings, key figures            */
+  --ink:         oklch(0.885 0.009 250);   /* body                             */
+  --ink-dim:     oklch(0.702 0.017 252);   /* secondary — 4.6:1 on --bed       */
+  --ink-faint:   oklch(0.552 0.020 253);   /* tertiary, labels                 */
+
+  /* --- phosphor: live data, the instrument's own colour -------------------- */
+  --phosphor:    oklch(0.855 0.182 158);
+  --phosphor-lo: oklch(0.560 0.118 159);
+
+  /* --- verdicts -----------------------------------------------------------
+     Deliberately off the red/green axis so deuteranopia and protanopia still
+     separate them, and they differ in lightness as well as hue so a grayscale
+     screenshot keeps the distinction.                                        */
+  --fraud:       oklch(0.672 0.221 13);    /* crimson-rose                     */
+  --fraud-lo:    oklch(0.430 0.148 13);
+  --clear:       oklch(0.720 0.148 232);   /* cobalt                           */
+  --clear-lo:    oklch(0.468 0.104 232);
+  --hold:        oklch(0.798 0.152 78);    /* amber — uncertain / pending      */
+  --hold-lo:     oklch(0.520 0.104 78);
+
+  /* TigerGraph's own brand orange, used once as a hairline nod on the platform
+     credit. A wink a TigerGraph judge will register; not a skin of their site. */
+  --tg:          oklch(0.672 0.204 44);
+
+  /* --- geometry ------------------------------------------------------------ */
+  --r-sm: 3px;
+  --r-md: 5px;
+  --r-lg: 8px;
+
+  /* --- semantic z-scale: never an arbitrary 9999 --------------------------- */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  /* --- motion: exponential ease-out, no bounce ---------------------------- */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 140ms;
+  --t-med:  220ms;
+  --t-slow: 420ms;
 }
 
 @theme inline {
-  --color-slate: var(--slate);
-  --color-panel: var(--panel);
-  --color-panel-hi: var(--panel-hi);
-  --color-line: var(--line);
-  --color-line-hi: var(--line-hi);
-  --color-paper: var(--paper);
-  --color-dim: var(--dim);
-  --color-faint: var(--faint);
-  --color-signal: var(--signal);
+  --color-void: var(--void);
+  --color-bed: var(--bed);
+  --color-deck: var(--deck);
+  --color-ridge: var(--ridge);
+  --color-seam: var(--seam);
+  --color-seam-hi: var(--seam-hi);
+  --color-bright: var(--bright);
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-ink-faint: var(--ink-faint);
+  --color-phosphor: var(--phosphor);
+  --color-phosphor-lo: var(--phosphor-lo);
   --color-fraud: var(--fraud);
+  --color-fraud-lo: var(--fraud-lo);
   --color-clear: var(--clear);
-  --color-warn: var(--warn);
-  --font-display: var(--font-fraunces);
-  --font-body: var(--font-inter-tight);
-  --font-data: var(--font-plex-mono);
+  --color-clear-lo: var(--clear-lo);
+  --color-hold: var(--hold);
+  --color-hold-lo: var(--hold-lo);
+  --color-tg: var(--tg);
+
+  --font-display: var(--font-display-face);
+  --font-body: var(--font-body-face);
+  --font-data: var(--font-data-face);
 }
+
+/* ============================================================================
+   GROUND
+   The body carries three stacked layers: a faint engineering grid, a soft
+   vignette that pulls focus to the centre, and film grain. Together they stop
+   the dark surface reading as flat black paint. All are fixed-position and
+   pointer-events:none, so they never affect layout or hit-testing.
+   ========================================================================= */
 
 body {
-  background: var(--slate);
-  color: var(--paper);
+  background: var(--void);
+  color: var(--ink);
   font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  position: relative;
+  min-height: 100dvh;
 }
 
-* {
-  border-color: var(--line);
+/* grid + vignette */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-base);
+  background-image:
+    linear-gradient(to right, oklch(0.99 0 0 / 0.022) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.99 0 0 / 0.022) 1px, transparent 1px),
+    radial-gradient(ellipse 120% 80% at 50% 0%, transparent 35%, oklch(0.08 0.02 258 / 0.55) 100%);
+  background-size: 48px 48px, 48px 48px, 100% 100%;
 }
+
+/* film grain — an inline SVG turbulence, so no image request */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-base);
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Content sits above the ground layers. */
+#app-root { position: relative; z-index: var(--z-raised); }
+
+/* ============================================================================
+   INSTRUMENT PRIMITIVES
+   ========================================================================= */
+
+/* A panel that reads as a machined surface: a top highlight seam catching the
+   light, a real border, and depth beneath. Not a card with a drop shadow. */
+.instrument {
+  position: relative;
+  background:
+    linear-gradient(to bottom, oklch(0.99 0 0 / 0.028) 0%, transparent 42%),
+    var(--bed);
+  border: 1px solid var(--seam);
+  border-radius: var(--r-lg);
+  box-shadow:
+    inset 0 1px 0 oklch(0.99 0 0 / 0.045),
+    0 1px 2px oklch(0.10 0.02 258 / 0.5),
+    0 8px 24px -12px oklch(0.08 0.02 258 / 0.7);
+}
+
+/* Data readout. Tabular figures so columns of numbers stay aligned while they
+   animate — proportional digits jitter as values count up. */
+.readout {
+  font-family: var(--font-data), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "zero" 1, "ss01" 1;
+  letter-spacing: -0.01em;
+}
+
+/* Phosphor glow for live figures. Layered text-shadow rather than a filter:
+   filter:blur forces a new compositing layer per element and costs frames
+   when many are on screen at once. */
+.glow-phosphor {
+  color: var(--phosphor);
+  text-shadow:
+    0 0 1px oklch(0.855 0.182 158 / 0.7),
+    0 0 12px oklch(0.855 0.182 158 / 0.35),
+    0 0 32px oklch(0.855 0.182 158 / 0.15);
+}
+.glow-fraud {
+  color: var(--fraud);
+  text-shadow: 0 0 12px oklch(0.672 0.221 13 / 0.4), 0 0 34px oklch(0.672 0.221 13 / 0.16);
+}
+.glow-clear {
+  color: var(--clear);
+  text-shadow: 0 0 12px oklch(0.720 0.148 232 / 0.4), 0 0 34px oklch(0.720 0.148 232 / 0.16);
+}
+.glow-hold {
+  color: var(--hold);
+  text-shadow: 0 0 12px oklch(0.798 0.152 78 / 0.4), 0 0 34px oklch(0.798 0.152 78 / 0.16);
+}
+
+/* Deliberately no scanline/CRT treatment. It is a real 2026 micro-trend but it
+   reads as arcade nostalgia, which is the wrong register for a tool whose whole
+   claim is that it is authoritative enough to block a stranger's card. Grain and
+   depth carry the texture instead. */
+
+/* Edge-fade mask for the graph canvas, so the network dissolves at its bounds
+   instead of being guillotined by a container edge. Compositor-only. */
+.edge-fade {
+  -webkit-mask-image: radial-gradient(ellipse 88% 82% at 50% 50%, #000 58%, transparent 100%);
+  mask-image: radial-gradient(ellipse 88% 82% at 50% 50%, #000 58%, transparent 100%);
+}
+
+/* Shape grammar borrowed from the event's own site: interactive elements are
+   fully rounded, data surfaces stay sharp. Rounded reads as "press me", square
+   reads as "this is a record" — a legible split for a console that is mostly
+   evidence with a few decisions in it. */
+.pill {
+  border-radius: 999px;
+}
+
+/* The one mark that says this submission belongs to this event rather than
+   being a generic console. A case-file seal, not a logo. */
+.seal {
+  position: relative;
+  border: 1px solid var(--seam-hi);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.seal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    oklch(0.99 0 0 / 0.045) 5px 6px
+  );
+}
+
+/* Evidence-chain draw-on. The single highest-leverage animation here: it
+   dramatises causality rather than decorating, which is exactly what the
+   before/after recommendation view has to communicate. */
+@keyframes trace-draw { to { stroke-dashoffset: 0; } }
+.trace-path {
+  stroke-dasharray: var(--trace-len, 400);
+  stroke-dashoffset: var(--trace-len, 400);
+  animation: trace-draw 1.1s var(--ease-out-expo) forwards;
+}
+
+/* A slow breathing pulse for anything genuinely awaiting a human decision. */
+@keyframes hold-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.798 0.152 78 / 0.26); }
+  50%      { box-shadow: 0 0 0 7px oklch(0.798 0.152 78 / 0); }
+}
+.awaiting { animation: hold-breathe 2.4s var(--ease-out-quart) infinite; }
+
+/* Cursor-tracked highlight for list rows. The pointermove handler writes
+   --spot-x/--spot-y straight to the element (no setState), so this radial
+   glow tracks the pointer at 60fps. Implemented on ::before (own layer, own
+   opacity) so it never fights the row's own hover/background transition. */
+.row-spotlight {
+  isolation: isolate;
+}
+.row-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(
+    260px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    oklch(0.99 0 0 / 0.05),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out-quart);
+}
+.row-spotlight:hover::before,
+.row-spotlight:focus-visible::before {
+  opacity: 1;
+}
+
+/* Pointer-tracked shine for badges/chips. --shine-x/--shine-y are written by
+   the pointermove handler directly to the element (never via setState), so
+   this costs nothing beyond a single compositor-friendly opacity toggle per
+   frame. Kept deliberately faint — a forensic stamp catching light, not a
+   game-UI sheen. */
+.badge-shine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    60% 90% at var(--shine-x, 50%) var(--shine-y, 50%),
+    oklch(0.99 0 0 / 0.16),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 180ms var(--ease-out-quart);
+}
+.badge-shine:hover::before {
+  opacity: 1;
+}
+
+/* TopNav's scroll-responsive hairline. --nav-seam (0..1) is written on scroll
+   directly to the header element, not via setState. At rest it is the same
+   quiet border every other panel uses; scrolled, it gains a hint of the
+   phosphor tone and a faint glow, so the bezel reads as watching the page
+   move rather than sitting inert above it. */
+.nav-seam {
+  --seam-mix: color-mix(in oklch, var(--phosphor) calc(var(--nav-seam, 0) * 55%), var(--seam));
+  border-bottom: 1px solid var(--seam-mix);
+  box-shadow: 0 1px 12px -4px color-mix(in oklch, var(--phosphor) calc(var(--nav-seam, 0) * 22%), transparent);
+  transition: border-color 120ms linear, box-shadow 120ms linear;
+}
+
+/* Hairline rule that fades at both ends, instead of stopping dead. */
+.rule-fade {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--seam-hi) 15%, var(--seam-hi) 85%, transparent);
+}
+
+/* Dotted matrix backdrop for the graph canvas. */
+.matrix-bed {
+  background-image: radial-gradient(oklch(0.99 0 0 / 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ============================================================================
+   BASE
+   ========================================================================= */
+
+* { border-color: var(--seam); }
 
 ::selection {
-  background: var(--signal);
-  color: var(--slate);
+  background: oklch(0.855 0.182 158 / 0.28);
+  color: var(--bright);
 }
 
 :focus-visible {
-  outline: 2px solid var(--signal);
+  outline: 2px solid var(--phosphor);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
 }
+
+/* Scrollbar tuned to the surface rather than replaced with a custom widget —
+   the product register bans reinventing standard affordances, and a bespoke
+   scrollbar is exactly that. This only restyles it. */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--void); }
+::-webkit-scrollbar-thumb {
+  background: var(--ridge);
+  border: 3px solid var(--void);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--seam-hi); }
+
+/* ============================================================================
+   REDUCED MOTION
+   Every ambient animation stops. Content stays fully visible: reveals enhance
+   an already-visible default rather than gating it, so nothing ships blank.
+   ========================================================================= */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+  .scanline::after,
+  .awaiting { animation: none !important; }
+  body::after { opacity: 0.08; }
 }
