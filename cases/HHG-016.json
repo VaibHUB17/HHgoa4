@@ -31,11 +31,46 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker suggests a potential shared device that could be linked to other compromised cards or customers.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker indicates a potential shared device that could be linked to other compromised cards or customers.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-016)",
         "entity_ids": [
           "C09988-K1"
+        ]
+      },
+      {
+        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-12 01:39:08', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "source": "graph",
+        "ref": "query:device_neighbors(depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "card_window returned 14 connected entities at depth 2. Reasoning: The goal is to retrieve the full transaction history for the specific card associated with customer C09988 in the 720 hours preceding the case opening time. The 'card_window' query is designed to fetch transactions for a specific card within a defined time window anchored at a specific timestamp, which directly addresses the need to identify other transactions on device id_15 or new devices and check for signs of takeover.",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C09988-K1, anchor=2016-12-12 01:39:08, hours=720)",
+        "entity_ids": [
+          "3550014",
+          "3556269",
+          "3571514",
+          "3534820",
+          "3557399",
+          "3474173",
+          "3558449",
+          "3571970",
+          "3570589",
+          "3565172",
+          "3549903",
+          "3554344",
+          "3569366",
+          "3568791"
+        ]
+      },
+      {
+        "claim": "card_window returned 1 connected entities at depth 3. Reasoning: The goal is to retrieve the specific details of the other 13 transactions associated with card C09988-K1 to analyze them for fraud indicators. The 'card_window' query is the installed tool designed to fetch transactions for a specific card within a time window anchored to the case opening time. Using a 24-hour window is a standard initial scope to capture recent activity around the incident.",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C09988-K1, anchor=2016-12-12 01:39:08, hours=24)",
+        "entity_ids": [
+          "3534820"
         ]
       }
     ],
@@ -46,7 +81,7 @@
       "CC-0534",
       "CC-0620"
     ],
-    "summary": "Investigation of HHG-016 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
+    "summary": "Case HHG-016 resulted in an uncertain verdict with a fraud probability of 0.38, driven by customer C09988's dispute of a $59.67 charge on card C09988-K1 that originated from a device marked as new. The investigation attempted to expand to the shared-device neighborhood but failed due to a query error, while the step-up authentication request expired unanswered, which raised the probability from 0.33 to 0.38. Consequently, the final actions remained CREATE_CASE (auto, R0: 3a, fraud_probability >= 0.30) and MONITOR_CARD (auto, R0: policy default, keep watching while case is open). The case was escalated per policy because the investigation could not reach a confident verdict regarding the card_not_present_new_device pattern.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-016"
   },
@@ -93,7 +128,7 @@
     "activity_dates": []
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.38 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 6,
-  "tokens": 170,
-  "latency_s": 6.098
+  "tool_calls": 8,
+  "tokens": 4898,
+  "latency_s": 40.986
 }
