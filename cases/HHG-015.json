@@ -3,7 +3,7 @@
   "case": {
     "status": "escalated",
     "verdict": "uncertain",
-    "fraud_probability": 0.7816,
+    "fraud_probability": 0.6118,
     "pattern": "card_not_present_new_device",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -31,20 +31,22 @@
         ]
       },
       {
-        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-3886 (pattern: card_not_present_new_device)",
-        "source": "graph",
-        "ref": "query:prior_cases_for_entities(case=CC-3886)",
+        "claim": "Fraud Policy R1: Requires customer verification before card block when alert rests on single unconfirmed signal.",
+        "source": "document",
+        "ref": "policy:R1",
         "entity_ids": [
-          "CC-3886"
+          "R1"
         ]
       }
     ],
     "similar_prior_cases": [
-      "CC-3886",
-      "CC-0615",
-      "CC-1313"
+      "CC-0469",
+      "CC-0698",
+      "CC-0791",
+      "CC-0034",
+      "CC-0684"
     ],
-    "summary": "Investigation of HHG-015 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
+    "summary": "Case HHG-015 resulted in an uncertain verdict with a fraud probability of 0.61, driven by transaction 3464869 for $599.94 on card C03042-K1 which triggered the card_not_present_new_device pattern. Key evidence indicates the card was billed in region 327.0, outside its historical set, while home-region activity occurred within 24 hours, suggesting a clone, though Fraud Policy R1 requires customer verification before a block due to the single unconfirmed signal. The requested step_up_auth evidence was not completed within the window as no valid one-time passcode confirmation was received, which raised the probability from 0.41 to 0.61. Consequently, the final action remains ESCALATE_TO_ANALYST (auto, R8), as the unresolved lack of authentication prevents a definitive decision.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-015"
   },
@@ -70,7 +72,7 @@
         "reason": "R8"
       }
     ],
-    "what_changed": "The assumed step up auth response (Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received.) raised fraud probability from 0.61 to 0.78, changing the recommended actions."
+    "what_changed": "The assumed step up auth response (Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received.) raised fraud probability from 0.41 to 0.61, changing the recommended actions."
   },
   "sar": {
     "file": false,
@@ -80,8 +82,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.78 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 4,
-  "tokens": 0,
-  "latency_s": 0.99
+  "stop_reason": "Evidence request settled the question: probability reached 0.61 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 6,
+  "tokens": 898,
+  "latency_s": 2.721
 }

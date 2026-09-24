@@ -3,7 +3,7 @@
   "case": {
     "status": "closed_legitimate",
     "verdict": "legitimate",
-    "fraud_probability": 0.1419,
+    "fraud_probability": 0.082,
     "pattern": "none",
     "pattern_description": "",
     "affected_txn_ids": [],
@@ -13,11 +13,11 @@
     "exposure_usd": 0.0,
     "evidence": [
       {
-        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-1066 (pattern: out_of_region_use)",
+        "claim": "Model risk score 0.61 on the flagged transaction, no other corroborating signal found",
         "source": "graph",
-        "ref": "query:prior_cases_for_entities(case=CC-1066)",
+        "ref": "query:card_window(card_id=C12382-K1, hours=2)",
         "entity_ids": [
-          "CC-1066"
+          "T3514030"
         ]
       },
       {
@@ -30,11 +30,13 @@
       }
     ],
     "similar_prior_cases": [
-      "CC-1066",
-      "CC-3587",
-      "CC-2964"
+      "CC-0006",
+      "CC-0027",
+      "CC-0209",
+      "CC-0026",
+      "CC-0299"
     ],
-    "summary": "Investigation of HHG-001 found no corroborating evidence of fraud; closed as legitimate.",
+    "summary": "Case HHG-001 was reviewed after a real-time model scored transaction 3514030 at 0.61, resulting in a final verdict of legitimate with a fraud probability of 0.08. The key evidence indicated that the flagged transaction's product category and billing region matched the customer's established history, and no other corroborating signal was found. No evidence request was made, and the final action of CLOSE_NO_FRAUD was chosen via the auto route under rule R3 because nothing changed from the initial assessment.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-001"
   },
@@ -64,8 +66,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Probability 0.14 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
-  "tool_calls": 4,
-  "tokens": 0,
-  "latency_s": 1.001
+  "stop_reason": "Probability 0.08 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
+  "tool_calls": 6,
+  "tokens": 506,
+  "latency_s": 3.734
 }

@@ -3,7 +3,7 @@
   "case": {
     "status": "closed_legitimate",
     "verdict": "legitimate",
-    "fraud_probability": 0.0093,
+    "fraud_probability": 0.0041,
     "pattern": "none",
     "pattern_description": "",
     "affected_txn_ids": [],
@@ -29,24 +29,46 @@
         ]
       },
       {
+        "claim": "Flagged transaction's product category and billing region match this customer's established history",
+        "source": "graph",
+        "ref": "query:customer_baseline(customer_id=C08299)",
+        "entity_ids": [
+          "T3581141"
+        ]
+      },
+      {
         "claim": "Flagged charge matches this customer's own recurring merchant/amount pattern (monthly)",
         "source": "graph",
         "ref": "query:customer_baseline(customer_id=C08299)",
         "entity_ids": [
           "T3581141"
         ]
+      },
+      {
+        "claim": "Fraud Policy R7: Forbids immediate card block when disputed charge matches customer's established recurring subscription.",
+        "source": "document",
+        "ref": "policy:R7",
+        "entity_ids": [
+          "R7"
+        ]
       }
     ],
-    "similar_prior_cases": [],
-    "summary": "Investigation of HHG-009 found no corroborating evidence of fraud; closed as legitimate.",
+    "similar_prior_cases": [
+      "CC-0414",
+      "CC-0707",
+      "CC-0213",
+      "CC-0182",
+      "CC-0281"
+    ],
+    "summary": "Case HHG-009 was closed as legitimate with a fraud probability of 0.0 after the customer confirmed the disputed $30.02 charge was a recognized recurring monthly subscription. The investigation relied on evidence that the transaction's product category, billing region, and merchant pattern matched the customer's established history, which triggered Fraud Policy R7 to forbid an immediate card block. The initial actions of CREATE_CASE, VERIFY_WITH_CUSTOMER, and WARN_CUSTOMER were all routed via auto under rule R7, and the final action of CLOSE_NO_FRAUD was added via auto under rule R3. This resolution was reached because the customer's validation lowered the fraud probability from 0.14 to 0.00, confirming the charge was not fraudulent.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-009"
   },
   "evidence_requests": [
     {
       "type": "customer_validation",
-      "asked_after_step": 3,
-      "assumed_response": "Customer confirms they made this purchase, recognizing a recurring monthly charge from a merchant they use regularly and does not dispute the charge."
+      "asked_after_step": 2,
+      "assumed_response": "Customer confirms they made this purchase, recognizing a recurring monthly charge from a merchant they use regularly, an amount and product category consistent with their usual spending and does not dispute the charge."
     }
   ],
   "next_best_actions": {
@@ -89,7 +111,7 @@
         "reason": "R7"
       }
     ],
-    "what_changed": "The assumed customer validation response (Customer confirms they made this purchase, recognizing a recurring monthly charge from a merchant they use regularly and does not dispute the charge.) lowered fraud probability from 0.27 to 0.01, changing the recommended actions."
+    "what_changed": "The assumed customer validation response (Customer confirms they made this purchase, recognizing a recurring monthly charge from a merchant they use regularly, an amount and product category consistent with their usual spending and does not dispute the charge.) lowered fraud probability from 0.14 to 0.00, changing the recommended actions."
   },
   "sar": {
     "file": false,
@@ -99,8 +121,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.01 (legitimate); further steps are unlikely to change the decision.",
-  "tool_calls": 4,
-  "tokens": 0,
-  "latency_s": 0.978
+  "stop_reason": "Evidence request settled the question: probability reached 0.00 (legitimate); further steps are unlikely to change the decision.",
+  "tool_calls": 6,
+  "tokens": 789,
+  "latency_s": 2.663
 }

@@ -3,7 +3,7 @@
   "case": {
     "status": "open",
     "verdict": "uncertain",
-    "fraud_probability": 0.4601,
+    "fraud_probability": 0.2729,
     "pattern": "card_not_present_new_device",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -41,21 +41,38 @@
         ]
       },
       {
+        "claim": "Flagged transaction's product category and billing region match this customer's established history",
+        "source": "graph",
+        "ref": "query:customer_baseline(customer_id=C02354)",
+        "entity_ids": [
+          "T3491361"
+        ]
+      },
+      {
         "claim": "Flagged charge matches this customer's own recurring merchant/amount pattern (monthly)",
         "source": "graph",
         "ref": "query:customer_baseline(customer_id=C02354)",
         "entity_ids": [
           "T3491361"
         ]
+      },
+      {
+        "claim": "Fraud Policy R7: Forbids immediate card block when disputed charge matches customer's established recurring subscription.",
+        "source": "document",
+        "ref": "policy:R7",
+        "entity_ids": [
+          "R7"
+        ]
       }
     ],
     "similar_prior_cases": [
+      "CC-0391",
+      "CC-0491",
       "CC-4942",
-      "CC-1450",
-      "CC-0255",
+      "CC-0023",
       "CC-0405"
     ],
-    "summary": "Investigation of HHG-018 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
+    "summary": "Case HHG-018 regarding card C02354-K2 remains uncertain with a fraud probability of 0.27, as the customer's dispute of a $39.08 charge was not resolved by the lack of a reply to the verification request within the 24-hour window. Key evidence includes two online transactions from a new device and a structural match with confirmed-fraud case CC-4942, which are counterbalanced by the charge matching the customer's established recurring merchant pattern and billing history. The final actions consist of CREATE_CASE (auto, R2, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), selected because Fraud Policy R7 forbids an immediate card block when the disputed charge aligns with the customer's recurring subscription. Since the validation attempt did not alter the probability or the recommended steps, the case was escalated per policy due to the inability to reach a confident verdict.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-018"
   },
@@ -101,7 +118,7 @@
         "reason": "R7"
       }
     ],
-    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.46); actions are unchanged from the initial recommendation."
+    "what_changed": "The assumed customer validation response (No reply received from the customer within the 24-hour window.) did not move fraud probability (stayed at 0.27); actions are unchanged from the initial recommendation."
   },
   "sar": {
     "file": false,
@@ -111,8 +128,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.46 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 4,
-  "tokens": 0,
-  "latency_s": 2.248
+  "stop_reason": "Evidence request settled the question: probability reached 0.27 (uncertain); further steps are unlikely to change the decision.",
+  "tool_calls": 6,
+  "tokens": 849,
+  "latency_s": 3.812
 }

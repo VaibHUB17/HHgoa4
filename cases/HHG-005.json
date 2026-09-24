@@ -1,18 +1,16 @@
 {
   "case_id": "HHG-005",
   "case": {
-    "status": "open",
-    "verdict": "uncertain",
-    "fraud_probability": 0.6118,
-    "pattern": "card_not_present_new_device",
+    "status": "closed_legitimate",
+    "verdict": "legitimate",
+    "fraud_probability": 0.1187,
+    "pattern": "none",
     "pattern_description": "",
-    "affected_txn_ids": [
-      "T3523199"
-    ],
-    "first_suspicious_txn_id": "T3523199",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
     "connected_card_ids": [],
     "connected_device_profiles": [],
-    "exposure_usd": 100.07,
+    "exposure_usd": 0.0,
     "evidence": [
       {
         "claim": "1 online transaction(s) on card C02923-K1 from a device marked 'New' for this account (id_15=New)",
@@ -23,56 +21,42 @@
         ]
       },
       {
-        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-2717 (pattern: account_takeover)",
+        "claim": "Flagged transaction's product category and billing region match this customer's established history",
         "source": "graph",
-        "ref": "query:prior_cases_for_entities(case=CC-2717)",
+        "ref": "query:customer_baseline(customer_id=C02923)",
         "entity_ids": [
-          "CC-2717"
+          "T3523199"
         ]
       }
     ],
     "similar_prior_cases": [
-      "CC-2717",
-      "CC-2400",
-      "CC-2857"
+      "CC-0823",
+      "CC-0307",
+      "CC-0499",
+      "CC-0699",
+      "CC-0234"
     ],
-    "summary": "Investigation of HHG-005 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
+    "summary": "Case HHG-005 was reviewed after a real-time model scored transaction 3523199 for $100.07 at a 0.54 probability, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that while the transaction originated from a device marked 'New' for card C02923-K1, the product category and billing region align with the customer's established history, resulting in zero exposure. No evidence request was issued or resolved during this investigation. The final action of CLOSE_NO_FRAUD was chosen via the auto route under rule R3, as no new information changed the initial assessment.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-005"
   },
-  "evidence_requests": [
-    {
-      "type": "step_up_auth",
-      "asked_after_step": 3,
-      "assumed_response": "Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received."
-    }
-  ],
+  "evidence_requests": [],
   "next_best_actions": {
     "initial": [
       {
-        "action": "CREATE_CASE",
+        "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R8"
-      },
-      {
-        "action": "MONITOR_CARD",
-        "route": "auto",
-        "reason": "R4"
+        "reason": "R3"
       }
     ],
     "final": [
       {
-        "action": "CREATE_CASE",
+        "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R8"
-      },
-      {
-        "action": "MONITOR_CARD",
-        "route": "auto",
-        "reason": "R4"
+        "reason": "R3"
       }
     ],
-    "what_changed": "The assumed step up auth response (Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received.) raised fraud probability from 0.41 to 0.61, changing the recommended actions."
+    "what_changed": "nothing"
   },
   "sar": {
     "file": false,
@@ -82,8 +66,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.61 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 4,
-  "tokens": 0,
-  "latency_s": 0.98
+  "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
+  "tool_calls": 6,
+  "tokens": 545,
+  "latency_s": 2.582
 }

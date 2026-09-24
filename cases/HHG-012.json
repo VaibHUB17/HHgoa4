@@ -1,18 +1,16 @@
 {
   "case_id": "HHG-012",
   "case": {
-    "status": "open",
-    "verdict": "uncertain",
-    "fraud_probability": 0.6118,
-    "pattern": "card_not_present_new_device",
+    "status": "closed_legitimate",
+    "verdict": "legitimate",
+    "fraud_probability": 0.1187,
+    "pattern": "none",
     "pattern_description": "",
-    "affected_txn_ids": [
-      "T3545223"
-    ],
-    "first_suspicious_txn_id": "T3545223",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
     "connected_card_ids": [],
     "connected_device_profiles": [],
-    "exposure_usd": 5.92,
+    "exposure_usd": 0.0,
     "evidence": [
       {
         "claim": "1 online transaction(s) on card C05876-K2 from a device marked 'New' for this account (id_15=New)",
@@ -23,55 +21,42 @@
         ]
       },
       {
-        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-2370 (pattern: card_not_present_fraud)",
+        "claim": "Flagged transaction's product category and billing region match this customer's established history",
         "source": "graph",
-        "ref": "query:prior_cases_for_entities(case=CC-2370)",
+        "ref": "query:customer_baseline(customer_id=C05876)",
         "entity_ids": [
-          "CC-2370"
+          "T3553342"
         ]
       }
     ],
     "similar_prior_cases": [
-      "CC-2370",
-      "CC-0003"
+      "CC-0842",
+      "CC-0542",
+      "CC-0742",
+      "CC-0553",
+      "CC-0522"
     ],
-    "summary": "Investigation of HHG-012 could not reach a confident verdict (card_not_present_new_device); escalated per policy.",
+    "summary": "Case HHG-012 is closed with a verdict of legitimate and a fraud probability of 0.12, as the real-time model score of 0.55 for transaction 3553342 was not supported by corroborating evidence. The key evidence indicates that the flagged transaction's product category and billing region align with the customer's established history, despite the device being marked as new for card C05876-K2. No additional evidence requests were made or resulted in changes, leading to the selection of the final action CLOSE_NO_FRAUD via the auto route under rule R3. This action was chosen because the initial assessment found no pattern of fraud and zero exposure, resulting in no changes to the case status.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-012"
   },
-  "evidence_requests": [
-    {
-      "type": "step_up_auth",
-      "asked_after_step": 3,
-      "assumed_response": "Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received."
-    }
-  ],
+  "evidence_requests": [],
   "next_best_actions": {
     "initial": [
       {
-        "action": "CREATE_CASE",
+        "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R8"
-      },
-      {
-        "action": "MONITOR_CARD",
-        "route": "auto",
-        "reason": "R4"
+        "reason": "R3"
       }
     ],
     "final": [
       {
-        "action": "CREATE_CASE",
+        "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R8"
-      },
-      {
-        "action": "MONITOR_CARD",
-        "route": "auto",
-        "reason": "R4"
+        "reason": "R3"
       }
     ],
-    "what_changed": "The assumed step up auth response (Step-up authentication was not completed within the window; no valid one-time passcode confirmation was received.) raised fraud probability from 0.41 to 0.61, changing the recommended actions."
+    "what_changed": "nothing"
   },
   "sar": {
     "file": false,
@@ -81,8 +66,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.61 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 4,
-  "tokens": 0,
-  "latency_s": 1.027
+  "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
+  "tool_calls": 6,
+  "tokens": 562,
+  "latency_s": 3.014
 }

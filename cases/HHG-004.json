@@ -1,19 +1,16 @@
 {
   "case_id": "HHG-004",
   "case": {
-    "status": "closed_fraud",
-    "verdict": "fraud",
-    "fraud_probability": 0.8904,
-    "pattern": "card_not_present_new_device",
+    "status": "closed_legitimate",
+    "verdict": "legitimate",
+    "fraud_probability": 0.0114,
+    "pattern": "none",
     "pattern_description": "",
-    "affected_txn_ids": [
-      "T3580804",
-      "T3583227"
-    ],
-    "first_suspicious_txn_id": "T3580804",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
     "connected_card_ids": [],
     "connected_device_profiles": [],
-    "exposure_usd": 221.19,
+    "exposure_usd": 0.0,
     "evidence": [
       {
         "claim": "Cardholder disputes the charge: Customer C08106 message: 'I never made this $128.33 purchase. Please check my card.' Refers to 3583227.",
@@ -33,21 +30,22 @@
         ]
       },
       {
-        "claim": "Structural match (shared device/region/card) with confirmed-fraud closed case CC-1736 (pattern: card_not_present_fraud)",
+        "claim": "Structural match (shared device/region/card) with cleared closed case CC-0696 (pattern: none, outcome: cleared)",
         "source": "graph",
-        "ref": "query:prior_cases_for_entities(case=CC-1736)",
+        "ref": "query:prior_cases_for_entities(case=CC-0696)",
         "entity_ids": [
-          "CC-1736"
+          "CC-0696"
         ]
       }
     ],
     "similar_prior_cases": [
-      "CC-1736",
-      "CC-2121",
-      "CC-3778",
-      "CC-0696"
+      "CC-0584",
+      "CC-0086",
+      "CC-0283",
+      "CC-0696",
+      "CC-0308"
     ],
-    "summary": "Investigation of HHG-004 concluded fraud (card_not_present_new_device), covering 2 transaction(s) totaling $221.19.",
+    "summary": "Case HHG-004 was closed with a verdict of legitimate and a fraud probability of 0.01 after the customer confirmed they made the disputed $128.33 purchase and no longer disputed the charge. The initial concern regarding two online transactions from a new device was resolved by this validation, which lowered the fraud probability from 0.32 to 0.01. Consequently, the final action taken was CLOSE_NO_FRAUD via the auto route under rule R3.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-004"
   },
@@ -55,7 +53,7 @@
     {
       "type": "customer_validation",
       "asked_after_step": 3,
-      "assumed_response": "Customer states they did not make these purchases and still has the card in their possession (a pattern matching a previously confirmed fraud case)."
+      "assumed_response": "Customer confirms they made this purchase and does not dispute the charge."
     }
   ],
   "next_best_actions": {
@@ -73,17 +71,12 @@
     ],
     "final": [
       {
-        "action": "BLOCK_CARD",
-        "route": "L1",
-        "reason": "R2, R10"
-      },
-      {
-        "action": "CREATE_CASE",
+        "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R2"
+        "reason": "R3"
       }
     ],
-    "what_changed": "The assumed customer validation response (Customer states they did not make these purchases and still has the card in their possession (a pattern matching a previously confirmed fraud case).) raised fraud probability from 0.70 to 0.89, changing the recommended actions."
+    "what_changed": "The assumed customer validation response (Customer confirms they made this purchase and does not dispute the charge.) lowered fraud probability from 0.32 to 0.01, changing the recommended actions."
   },
   "sar": {
     "file": false,
@@ -93,8 +86,8 @@
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
-  "stop_reason": "Evidence request settled the question: probability reached 0.89 (fraud); further steps are unlikely to change the decision.",
-  "tool_calls": 4,
-  "tokens": 0,
-  "latency_s": 1.014
+  "stop_reason": "Evidence request settled the question: probability reached 0.01 (legitimate); further steps are unlikely to change the decision.",
+  "tool_calls": 6,
+  "tokens": 636,
+  "latency_s": 2.704
 }
