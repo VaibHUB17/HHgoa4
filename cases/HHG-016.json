@@ -31,6 +31,46 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-0420 (confirmed fraud, $59.18 exposure): semantically similar analyst notes (cosine distance 0.31), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0420)",
+        "entity_ids": [
+          "CC-0420"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0080 (confirmed fraud, $29.92 exposure): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0080)",
+        "entity_ids": [
+          "CC-0080"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0842 (confirmed fraud, $99.33 exposure): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0842)",
+        "entity_ids": [
+          "CC-0842"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0534 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0534)",
+        "entity_ids": [
+          "CC-0534"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0620 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0620)",
+        "entity_ids": [
+          "CC-0620"
+        ]
+      },
+      {
         "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker indicates a potential shared device that could be linked to other compromised cards or customers.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-016)",
@@ -39,39 +79,22 @@
         ]
       },
       {
-        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-12 01:39:08', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-12-12 01:39:08', 'hours': 2160}",
         "source": "graph",
-        "ref": "query:device_neighbors(depth=1)",
+        "ref": "llm_plan:rejected(column_as_id, depth=1)",
         "entity_ids": []
       },
       {
-        "claim": "card_window returned 14 connected entities at depth 2. Reasoning: The goal is to retrieve the full transaction history for the specific card associated with customer C09988 in the 720 hours preceding the case opening time. The 'card_window' query is designed to fetch transactions for a specific card within a defined time window anchored at a specific timestamp, which directly addresses the need to identify other transactions on device id_15 or new devices and check for signs of takeover.",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-12-12 01:39:08', 'hours': 72}",
         "source": "graph",
-        "ref": "query:card_window(card_id=C09988-K1, anchor=2016-12-12 01:39:08, hours=720)",
-        "entity_ids": [
-          "3550014",
-          "3556269",
-          "3571514",
-          "3534820",
-          "3557399",
-          "3474173",
-          "3558449",
-          "3571970",
-          "3570589",
-          "3565172",
-          "3549903",
-          "3554344",
-          "3569366",
-          "3568791"
-        ]
+        "ref": "llm_plan:rejected(column_as_id, depth=2)",
+        "entity_ids": []
       },
       {
-        "claim": "card_window returned 1 connected entities at depth 3. Reasoning: The goal is to retrieve the specific details of the other 13 transactions associated with card C09988-K1 to analyze them for fraud indicators. The 'card_window' query is the installed tool designed to fetch transactions for a specific card within a time window anchored to the case opening time. Using a 24-hour window is a standard initial scope to capture recent activity around the incident.",
+        "claim": "Confidence check on gathered evidence: medium -- The investigation has reached its maximum depth limit (3 of 3). The evidence shows a customer dispute on a transaction from a device flagged as 'New' to the account. While the device neighbor queries were rejected due to invalid entity IDs, the core signals (customer denial + new device marker) combined with the precedent cases (3 confirming fraud, 2 disconfirming legitimate) provide a sufficient basis for the policy engine to make a deterministic decision. Further digging is impossible due to the depth limit and the rejection of the specific follow-up queries.",
         "source": "graph",
-        "ref": "query:card_window(card_id=C09988-K1, anchor=2016-12-12 01:39:08, hours=24)",
-        "entity_ids": [
-          "3534820"
-        ]
+        "ref": "llm_decision:confidence_gate(case=HHG-016, depth=3)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -81,7 +104,7 @@
       "CC-0534",
       "CC-0620"
     ],
-    "summary": "Case HHG-016 resulted in an uncertain verdict with a fraud probability of 0.38, driven by customer C09988's dispute of a $59.67 charge on card C09988-K1 that originated from a device marked as new. The investigation attempted to expand to the shared-device neighborhood but failed due to a query error, while the step-up authentication request expired unanswered, which raised the probability from 0.33 to 0.38. Consequently, the final actions remained CREATE_CASE (auto, R0: 3a, fraud_probability >= 0.30) and MONITOR_CARD (auto, R0: policy default, keep watching while case is open). The case was escalated per policy because the investigation could not reach a confident verdict regarding the card_not_present_new_device pattern.",
+    "summary": "Case HHG-016 resulted in an uncertain verdict with a fraud probability of 0.38, driven by customer C09988's dispute of transaction T3534820 ($59.67) on card C09988-K1, which originated from a device marked as new to the account. The investigation was constrained by the expiration of the step-up authentication request and the refusal of device neighbor queries due to invalid entity IDs, leaving the new device marker and mixed precedent cases as the primary evidence. The final actions of CREATE_CASE (auto, R0: 3a, fraud_probability >= 0.30) and MONITOR_CARD (auto, R0: policy default, keep watching while case is open) were selected because the unresolved authentication response raised the probability from 0.33 to 0.38, triggering the specific rule thresholds for case creation and continued monitoring.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-016"
   },
@@ -128,7 +151,7 @@
     "activity_dates": []
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.38 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 8,
-  "tokens": 4898,
-  "latency_s": 40.986
+  "tool_calls": 6,
+  "tokens": 6317,
+  "latency_s": 44.552
 }

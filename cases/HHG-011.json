@@ -105,6 +105,46 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-3905 (confirmed fraud, $1,397.53 exposure): shares 2 entities (card/device/region) with this alert",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-3905)",
+        "entity_ids": [
+          "CC-3905"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0583 (confirmed fraud, $31.26 exposure): semantically similar analyst notes (cosine distance 0.29), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0583)",
+        "entity_ids": [
+          "CC-0583"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0533 (confirmed fraud, $79.58 exposure): semantically similar analyst notes (cosine distance 0.30), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0533)",
+        "entity_ids": [
+          "CC-0533"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0696 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0696)",
+        "entity_ids": [
+          "CC-0696"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-4743 (cleared as legitimate): shares 1 entity (card/device/region) with this alert",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-4743)",
+        "entity_ids": [
+          "CC-4743"
+        ]
+      },
+      {
         "claim": "Flagged charge matches this customer's own recurring merchant/amount pattern (monthly)",
         "source": "graph",
         "ref": "query:customer_baseline(customer_id=C11923)",
@@ -121,12 +161,138 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker and a closed case match suggests a potential device or account takeover that may extend to other cards linked to the same device.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker and a closed case match suggests the device may be linked to other compromised accounts, warranting a check for connected cards.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-011)",
         "entity_ids": [
           "C11923-K2"
         ]
+      },
+      {
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-12-29 06:27:44', 'hours': 72}",
+        "source": "graph",
+        "ref": "llm_plan:rejected(column_as_id, depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "card_window returned 107 connected entities at depth 2. Reasoning: The goal is to identify the specific device ID associated with the 'New' marker for card C11923-K2. The identifier 'device_id_15' is not in the known list of real identifiers, so I cannot use it directly in a device_neighbors query. The card_window query will retrieve recent transactions for the card, which should reveal the device IDs used, allowing me to identify the specific device associated with the 'New' marker before proceeding to check for shared usage.",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C11923-K2, anchor=2016-12-29 06:27:44, hours=72)",
+        "entity_ids": [
+          "3584516",
+          "3578394",
+          "3579400",
+          "3582413",
+          "3584155",
+          "3582602",
+          "3582327",
+          "3579407",
+          "3578405",
+          "3583417",
+          "3578107",
+          "3578347",
+          "3580219",
+          "3578451",
+          "3582738",
+          "3580821",
+          "3578483",
+          "3584401",
+          "3576269",
+          "3584693",
+          "3580765",
+          "3579597",
+          "3583368",
+          "3580232",
+          "3583101",
+          "3584985",
+          "3582624",
+          "3580992",
+          "3584859",
+          "3583348",
+          "3576329",
+          "3580417",
+          "3579576",
+          "3580907",
+          "3578997",
+          "3578817",
+          "3582142",
+          "3577595",
+          "3583435",
+          "3580202",
+          "3582338",
+          "3582175",
+          "3580137",
+          "3578475",
+          "3580544",
+          "3580348",
+          "3583670",
+          "3576468",
+          "3578496",
+          "3583644",
+          "3580403",
+          "3583406",
+          "3584706",
+          "3580933",
+          "3576198",
+          "3578491",
+          "3577440",
+          "3576228",
+          "3582178",
+          "3584003",
+          "3577200",
+          "3578050",
+          "3582671",
+          "3582107",
+          "3577245",
+          "3583411",
+          "3583914",
+          "3578471",
+          "3576771",
+          "3580478",
+          "3578340",
+          "3578277",
+          "3583229",
+          "3583415",
+          "3583494",
+          "3585345",
+          "3584962",
+          "3583968",
+          "3580712",
+          "3582082",
+          "3580380",
+          "3578148",
+          "3576340",
+          "3577647",
+          "3583866",
+          "3581345",
+          "3580815",
+          "3578506",
+          "3584153",
+          "3577287",
+          "3581048",
+          "3582897",
+          "3584460",
+          "3576872",
+          "3576738",
+          "3585064",
+          "3582868",
+          "3583199",
+          "3580951",
+          "3580427",
+          "3578995",
+          "3577715",
+          "3578486",
+          "3583140",
+          "3582375",
+          "3580776",
+          "3585055"
+        ]
+      },
+      {
+        "claim": "Confidence check on gathered evidence: high -- The evidence presents a clear conflict between the customer's denial and the transaction's alignment with their established baseline. The disputed charge matches the customer's recurring merchant/amount pattern, which is a strong indicator of legitimacy. Furthermore, Policy R7 explicitly forbids immediate card blocking in such scenarios. While there are structural matches to prior fraud cases and a 'New' device marker, the specific nature of the charge as a known recurring subscription outweighs these generic risk signals for the purpose of the policy engine's decision. The investigation has reached its depth limit, and the available signals are sufficient for the policy engine to apply R7 and determine the appropriate action.",
+        "source": "graph",
+        "ref": "llm_decision:confidence_gate(case=HHG-011, depth=3)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -136,7 +302,7 @@
       "CC-0696",
       "CC-4743"
     ],
-    "summary": "Case HHG-011 remains uncertain with a fraud probability of 0.33, as the customer's dispute of the $131.30 charge on card C11923-K2 is complicated by the fact that the transaction matches the customer's established recurring merchant pattern, which Fraud Policy R7 forbids from triggering an immediate card block. Key evidence includes 34 online transactions from a device marked as new and a structural match with confirmed-fraud case CC-3905, while the step-up authentication request expired unanswered, raising the probability from 0.29 to 0.33. The final actions of CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), WARN_CUSTOMER (auto, R7), and ESCALATE_TO_ANALYST (auto, R8) were chosen to manage the exposure of $1062.66 across the affected transactions without violating the recurring subscription protection rule.",
+    "summary": "Case HHG-011 resulted in an uncertain verdict with a fraud probability of 0.33, as the disputed $131.30 charge on card C11923-K2 matched the customer's established recurring subscription pattern, which conflicts with the new device marker and structural similarities to prior fraud cases. The step-up authentication request expired unanswered, which raised the fraud probability from 0.29 to 0.33 and triggered the final recommended actions. Consequently, the case was handled via CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), WARN_CUSTOMER (auto, R7), and ESCALATE_TO_ANALYST (auto, R8). These actions were chosen because Fraud Policy R7 forbids immediate card blocking when a disputed charge matches a customer's recurring pattern, while Policy R8 mandates escalation when the investigation cannot reach a confident verdict.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-011"
   },
@@ -203,7 +369,7 @@
     "activity_dates": []
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.33 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 6,
-  "tokens": 1892,
-  "latency_s": 57.013
+  "tool_calls": 7,
+  "tokens": 9782,
+  "latency_s": 44.309
 }

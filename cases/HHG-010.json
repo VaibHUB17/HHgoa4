@@ -21,32 +21,52 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-0707 (confirmed fraud, $35.06 exposure): semantically similar analyst notes (cosine distance 0.29), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0707)",
+        "entity_ids": [
+          "CC-0707"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0609 (confirmed fraud, $67.03 exposure): semantically similar analyst notes (cosine distance 0.29), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0609)",
+        "entity_ids": [
+          "CC-0609"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0307 (confirmed fraud, $25.23 exposure): semantically similar analyst notes (cosine distance 0.29), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0307)",
+        "entity_ids": [
+          "CC-0307"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0675 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.23), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0675)",
+        "entity_ids": [
+          "CC-0675"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0567 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.23), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0567)",
+        "entity_ids": [
+          "CC-0567"
+        ]
+      },
+      {
         "claim": "Flagged transaction's product category and billing region match this customer's established history",
         "source": "graph",
         "ref": "query:customer_baseline(customer_id=C10434)",
         "entity_ids": [
           "T3506725"
         ]
-      },
-      {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character activity suggests a potential shared device that may be linked to other compromised cards.",
-        "source": "graph",
-        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-010)",
-        "entity_ids": [
-          "C10434-K1"
-        ]
-      },
-      {
-        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-02 18:18:27', 'hours': 72}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
-        "source": "graph",
-        "ref": "query:device_neighbors(depth=1)",
-        "entity_ids": []
-      },
-      {
-        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-02 18:18:27', 'hours': 24}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
-        "source": "graph",
-        "ref": "query:device_neighbors(depth=2)",
-        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -56,7 +76,7 @@
       "CC-0675",
       "CC-0567"
     ],
-    "summary": "Case HHG-010 was closed as legitimate with a fraud probability of 0.12 after the real-time model initially scored transaction 3506725 at 0.90. The key evidence indicated that while the $1,000.03 online transaction on card C10434-K1 originated from a device marked as new (id_15), the product category and billing region aligned with the customer's established history. An attempt to expand the investigation to the shared-device neighborhood via device_neighbors queries failed due to a system error converting the user vertex id for parameter device_id. Consequently, the final action remained CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered) because no corroborating evidence of fraud was found to override the initial assessment.",
+    "summary": "Case HHG-010 was reviewed after a real-time model scored transaction 3506725 for $1,000.03 at a high risk of 0.90, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that while the transaction originated from a device marked 'New' for card C10434-K1, the product category and billing region align with the customer's established history, and no direct structural overlap was found with similar prior cases. No evidence request was issued, and the initial action of CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered) was retained as the final action because nothing changed during the review.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-010"
   },
@@ -88,6 +108,6 @@
   },
   "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 6,
-  "tokens": 3911,
-  "latency_s": 43.174
+  "tokens": 1009,
+  "latency_s": 7.023
 }

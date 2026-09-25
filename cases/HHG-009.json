@@ -29,6 +29,46 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-0414 (confirmed fraud, $35.00 exposure): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0414)",
+        "entity_ids": [
+          "CC-0414"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0707 (confirmed fraud, $35.06 exposure): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0707)",
+        "entity_ids": [
+          "CC-0707"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0213 (confirmed fraud, $110.02 exposure): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0213)",
+        "entity_ids": [
+          "CC-0213"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0182 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0182)",
+        "entity_ids": [
+          "CC-0182"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0281 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.34), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0281)",
+        "entity_ids": [
+          "CC-0281"
+        ]
+      },
+      {
         "claim": "Flagged transaction's product category and billing region match this customer's established history",
         "source": "graph",
         "ref": "query:customer_baseline(customer_id=C08299)",
@@ -51,20 +91,6 @@
         "entity_ids": [
           "R7"
         ]
-      },
-      {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with activity in-character for the customer suggests a potential device compromise that could be used to test other cards.",
-        "source": "graph",
-        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-009)",
-        "entity_ids": [
-          "C08299-K1"
-        ]
-      },
-      {
-        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-12-28 17:10:53', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
-        "source": "graph",
-        "ref": "query:device_neighbors(depth=1)",
-        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -74,7 +100,7 @@
       "CC-0182",
       "CC-0281"
     ],
-    "summary": "Case HHG-009 was closed with a verdict of legitimate and a fraud probability of 0.09, as the disputed $30.02 charge on card C08299-K1 aligned with the customer's established recurring merchant pattern and billing history. Although a new device marker triggered an attempt to query device neighbors, the investigation was constrained by a failed query and an expired step-up authentication request, which slightly elevated the risk score from 0.07 to 0.09. Consequently, the final actions remained consistent with the initial recommendations, executing CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7) in accordance with Fraud Policy R7, which forbids immediate card blocks for charges matching established subscriptions.",
+    "summary": "Case HHG-009 was closed with a verdict of legitimate and a fraud probability of 0.09, as the disputed $30.02 charge on card C08299-K1 matched the customer's established recurring merchant and billing history. Although a step-up authentication request expired unanswered, which raised the probability from 0.07 to 0.09, the lack of structural overlap with confirmed fraud precedents and the presence of disconfirming legitimate precedents supported the final determination. The final actions of CREATE_CASE, VERIFY_WITH_CUSTOMER, and WARN_CUSTOMER were selected via the auto route under rule R7, which forbids immediate card blocks for charges matching established subscriptions.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-009"
   },
@@ -132,6 +158,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.09 (legitimate); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 2239,
-  "latency_s": 46.613
+  "tokens": 1142,
+  "latency_s": 3.937
 }

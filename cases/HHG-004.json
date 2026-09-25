@@ -41,7 +41,47 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with a cleared precedent match suggests a potential shared device or broader campaign that could affect other cards.",
+        "claim": "Precedent (confirming): CC-0584 (confirmed fraud, $128.30 exposure): semantically similar analyst notes (cosine distance 0.31), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0584)",
+        "entity_ids": [
+          "CC-0584"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0086 (confirmed fraud, $83.81 exposure): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0086)",
+        "entity_ids": [
+          "CC-0086"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0283 (confirmed fraud, $149.93 exposure): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0283)",
+        "entity_ids": [
+          "CC-0283"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0696 (cleared as legitimate): shares 1 entity (card/device/region) with this alert",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0696)",
+        "entity_ids": [
+          "CC-0696"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0308 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.34), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0308)",
+        "entity_ids": [
+          "CC-0308"
+        ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker indicates a potential shared device that could be linked to other compromised cards.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-004)",
         "entity_ids": [
@@ -49,21 +89,70 @@
         ]
       },
       {
-        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-12-29 07:53:54', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-12-29 07:53:54', 'hours': 720}",
         "source": "graph",
-        "ref": "query:device_neighbors(depth=1)",
+        "ref": "llm_plan:rejected(column_as_id, depth=1)",
         "entity_ids": []
       },
       {
-        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-12-29 07:53:54', 'hours': 72}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "claim": "card_window returned 48 connected entities at depth 2. Reasoning: The goal is to find the device identifier associated with the 'New' marker for card C08106-K1. The identifier 'device_id_15' is a column name, not a value, so it cannot be used directly in a query that requires a specific device ID. The 'card_window' query retrieves transactions for the specified card within the last 720 hours, which will reveal the actual device IDs used, allowing us to identify the one marked as 'New'.",
         "source": "graph",
-        "ref": "query:device_neighbors(depth=2)",
-        "entity_ids": []
+        "ref": "query:card_window(card_id=C08106-K1, anchor=2016-12-29 07:53:54, hours=720)",
+        "entity_ids": [
+          "3504265",
+          "3580804",
+          "3521229",
+          "3585726",
+          "3553192",
+          "3583227",
+          "3552439",
+          "3541972",
+          "3514703",
+          "3499188",
+          "3553084",
+          "3508384",
+          "3561270",
+          "3560751",
+          "3550051",
+          "3521243",
+          "3498844",
+          "3569296",
+          "3514153",
+          "3541921",
+          "3504647",
+          "3561593",
+          "3511834",
+          "3521237",
+          "3553135",
+          "3514199",
+          "3514168",
+          "3584017",
+          "3512351",
+          "3568649",
+          "3583503",
+          "3570412",
+          "3560218",
+          "3552431",
+          "3541888",
+          "3587858",
+          "3518305",
+          "3497600",
+          "3521219",
+          "3521159",
+          "3497503",
+          "3585446",
+          "3583499",
+          "3521199",
+          "3532758",
+          "3558994",
+          "3514122",
+          "3562049"
+        ]
       },
       {
-        "claim": "Generated traversal passed the guard but failed to execute: (\"line 1:103 extraneous input ''' expecting {ABORT, ALL, AND, ANY, AVG, BY, CANDIDATE_SET, CASE, COALESCE, COLLECT, COLUMN, COMMIT, COUNT, DATETIME_ADD, DATETIME_SUB, DEFAULT, DIRECTED, DISTINCT, FALSE, FILE, FILTERTYPE, FUNCTION, GROUP, INIT, INSERT, ISEMPTY, JOIN, LASTHOP, LEFT, LIST, LOG, MAP, MATCH, MAX, MIN, NOW, NULL, ON, OR, PATH, PER, PROJECT, RANGE, REPLACE, STDEV, STDEVP, SELECT_VERTEX, SEMIJOIN, SET, SRC, SUM, TGT, TO_DATETIME, TRIM, TRUE, UNDIRECTED, UNWIND, UPDATE, VECTOR, VIRTUAL, GSQL_INT_MAX, GSQL_INT_MIN, GSQL_UINT_MAX, '__ENGINE__E_ATTR', '__ENGINE__SRC_ATTR', '__ENGINE__TGT_ATTR', '__ENGINE__V_ATTR', '__ENGINE__SRC_VAL', '__ENGINE__TGT_VAL', '__ENGINE__V_VAL', '__ENGINE__MESSAGE', '__ENGINE__CONTEXT', '__ENGINE__REQUEST', '__ENGINE__SERVICEAPI', 'type', '(', '[', '-', '.', '_', '~', CONST_INT, CONST_STR, NAME, GACCNAME}\\nline 1:114 mismatched input ''' expecting {ACCUM, AND, GROUP, HAVING, INTERSECT, LIMIT, MINUS, OR, ORDER, PER, POST_ACCUM, SET, UNION, '%', '&', '+', '-', '*', '/', '.', ';', '>', '|', '<<'}\\nParsing encountered 2 syntax error(s)\\n\\nSemantic Check Fails: Fail to generate the query list because of a query syntax error.\\nSemantic Check Fails: The data file in the JSONObject format for an interpret query is invalid. Please refer to log.ERROR for details.\\n\", None). Query verbatim: INTERPRET QUERY () FOR GRAPH FraudInvestigation { r = SELECT t FROM Transaction:t WHERE t.card_id == 'C08106-K1' LIMIT 50; PRINT r; }",
+        "claim": "Confidence check on gathered evidence: medium -- The investigation has reached its maximum depth limit (3 of 3). While the specific device neighborhood query was rejected due to a parameter error, sufficient evidence exists for a defensible handoff: the customer explicitly denies the transaction, the transaction occurred on a device marked 'New' to the account, and there are three semantically similar confirmed fraud precedents (CC-0584, CC-0086, CC-0283) with close cosine distances. Although there is one disconfirming structural match (CC-0696) and one disconfirming semantic match (CC-0308), the combination of customer denial, new device usage, and strong semantic alignment with confirmed fraud cases provides a reasonable basis for the policy engine to evaluate. Further digging is impossible due to the depth limit.",
         "source": "graph",
-        "ref": "llm_generated_query:failed(depth=3)",
+        "ref": "llm_decision:confidence_gate(case=HHG-004, depth=3)",
         "entity_ids": []
       }
     ],
@@ -74,7 +163,7 @@
       "CC-0696",
       "CC-0308"
     ],
-    "summary": "Case HHG-004 remains uncertain with a fraud probability of 0.21, as the step-up authentication request for customer C08106 expired unanswered, raising the risk score from 0.18. Key evidence includes the cardholder's dispute of the $128.33 charge on transaction T3583227 and the detection of two online transactions on card C08106-K1 originating from a device first marked as new. Although the agent attempted to expand the investigation to the shared-device neighborhood due to a structural match with cleared case CC-0696, all device neighbor queries and the generated traversal failed to execute due to syntax and conversion errors. The final action is MONITOR_CARD (auto, R0: policy default, below case-creation threshold), which was chosen because the case remained below the threshold for more severe intervention despite the unresolved authentication status.",
+    "summary": "Case HHG-004 concludes with an uncertain verdict and a fraud probability of 0.21, driven by customer C08106's denial of a $128.33 charge on card C08106-K1 and the use of a device marked as new to the account. The investigation was hampered by a refused device_neighbors query due to an invalid parameter and an expired step-up authentication request, which raised the probability from 0.18 to 0.21. Although three prior cases (CC-0584, CC-0086, CC-0283) semantically support fraud, the lack of a definitive device link and the presence of disconfirming precedents (CC-0696, CC-0308) leave the matter unresolved. Consequently, the final action remains MONITOR_CARD (auto, R0: policy default, below case-creation threshold), as the evidence did not meet the threshold for escalation.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-004"
   },
@@ -111,7 +200,7 @@
     "activity_dates": []
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.21 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 6,
-  "tokens": 5312,
-  "latency_s": 33.095
+  "tool_calls": 7,
+  "tokens": 6691,
+  "latency_s": 41.822
 }

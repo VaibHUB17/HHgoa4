@@ -226,7 +226,10 @@ def test_seed_evidence_is_carried_into_the_loop():
     llm = _llm([{"decision": "CONCLUDE", "reasoning": "seed evidence already sufficient"}])
     res = investigate("HHG-T8", {"card_id": "C0001-K1", "customer_id": "C0001"}, _RowTools(),
                        max_depth=4, llm=llm, seed_evidence=seed)
-    assert res.evidence == seed
+    # seed evidence itself is carried through unchanged; investigate() appends one advisory
+    # confidence-check entry on CONCLUDE (never touches the seed evidence's own content).
+    assert res.evidence[:len(seed)] == seed
+    assert res.evidence[-1]["ref"].startswith("llm_decision:confidence_gate(")
     assert res.depth_reached == 1
 
 

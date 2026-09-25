@@ -1,34 +1,32 @@
 <!--
 SOURCING NOTES (for whoever publishes this):
 
-VERIFIED-REAL, from running the checker script against cases/*.json on the
-regen-agentic-live branch, 24 Sept, against the live TigerGraph Savanna graph:
+FINAL VERIFIED, 25 Sept, against cases/*.json regenerated post-fix against the live
+TigerGraph Savanna graph (validator: 20/20 pass, 0 violations):
   verdicts: {'legitimate': 9, 'uncertain': 10, 'fraud': 1}
-  llm_decision refs: 12/20 cases
-  sar.file=true: 2 cases
-  next_best_actions initial != final: 10/20 cases
-  total LLM tokens: 20,365
+  llm_decision refs (includes the confidence-gate entries added this pass): 13/20 cases
+  sar.file=true: 1 case (HHG-014)
+  next_best_actions initial != final: 4/20 cases
+  total LLM tokens: 97,673
   distinct prior cases cited: 89
 
-This matches docs/REGEN_REVIEW.md exactly, so it is the current state of
-cases/ as of this writing, not a stale number.
+The R2/R4 policy defect mentioned in earlier drafts (HHG-004/006/016 recommending
+BLOCK_CARD under the customer-denial rule on a "no reply" response) is RESOLVED —
+none of the three cite R2 or BLOCK_CARD in the current run. As a direct consequence,
+HHG-006 (the earlier before/after worked example) now correctly shows NO change
+between initial and final — the fix removed a false positive, not a feature. The
+before/after worked example below is HHG-014 instead, which does have a real,
+un-buggy before/after and is also the live shared-device-ring / tg_wcc / SAR case.
 
-[VERIFY] tags below mark anything that depends on:
-  (a) the open R2/R4 policy defect (docs/REGEN_REVIEW.md) — HHG-004, HHG-006,
-      HHG-016 currently recommend BLOCK_CARD citing R2 on a "no reply"
-      customer response, which should be R4. Another agent is fixing this on
-      this branch concurrently, so re-run the checker script before
-      publishing and re-verify every case ID and number named below.
-  (b) graph vertex/query counts, which the task brief says may shift.
-
-CONTRADICTION FOUND, not silently resolved: the previous draft of this blog
-post used HHG-017's offline-fixture run (p=0.41 -> p=0.70, VERIFY_WITH_CUSTOMER
--> BLOCK_CARD) as its worked before/after example. In the live run, HHG-017
-does not change at all (what_changed: "nothing", stays legitimate throughout,
-p=0.082). That example has been replaced below with HHG-006, which does
-change in the live data and is independently the undocumented-pattern case.
-HHG-006 is however one of the three cases touched by the open R2/R4 defect
-above, so its exact action list is marked [VERIFY] too.
+Two more bugs were found and fixed this same pass (see bugs.md): a pattern-priority
+bug (HHG-014 mislabeled as a generic single-card pattern instead of `undocumented`
+despite being an 18-customer ring) and a device-id hallucination (an LLM plan step
+proposing a raw dataset column name like `id_15` as a real device id, now guarded
+before it reaches the database). Two features were added: a verbose per-case trace
+file (`cases/traces/<id>.trace.md`) labelling every evidence item by mechanism, and
+an explicit confidence field on the agent's own stop/continue decision. Neither fix
+nor feature changed any case's verdict or fraud_probability — verified across all 20
+cases plus 3 independent re-runs of one case to rule out run-to-run flakiness.
 -->
 
 # Judgement under uncertainty: an agent that knows when not to act
@@ -54,12 +52,12 @@ and a next-best-action recommendation — before and after the evidence came bac
 written back into the graph as precedent for the next investigation: closing a case on a shared
 device profile makes that profile evidence for whoever gets flagged next.
 
-**Live, `[VERIFY]` before publishing:** the current run resolves to 9 legitimate, 10 uncertain, 1
-fraud across 20 cases; 2 file a SAR; 12 carry a real `llm_decision` evidence ref (the model chose to
-widen the investigation); 10 have a recommendation that changed between initial and final; total
-LLM spend is 20,365 tokens; 89 distinct prior closed cases are cited. Another agent is fixing a
-policy defect on this branch concurrently (see below), so re-run the checker before quoting these
-publicly.
+Run against the live TigerGraph Savanna instance, this resolves to 9 legitimate, 10 uncertain, 1
+fraud across 20 cases; 1 files a SAR; 13 carry a real `llm_decision` evidence ref (the model
+choosing to widen an investigation, or explicitly stating its confidence before stopping); 4 have a
+recommendation that changed between the initial and final snapshot; total LLM spend is 97,673
+tokens; 89 distinct prior closed cases are cited as memory. Every one of those numbers comes from
+the answer files themselves, not a summary we wrote by hand.
 
 ## Why a graph and not a table
 
@@ -105,28 +103,34 @@ stay under a $500 authorization ceiling that would otherwise trigger stronger ve
 authorization-threshold structuring, not one of the five documented patterns in the brief. We wrote
 a detector for it — three or more online purchases within an hour, each between $450 and $500 — and
 cited the five historical cases wherever it fires. It fires on HHG-006 in the exam set (four online
-purchases in thirty minutes, at $478.95, $451.33, and neighbouring values), `[VERIFY]` current live
-evidence cites all five precedent IDs plus FinCEN guidance on structured transactions designed to
-evade authorization thresholds.
+purchases in thirty minutes: $478.95, $456.96, $488.04, $482.12), and the live evidence cites all
+five precedent case IDs plus FinCEN guidance on structured transactions designed to evade
+authorization thresholds.
 
 ## The before/after mechanic
 
 The clearest way to show judgement under uncertainty is to show it changing over an investigation,
-not just render a single verdict. HHG-006 is the live worked example, `[VERIFY]` against the R2/R4
-defect noted below before quoting exact figures:
+not just render a single verdict. HHG-014 is the live worked example — a card transaction from a
+device marked new for that account, which the agent's own investigation escalates into a confirmed
+18-customer shared-device ring, corroborated independently by TigerGraph's `tg_wcc` community
+detection algorithm:
 
 ```
-initial   p~0.70   ESCALATE_TO_ANALYST  (structuring pattern found, single trigger source)
+initial   p=0.61   CREATE_CASE (auto, R6), FILE_REPORT (L2, R6), MONITOR_CONNECTED_CARDS (auto, R6)
           -> evidence request: customer_validation
           -> assumed reply: "No reply received from the customer within the 24-hour window."
-final     BLOCK_CARD (L1), CREATE_CASE (auto), FILE_REPORT (L2), ESCALATE_TO_ANALYST (auto)
+final     p=0.61   MONITOR_CARD (auto, R4), DECLINE_TRANSACTION (L1, R4),
+                    CREATE_CASE (auto, R6), FILE_REPORT (L2, R6), MONITOR_CONNECTED_CARDS (auto, R6)
 ```
 
-Recording both states, and stating what changed and why, is worth a quarter of the grade under the
+The non-reply doesn't erase the ring evidence; it adds to it under R4 (unconfirmed customer
+response), on top of everything the shared-device finding already justified under R6. Recording
+both states, and stating what changed and why, is worth a quarter of the grade under the
 next-best-action criterion. It's also the honest thing to do independent of scoring: a fraud
 investigation is a sequence of decisions under changing information, not a single classification.
-In the live run 10 of 20 cases change between initial and final; the other 10 correctly stay put,
-because a case that was never in doubt shouldn't manufacture a change to look busy.
+In the current live run 4 of 20 cases change between initial and final; the other 16 correctly stay
+put, because a case that was never in doubt shouldn't manufacture a change to look busy — and that
+count itself moved when we fixed a bug (below) that had been inflating it with a false positive.
 
 ## Why confidence is a config file, not an LLM opinion
 
@@ -196,8 +200,17 @@ hand-written windowed queries plus TigerGraph's `tg_wcc` when the model decides 
 widening; a trained graph model would be more principled, though harder to explain to a judge in
 one sentence, which matters for a system whose whole pitch is auditability.
 
-And there's a known, currently open defect worth naming rather than hiding: three cases in the live
-run recommend blocking a card citing the customer-denial rule when the actual simulated reply was
-"no reply within 24 hours" — a different, lower-severity rule should have fired instead, because a
-customer *reporting* a charge is treated as a customer *denying* it from the moment the case is
-triggered. `[VERIFY]` whether this is fixed before quoting any per-case action list from this run.
+Two bugs found in a later pass are worth naming for the same reason. First: pattern classification
+used "whichever detector fires first," so a confirmed 18-customer device ring got labelled with a
+generic single-card signal instead of the undocumented-pattern category it actually deserved —
+fixed with an explicit priority ranking, not a special case for that one card. Second: the plan
+step, asked to look up a device, sometimes hallucinated a real-looking id from a raw dataset column
+name it had seen in a prompt (`id_15`, the "New/Found device" flag column, used as if it were an
+actual device key) — the query correctly failed and got discarded either way, but it wasted a
+step. Fixed by telling the model which real entity ids exist so far and guarding the query
+parameter before it ever reaches the database. Neither fix moved a single verdict or probability;
+both were verified by regenerating every case and diffing the decision fields against the prior
+run. A third addition, not a fix: every case now writes a plain-text trace file labelling each
+piece of evidence by the mechanism that produced it — agentic reasoning, deterministic graph
+query, vector-search case memory, graph algorithm, or document grounding — so "what's agentic
+versus what's deterministic" is a direct read of the artifact, not an assertion in a README.

@@ -93,6 +93,24 @@ class _FetchFn:
     def prior_case_candidates(self, case_id: str) -> list[ClosedCaseCandidate]: ...
 
 
+# Pattern label priority when a case's findings span more than one detector. Lower rank
+# wins. A confirmed multi-customer ring (undocumented, R9) or account takeover is a more
+# specific, higher-value finding than a single-card signal, so it must win the case's
+# `pattern` field even if a weaker detector happens to run first (bug: HHG-014 was
+# labeled card_not_present_new_device despite an 18-customer device ring being the real,
+# separately-scored finding).
+_PATTERN_PRIORITY = {
+    "undocumented": 0,
+    "account_takeover": 1,
+    "card_testing": 2,
+    "card_not_present_fraud": 2,
+    "out_of_region_use": 3,
+    "card_not_present_new_device": 4,
+    "none": 99,
+    "_default": 50,
+}
+
+
 def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
     """`ledger_memo` is a plain dict shared (by closure) with the request_evidence
     callable built alongside this one, so a later evidence-request call can classify
@@ -187,6 +205,7 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
         evidence: list[dict] = []
         ledger_keys: list[str] = []
         pattern = "none"
+        pattern_rank = _PATTERN_PRIORITY["none"]
         affected_txn_ids: list[str] = []
         for f in findings:
             evidence.append(
@@ -198,8 +217,14 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                 }
             )
             ledger_keys.extend(f.weight_keys)
-            if pattern == "none":
+            # Rank, don't first-wins: a multi-customer ring (undocumented) or account
+            # takeover is a stronger, more specific finding than a single-card signal like
+            # card_not_present_new_device, even if the weaker detector happened to run
+            # first and append its finding earlier in `findings`.
+            rank = _PATTERN_PRIORITY.get(f.pattern, _PATTERN_PRIORITY["_default"])
+            if rank < pattern_rank:
                 pattern = f.pattern
+                pattern_rank = rank
             for eid in f.entity_ids:
                 # only this card's transactions are the case's exposure; transactions on
                 # other customers' cards are reported via connected_card_ids instead
@@ -269,6 +294,20 @@ def _make_run_detectors(fetch, ledger_memo: dict[str, list[str]]):
                     "entity_ids": [cleared_match.case_id],
                 }
             )
+
+        # Full case-memory retrieval, one evidence item per candidate in either pool, so
+        # the answer file shows WHY each of the (up to 5) similar_prior_cases ids was
+        # retrieved -- outcome, pattern, and the specific signal (structural overlap,
+        # pattern match, or semantic similarity alone) -- not just a bare id. This is
+        # additive only: retrieve.py's precedent_evidence() already built this, it was
+        # just never called; the two hand-rolled blocks above still own the ledger keys
+        # that affect fraud_probability, so adding this cannot change any verdict.
+        _cited_refs = {(e["ref"], tuple(e["entity_ids"])) for e in evidence}
+        for item in retrieval.precedent_evidence():
+            key = (item["ref"], tuple(item["entity_ids"]))
+            if key not in _cited_refs:
+                evidence.append(item)
+                _cited_refs.add(key)
 
         # no positive findings at all: fall back to the risk score alone, if the trigger
         # carries one (risk_score triggers only -- README §0/§1).

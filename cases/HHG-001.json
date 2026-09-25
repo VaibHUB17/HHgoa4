@@ -13,6 +13,46 @@
     "exposure_usd": 0.0,
     "evidence": [
       {
+        "claim": "Precedent (confirming): CC-0414 (confirmed fraud, $35.00 exposure): semantically similar analyst notes (cosine distance 0.28), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0414)",
+        "entity_ids": [
+          "CC-0414"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0707 (confirmed fraud, $35.06 exposure): semantically similar analyst notes (cosine distance 0.29), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0707)",
+        "entity_ids": [
+          "CC-0707"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0775 (confirmed fraud, $310.91 exposure): semantically similar analyst notes (cosine distance 0.29), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0775)",
+        "entity_ids": [
+          "CC-0775"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0601 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.22), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0601)",
+        "entity_ids": [
+          "CC-0601"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0077 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.22), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0077)",
+        "entity_ids": [
+          "CC-0077"
+        ]
+      },
+      {
         "claim": "Model risk score 0.61 on the flagged transaction, no other corroborating signal found",
         "source": "graph",
         "ref": "query:card_window(card_id=C12382-K1, hours=2)",
@@ -36,7 +76,7 @@
       "CC-0601",
       "CC-0077"
     ],
-    "summary": "Case HHG-001 was reviewed after a real-time model scored transaction 3514030 at 0.61, but the investigation concluded the activity was legitimate with a final fraud probability of 0.08. The key evidence indicated that the flagged transaction's product category and billing region matched the customer's established history, and no other corroborating signals of fraud were found. No evidence request was initiated, and the final action remained CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered) because nothing changed from the initial assessment.",
+    "summary": "Case HHG-001 was reviewed after a real-time model scored transaction 3514030 at 0.61, but the investigation concluded the activity was legitimate with a final fraud probability of 0.08. Key evidence included the flagged transaction's product category and billing region matching the customer's established history, alongside disconfirming precedents CC-0601 and CC-0077 that were cleared as legitimate. No evidence requests were issued, and the final action of CLOSE_NO_FRAUD was chosen via the auto route under R0: policy default, settled low, no rule triggered, as no other corroborating signals were found to alter the initial determination.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-001"
   },
@@ -68,6 +108,6 @@
   },
   "stop_reason": "Probability 0.08 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 6,
-  "tokens": 715,
-  "latency_s": 2.131
+  "tokens": 953,
+  "latency_s": 7.925
 }

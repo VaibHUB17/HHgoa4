@@ -29,6 +29,46 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-0086 (confirmed fraud, $83.81 exposure): semantically similar analyst notes (cosine distance 0.31), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0086)",
+        "entity_ids": [
+          "CC-0086"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0161 (confirmed fraud, $300.06 exposure): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0161)",
+        "entity_ids": [
+          "CC-0161"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0469 (confirmed fraud, $104.68 exposure): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0469)",
+        "entity_ids": [
+          "CC-0469"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-1589 (cleared as legitimate): shares 1 entity (card/device/region) with this alert",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-1589)",
+        "entity_ids": [
+          "CC-1589"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0264 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0264)",
+        "entity_ids": [
+          "CC-0264"
+        ]
+      },
+      {
         "claim": "Flagged transaction's product category and billing region match this customer's established history",
         "source": "graph",
         "ref": "query:customer_baseline(customer_id=C08623)",
@@ -60,7 +100,7 @@
       "CC-1589",
       "CC-0264"
     ],
-    "summary": "Case HHG-003 was closed with a verdict of legitimate and a fraud probability of 0.02, as the disputed $49.00 charge on card C08623-K2 aligned with the customer's established recurring merchant pattern and billing history. Although the customer validation request yielded no reply within the 24-hour window, this lack of response did not alter the low fraud probability or the initial assessment. The final actions included MONITOR_CARD via route auto under rule R4, alongside CREATE_CASE, VERIFY_WITH_CUSTOMER, and WARN_CUSTOMER, all executed via route auto under rule R7. These actions were selected because Fraud Policy R7 forbids immediate card blocking when a disputed charge matches an established subscription, and the structural match with cleared case CC-1589 further supported the legitimate classification.",
+    "summary": "Case HHG-003 was closed as legitimate with a fraud probability of 0.02, as the disputed $49.00 charge on card C08623-K2 matched the customer's established recurring merchant and billing history. Although the customer did not reply to the validation request within the 24-hour window, this lack of response did not alter the low fraud probability or the initial assessment. The final actions included MONITOR_CARD via route auto under rule R4, alongside CREATE_CASE, VERIFY_WITH_CUSTOMER, and WARN_CUSTOMER, all executed via route auto under rule R7. These actions were chosen because Fraud Policy R7 forbids immediate card blocking when a disputed charge aligns with a customer's known recurring subscription pattern.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-003"
   },
@@ -123,6 +163,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.02 (legitimate); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 944,
-  "latency_s": 2.311
+  "tokens": 1141,
+  "latency_s": 1.861
 }

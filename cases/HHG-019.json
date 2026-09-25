@@ -21,6 +21,46 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-0783 (confirmed fraud, $99.92 exposure): semantically similar analyst notes (cosine distance 0.28), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0783)",
+        "entity_ids": [
+          "CC-0783"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0278 (confirmed fraud, $50.07 exposure): semantically similar analyst notes (cosine distance 0.29), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0278)",
+        "entity_ids": [
+          "CC-0278"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0031 (confirmed fraud, $20.36 exposure): semantically similar analyst notes (cosine distance 0.29), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0031)",
+        "entity_ids": [
+          "CC-0031"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0678 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.22), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0678)",
+        "entity_ids": [
+          "CC-0678"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0388 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.22), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0388)",
+        "entity_ids": [
+          "CC-0388"
+        ]
+      },
+      {
         "claim": "Flagged transaction's product category and billing region match this customer's established history",
         "source": "graph",
         "ref": "query:customer_baseline(customer_id=C07987)",
@@ -29,7 +69,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character activity suggests a potential shared device compromise that may extend to other cards.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker combined with in-character activity suggests a potential shared device compromise that could extend to other cards.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-019)",
         "entity_ids": [
@@ -37,15 +77,21 @@
         ]
       },
       {
-        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-12-01 22:28:53', 'hours': 72}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-12-01 22:28:53', 'hours': 720}",
         "source": "graph",
-        "ref": "query:device_neighbors(depth=1)",
+        "ref": "llm_plan:rejected(column_as_id, depth=1)",
         "entity_ids": []
       },
       {
-        "claim": "Generated traversal passed the guard but failed to execute: (\"line 1:96 extraneous input ''' expecting {ABORT, ALL, AND, ANY, AVG, BY, CANDIDATE_SET, CASE, COALESCE, COLLECT, COLUMN, COMMIT, COUNT, DATETIME_ADD, DATETIME_SUB, DEFAULT, DIRECTED, DISTINCT, FALSE, FILE, FILTERTYPE, FUNCTION, GROUP, INIT, INSERT, ISEMPTY, JOIN, LASTHOP, LEFT, LIST, LOG, MAP, MATCH, MAX, MIN, NOW, NULL, ON, OR, PATH, PER, PROJECT, RANGE, REPLACE, STDEV, STDEVP, SELECT_VERTEX, SEMIJOIN, SET, SRC, SUM, TGT, TO_DATETIME, TRIM, TRUE, UNDIRECTED, UNWIND, UPDATE, VECTOR, VIRTUAL, GSQL_INT_MAX, GSQL_INT_MIN, GSQL_UINT_MAX, '__ENGINE__E_ATTR', '__ENGINE__SRC_ATTR', '__ENGINE__TGT_ATTR', '__ENGINE__V_ATTR', '__ENGINE__SRC_VAL', '__ENGINE__TGT_VAL', '__ENGINE__V_VAL', '__ENGINE__MESSAGE', '__ENGINE__CONTEXT', '__ENGINE__REQUEST', '__ENGINE__SERVICEAPI', 'type', '(', '[', '-', '.', '_', '~', CONST_INT, CONST_STR, NAME, GACCNAME}\\nline 1:101 mismatched input ''' expecting {ACCUM, AND, GROUP, HAVING, INTERSECT, LIMIT, MINUS, OR, ORDER, PER, POST_ACCUM, SET, UNION, '%', '&', '+', '-', '*', '/', '.', ';', '>', '|', '<<'}\\nParsing encountered 2 syntax error(s)\\n\\nSemantic Check Fails: Fail to generate the query list because of a query syntax error.\\nSemantic Check Fails: The data file in the JSONObject format for an interpret query is invalid. Please refer to log.ERROR for details.\\n\", None). Query verbatim: INTERPRET QUERY () FOR GRAPH FraudInvestigation { r = SELECT d FROM Device:d WHERE d.id_15 == 'New' LIMIT 50; PRINT r; }",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-12-01 22:28:53', 'hours': 720}",
         "source": "graph",
-        "ref": "llm_generated_query:failed(depth=2)",
+        "ref": "llm_plan:rejected(column_as_id, depth=2)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Confidence check on gathered evidence: medium -- The investigation has reached its maximum depth limit (3 of 3). While the device neighborhood expansion was blocked due to invalid entity IDs, the existing evidence provides a defensible basis for the policy engine to make a final determination. The signals are mixed: a high real-time risk score (0.90) and a new device marker suggest potential fraud, but the transaction aligns with the customer's established baseline (product/region) and there are disconfirming precedents. This creates a 'medium' confidence scenario where the evidence is sufficient to hand off to the deterministic policy engine, which is designed to weigh these conflicting signals.",
+        "source": "graph",
+        "ref": "llm_decision:confidence_gate(case=HHG-019, depth=3)",
         "entity_ids": []
       }
     ],
@@ -56,7 +102,7 @@
       "CC-0678",
       "CC-0388"
     ],
-    "summary": "Case HHG-019 was closed as legitimate with a fraud probability of 0.12, as the single online transaction T3503878 for $99.92 on card C07987-K2 exhibited product and billing characteristics consistent with the customer's established history. Although the transaction originated from a device marked as new, an attempt to expand the investigation to the shared-device neighborhood failed due to a syntax error in the generated query, leaving no additional corroborating evidence of compromise. The final action of CLOSE_NO_FRAUD was executed via the auto route under rule R0: policy default, settled low, no rule triggered, which remained unchanged from the initial assessment.",
+    "summary": "Case HHG-019 was reviewed after a real-time model scored transaction 3503878 ($99.92, online) at 0.90, but the final verdict is legitimate with a fraud probability of 0.12. Key evidence indicates the transaction originated from a device marked 'New' (id_15=New), yet the product category and billing region align with the customer's established history, and disconfirming precedents CC-0678 and CC-0388 support a legitimate classification. The agent's request to expand the investigation to the shared-device neighborhood using device_neighbors(device_id=device_id_15) was refused because the parameter appeared to be a raw dataset column name rather than a valid entity ID. Consequently, the final action remains CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered), as the initial assessment was upheld without changes.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-019"
   },
@@ -88,6 +134,6 @@
   },
   "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
   "tool_calls": 6,
-  "tokens": 4714,
-  "latency_s": 45.25
+  "tokens": 6301,
+  "latency_s": 45.345
 }

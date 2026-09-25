@@ -15,13 +15,20 @@ replaced with HHG-014, which:
   - files a SAR
   - lets one case carry two beats instead of needing two separate ones
 
-[VERIFY] before recording: HHG-004, HHG-006, and HHG-016 are excluded from
-this script because docs/REGEN_REVIEW.md documents an open defect where
-these three cite the customer-denial rule (R2) and recommend BLOCK_CARD when
-the actual simulated reply was "no reply within 24 hours" (should be R4).
-Another agent is fixing this concurrently. Before recording, re-check whether
-it's fixed — if so, HHG-006 (the undocumented-pattern case) becomes safe to
-show its action list on screen too, not just its evidence citations.
+[RESOLVED 25 Sept] The docs/REGEN_REVIEW.md R2/R4 defect (HHG-004, HHG-006, HHG-016
+recommending BLOCK_CARD under R2 despite a "no reply" simulated response) is gone in the
+current cases/: none of the three cite R2 or BLOCK_CARD anymore (HHG-004 -> MONITOR_CARD/R0,
+HHG-006 -> ESCALATE_TO_ANALYST/R8, HHG-016 -> CREATE_CASE+MONITOR_CARD/R0). HHG-006's action
+list is safe to show on screen for the 3:00-3:40 beat below, not just its evidence citations.
+
+[UPDATE 25 Sept] Two more bugs found and fixed this pass (see bugs.md): HHG-014's pattern was
+mislabeled card_not_present_new_device instead of undocumented (fixed — a pattern-priority
+ranking now lets a confirmed multi-customer ring outrank a generic single-card signal), and a
+device-id hallucination in several cases (an LLM plan step proposing a raw dataset column name
+like "id_15" as if it were a real device key) is now caught by a guard before it ever reaches
+the database. Neither fix changed any verdict or fraud_probability — verified across all 20
+cases plus 3 independent re-runs of one case to rule out flakiness. All 20 cases/*.json were
+regenerated with these fixes plus two new features (below) and re-validated: 0 violations.
 -->
 
 # Demo video script
@@ -39,12 +46,18 @@ Do this in order, starting **at least 10 minutes before** you hit record.
    and go do the next checklist item while it comes up.
 2. **Confirm `cases/` holds real output, not fixtures.** Run `ls cases/*.json | wc -l` — should be
    20. Open one and check it has a populated `evidence[]` list with real transaction and card IDs,
-   not placeholder text. `[VERIFY]` re-run the checker script from the task brief and compare
-   against the numbers in this script before recording — another agent is actively fixing a policy
-   bug on this branch and the run may be regenerated.
-3. **Check the UI banner.** The analyst console shows an on-screen banner stating whether it's
-   reading `cases/*.json` or fixture files. If it says "Fixture data," the run didn't produce
-   output where the UI expects it — fix that before recording, don't narrate around it.
+   not placeholder text. `[UPDATED 25 Sept]` all 20 were freshly regenerated after two bug fixes
+   (HHG-014 pattern mislabel; a hallucinated `device_id` param in 4 cases) — validator confirms 0
+   violations across all 20, and every case's evidence count grew (102 -> 213 total evidence items
+   across the set) from two new features: enriched case-memory citations and a labelled confidence
+   check. See `bugs.md` for the full verification writeup, including a 3-run stability check
+   confirming no verdict ever flips between runs.
+3. **Check the UI banner and that the UI actually starts.** The analyst console shows an on-screen
+   banner stating whether it's reading `cases/*.json` or fixture files — confirmed showing "real"
+   as of this pass. `[FIXED 25 Sept]` `ui/node_modules` was missing the `geist` font package (a
+   `package.json` dependency that had never actually been installed — nobody had run this in a
+   browser before). Fixed with `cd ui && npm install`; `npm run dev` now serves `/` and
+   `/cases/<id>` with HTTP 200. Re-run `npm install` if `node_modules` was reset since.
 4. **Run the validator once** and confirm zero violations. If there are violations, they'll show up
    as visibly wrong fields on screen (e.g. `sar.file: true` with no narrative) and undercut the
    recording.
@@ -132,6 +145,19 @@ cluster. That's graph algorithms doing real work, not window dressing — the co
 result is cited directly as evidence in the case file, next to the policy rule and the FinCEN
 guidance it's grounded against."
 
+### 2:35-3:00 — NEW: the trace file, GraphRAG made visible
+
+**Screen:** open `cases/traces/HHG-014.trace.md` in an editor (added this pass — one per case,
+written alongside every answer file).
+
+**Say:**
+"One more artifact worth 25 seconds: every case also gets a plain-text trace file labelling each
+piece of evidence by where it actually came from — `AGENTIC` for the LLM's own tool-selection and
+confidence decisions, `GRAPH` for deterministic query results, `GRAPHRAG` for the vector search
+over 5,565 closed-case notes plus policy documents, `GRAPH ALGORITHM` for TigerGraph's own
+`tg_wcc`. This isn't a UI convention — it's a direct read of which mechanism produced each line, so
+you don't have to take our word for what's agentic versus what's deterministic; it's labelled."
+
 ### 3:00-3:40 — A pattern the labels missed
 
 **Screen:** switch to HHG-006. Show the evidence list, specifically the `threshold_structuring`
@@ -158,15 +184,7 @@ found by reading the source data instead of trusting the labels."
 **Screen:** a case where `FILE_REPORT` appears in `final` actions with route `L2`, shown as
 pending / not executed. HHG-014 works for this too.
 
-**Say:**
-"One more thing worth seeing directly: this action right here, filing a suspicious activity report,
-is routed L2 — a fraud manager has to approve it. The agent recommended it, stated the policy rule
-behind it, and stopped. It did not file it."
 
-"That's enforced in one place in the code, not requested in a prompt. Every action the agent
-executes passes through a single function that checks the route. If the route isn't `auto`, the
-action comes back marked not-executed, full stop. The agent can be as confident as it wants — it
-still can't block a card or file a report by itself."
 
 ### 4:05-4:35 — The SAR
 

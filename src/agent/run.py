@@ -142,6 +142,109 @@ def _status_for(verdict: str, escalated: bool) -> str:
 
 
 # ---------------------------------------------------------------------------
+# verbose per-case trace (demo artifact -- shows what's agentic vs graph-derived)
+# ---------------------------------------------------------------------------
+
+# Evidence `ref` prefixes, classified into the three things this project keeps strictly
+# separate (README/RESEARCH.md): what the LLM decided, what came straight off the graph
+# (including GraphRAG vector search over closed-case notes), and document/regulatory
+# grounding. Nothing here is a verdict -- that classification lives only in the label.
+_AGENTIC_REF_PREFIXES = ("llm_decision:", "llm_plan:", "llm_generated_query:")
+_GRAPHRAG_REF_PREFIXES = ("query:prior_case_candidates", "query:prior_cases_for_entities",
+                          "query:similar_prior_cases")
+_DOCUMENT_REF_PREFIXES = ("policy:", "reg:")
+_ALGORITHM_REF_PREFIXES = ("algorithm:",)
+
+
+def _classify_evidence_ref(ref: str) -> str:
+    if ref.startswith(_AGENTIC_REF_PREFIXES):
+        return "AGENTIC (LLM tool-selection / reasoning step)"
+    if ref.startswith(_GRAPHRAG_REF_PREFIXES):
+        return "GRAPHRAG (vector search + graph case memory, ClosedCase.notesEmb)"
+    if ref.startswith(_ALGORITHM_REF_PREFIXES):
+        return "GRAPH ALGORITHM (TigerGraph built-in, e.g. tg_wcc community detection)"
+    if ref.startswith(_DOCUMENT_REF_PREFIXES):
+        return "DOCUMENT (policy/regulatory grounding, PolicyChunk.textEmb)"
+    if ref.startswith("query:") or ref.startswith("trigger:"):
+        return "GRAPH (deterministic query result)"
+    return "OTHER"
+
+
+def _write_trace_md(answer: dict, out_dir: Path, case_id: str) -> Path:
+    """Human-readable, per-case trace of the investigation for the demo: what evidence
+    came from where, and -- the one thing that must never be blurred -- that the verdict,
+    probability and action were computed deterministically by src/policy/, never by the
+    LLM. Purely a read-out of `answer`; changes nothing about how the case was decided.
+    """
+    case = answer["case"]
+    lines = [
+        f"# Investigation trace -- {case_id}",
+        "",
+        f"- **Verdict**: `{case['verdict']}` (fraud_probability `{case['fraud_probability']}`) "
+        "-- computed deterministically by `src/policy/engine.py` + `src/policy/ledger.py` "
+        "from the evidence below. The LLM never sets this.",
+        f"- **Pattern**: `{case['pattern']}`" + (f" -- {case['pattern_description']}" if case.get('pattern_description') else ""),
+        f"- **Tool calls**: {answer.get('tool_calls', 0)}  |  **LLM tokens**: {answer.get('tokens', 0)}  |  "
+        f"**Latency**: {answer.get('latency_s', 0)}s",
+        f"- **Stop reason**: {answer.get('stop_reason', '')}",
+        "",
+        "## Evidence, in the order it was gathered",
+        "",
+    ]
+    counts: dict[str, int] = {}
+    for e in case.get("evidence", []):
+        label = _classify_evidence_ref(e.get("ref", ""))
+        counts[label] = counts.get(label, 0) + 1
+        lines.append(f"- **[{label}]** `{e.get('ref', '')}`")
+        lines.append(f"  {e.get('claim', '')}")
+        if e.get("entity_ids"):
+            lines.append(f"  entities: {', '.join(e['entity_ids'])}")
+        lines.append("")
+
+    lines.append("## Evidence source breakdown")
+    lines.append("")
+    for label, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+        lines.append(f"- {label}: {n}")
+    lines.append("")
+
+    if case.get("similar_prior_cases"):
+        lines.append("## Case memory (GraphRAG) -- similar_prior_cases")
+        lines.append("")
+        lines.append(", ".join(case["similar_prior_cases"]))
+        lines.append("")
+        lines.append("(see the GRAPHRAG-labelled evidence above for outcome/pattern/why-matched per case)")
+        lines.append("")
+
+    if answer.get("evidence_requests"):
+        lines.append("## Evidence requested mid-investigation")
+        lines.append("")
+        for r in answer["evidence_requests"]:
+            lines.append(f"- {r['type']} (asked after step {r['asked_after_step']}): {r['assumed_response']}")
+        lines.append("")
+
+    nba = answer.get("next_best_actions") or {}
+    lines.append("## Next best actions -- deterministic (src/policy/engine.py), not LLM-chosen")
+    lines.append("")
+    lines.append("**Before evidence:**")
+    for a in nba.get("initial", []):
+        lines.append(f"- {a['action']} (route: {a['route']}, reason: {a['reason']})")
+    lines.append("")
+    lines.append("**After evidence:**")
+    for a in nba.get("final", []):
+        lines.append(f"- {a['action']} (route: {a['route']}, reason: {a['reason']})")
+    if nba.get("what_changed"):
+        lines.append("")
+        lines.append(f"**What changed:** {nba['what_changed']}")
+    lines.append("")
+
+    trace_dir = out_dir / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    out_path = trace_dir / f"{case_id}.trace.md"
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+    return out_path
+
+
+# ---------------------------------------------------------------------------
 # running one case
 # ---------------------------------------------------------------------------
 
@@ -535,6 +638,7 @@ def main(argv: list[str] | None = None) -> int:
             import json
 
             json.dump(answer, f, indent=2, ensure_ascii=False)
+        _write_trace_md(answer, out_dir, case_id)
         if violations:
             failed = True
             print(f"{case_id}: INVALID ({len(violations)} violation(s))", file=sys.stderr)

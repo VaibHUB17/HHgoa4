@@ -48,6 +48,46 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-0485 (confirmed fraud, $299.97 exposure): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0485)",
+        "entity_ids": [
+          "CC-0485"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0668 (confirmed fraud, $382.55 exposure): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0668)",
+        "entity_ids": [
+          "CC-0668"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0076 (confirmed fraud, $299.85 exposure): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0076)",
+        "entity_ids": [
+          "CC-0076"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0489 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.32), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0489)",
+        "entity_ids": [
+          "CC-0489"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0683 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.33), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0683)",
+        "entity_ids": [
+          "CC-0683"
+        ]
+      },
+      {
         "claim": "Fraud Policy R1: Requires customer verification before card block when alert rests on single unconfirmed signal.",
         "source": "document",
         "ref": "policy:R1",
@@ -64,7 +104,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with a burst pattern suggests the device may be shared with other compromised cards, warranting a check of the shared-device neighbourhood.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker suggests the device may be shared with other cards, warranting a check for broader compromise.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-006)",
         "entity_ids": [
@@ -72,15 +112,21 @@
         ]
       },
       {
-        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-11-22 02:30:00', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-11-22 02:30:00', 'hours': 2160}",
         "source": "graph",
-        "ref": "query:device_neighbors(depth=1)",
+        "ref": "llm_plan:rejected(column_as_id, depth=1)",
         "entity_ids": []
       },
       {
-        "claim": "Query device_neighbors({'device_id': 'device_id_15', 'anchor': '2016-11-22 02:30:00', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-11-22 02:30:00', 'hours': 2160}",
         "source": "graph",
-        "ref": "query:device_neighbors(depth=2)",
+        "ref": "llm_plan:rejected(column_as_id, depth=2)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Confidence check on gathered evidence: high -- The evidence presents a clear and consistent pattern of threshold structuring (four transactions just under $500 within 30 minutes) from a new device, which is a strong fraud signal. This is corroborated by three confirmed fraud precedents with similar semantic profiles. Although two disconfirming precedents exist, they are outweighed by the specific structural anomaly and the customer's denial. The investigation has reached its depth limit (3 of 3), and further queries (such as the rejected device neighbor checks) are not viable or necessary given the strength of the current signals. The policy engine can now process this high-confidence signal for a final verdict.",
+        "source": "graph",
+        "ref": "llm_decision:confidence_gate(case=HHG-006, depth=3)",
         "entity_ids": []
       }
     ],
@@ -96,7 +142,7 @@
       "CC-4086",
       "CC-4124"
     ],
-    "summary": "Case HHG-006 resulted in an uncertain verdict with a fraud probability of 0.58, driven by four online purchases on card C07297-K1 totaling $1906.07 that were structured just under the $500 authorization threshold. The key evidence includes the customer's dispute of transaction T3476682 and the detection of these transactions originating from a new device, which aligns with the undocumented authorization-threshold structuring pattern seen in prior cases such as CC-3748. An evidence request for step-up authentication expired unanswered, and attempts to query the shared-device neighborhood failed due to a system error, leaving the potential compromise of other cards on that device unresolved. Consequently, the final action was ESCALATE_TO_ANALYST via the auto route under rule R8, as the lack of customer verification and failed technical queries prevented a definitive resolution.",
+    "summary": "Case HHG-006 resulted in an uncertain verdict with a fraud probability of 0.58, driven by four online purchases on card C07297-K1 totaling $1,906.07 that were structured just under the $500 authorization threshold from a new device. The investigation relied on the customer's dispute of transaction T3476682 and the structural anomaly, while a proposed device neighbor query was refused because the provided identifier appeared to be a raw dataset column name rather than a valid entity ID. The step-up authentication evidence request expired unanswered within the window, which increased the fraud probability from 0.53 to 0.58 and prevented a definitive resolution. Consequently, the final action was ESCALATE_TO_ANALYST (auto, R8), as the case remained unresolved due to the undocumented pattern and lack of customer verification required by Fraud Policy R1.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-006"
   },
@@ -134,6 +180,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.58 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 5097,
-  "latency_s": 37.624
+  "tokens": 7415,
+  "latency_s": 46.915
 }

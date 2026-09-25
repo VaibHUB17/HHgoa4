@@ -4,8 +4,8 @@
     "status": "closed_fraud",
     "verdict": "fraud",
     "fraud_probability": 0.6118,
-    "pattern": "card_not_present_new_device",
-    "pattern_description": "",
+    "pattern": "undocumented",
+    "pattern_description": "Activity shares a device profile, billing region, or recipient email across multiple customers within a short window but does not match any of the five documented patterns; flagged per R9 as coordinated/repeated abuse across customers rather than forced into a named category.",
     "affected_txn_ids": [
       "T3478561"
     ],
@@ -121,6 +121,46 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-0078 (confirmed fraud, $131.31 exposure): semantically similar analyst notes (cosine distance 0.25), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0078)",
+        "entity_ids": [
+          "CC-0078"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0247 (confirmed fraud, $78.86 exposure): semantically similar analyst notes (cosine distance 0.25), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0247)",
+        "entity_ids": [
+          "CC-0247"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0178 (confirmed fraud, $90.87 exposure): semantically similar analyst notes (cosine distance 0.25), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0178)",
+        "entity_ids": [
+          "CC-0178"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0815 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.27), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0815)",
+        "entity_ids": [
+          "CC-0815"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0488 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.27), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0488)",
+        "entity_ids": [
+          "CC-0488"
+        ]
+      },
+      {
         "claim": "Fraud Policy R6: Mandates card block, case creation, and supervisory escalation for multi-account shared origin rings.",
         "source": "document",
         "ref": "policy:R6",
@@ -137,11 +177,27 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The shared_device_across_cards finding indicates the compromise extends beyond this single cardholder, requiring an investigation of the connected network.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The shared_device_across_cards finding indicates the compromise extends beyond this single cardholder, necessitating a check for other affected accounts.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-014)",
         "entity_ids": [
           "C13487-K1"
+        ]
+      },
+      {
+        "claim": "card_window returned 1 connected entities at depth 1. Reasoning: To determine if C01289-K2 shows coordinated activity (velocity, merchant, geo anomalies) similar to the case card, I need to examine its transaction history around the case anchor time. card_window is the specific query for retrieving transactions for a given card within a time window.",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C01289-K2, anchor=2016-11-22 20:11:00, hours=72)",
+        "entity_ids": [
+          "3472269"
+        ]
+      },
+      {
+        "claim": "card_window returned 1 connected entities at depth 2. Reasoning: The goal is to identify specific transactions on card C01289-K2 within the 72-hour window around the case anchor time to compare anomalies with the case card. The 'card_window' query is designed to retrieve transactions for a specific card within a time window, making it the direct fit for this request.",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C01289-K2, anchor=2016-11-22 20:11:00, hours=72)",
+        "entity_ids": [
+          "3472269"
         ]
       }
     ],
@@ -152,7 +208,7 @@
       "CC-0815",
       "CC-0488"
     ],
-    "summary": "Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by transaction T3478561 on card C13487-K1 which originated from a device profile shared across 18 unrelated customers, a structural signature of a coordinated ring. The request for customer validation yielded no reply within the 24-hour window, leaving the fraud probability unchanged and the initial action plan intact. Final actions include MONITOR_CARD (auto, R4), DECLINE_TRANSACTION (L1, R4), CREATE_CASE (auto, R6), FILE_REPORT (L2, R6), and MONITOR_CONNECTED_CARDS (auto, R6). These measures were selected to address the multi-account shared origin ring under Fraud Policy R6 and to comply with FinCEN Advisory requirements for syndicated account compromise.",
+    "summary": "Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by transaction T3478561 on card C13487-K1 which originated from a device profile shared across 18 unrelated customers within a 7-day window. The evidence request for customer validation yielded no reply within the 24-hour window, leaving the fraud probability unchanged and confirming the initial assessment. The final actions include MONITOR_CARD via auto route under R4, DECLINE_TRANSACTION via L1 route under R4, CREATE_CASE via auto route under R6, FILE_REPORT via L2 route under R6, and MONITOR_CONNECTED_CARDS via auto route under R6. These actions were selected because the shared device profile constitutes a coordinated ring, triggering mandatory card block, case creation, and supervisory escalation under Fraud Policy R6, while also requiring Suspicious Activity Reports per FinCEN Advisory.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-014"
   },
@@ -212,8 +268,8 @@
   },
   "sar": {
     "file": true,
-    "reason": "3a: activity connects to a shared device/region or another customer's fraud",
-    "narrative": "Customer C13487, associated with card C13487-K1, was identified as a victim of suspected card-not-present fraud on 2016-11-22. The fraudulent activity occurred over the online channel and involved transaction T3478561, which originated from a device profile shared across 18 unrelated customers. This shared device profile, identified as SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080, serves as a structural signature indicating a coordinated ring. The account is connected to cards C01289-K2, C01996-K2, C02910-K1, C02975-K1, C03676-K2, C04108-K2, C04274-K1, C06710-K1, C08168-K1, C09049-K1, C09906-K1, C09975-K2, C10193-K2, C11082-K1, C11670-K2, C12796-K1, and C13291-K1. Case HHG-014 resulted in a fraud verdict with a probability of 0.61, driven by the multi-account shared origin of the transaction. A request for customer validation was issued, but no reply was received within the 24-hour window, leaving the fraud probability unchanged. The total exposure identified in this case is $74.96. Related prior investigations reviewed as case memory include CC-0078, CC-0247, CC-0178, CC-0815, and CC-0488.",
+    "reason": "3a: activity connects to a shared device/region or another customer's fraud; pattern is undocumented/coordinated (R9)",
+    "narrative": "Customer C13487, associated with card C13487-K1, engaged in activity on the online channel between 2016-11-22 and 2016-11-22 that is consistent with an undocumented fraud pattern. The activity shares a device profile, billing region, or recipient email across multiple customers within a short window but does not match any of the five documented patterns. This behavior was flagged as coordinated and repeated abuse across customers rather than being forced into a named category. The specific transaction T3478561 on card C13487-K1 originated from a device profile shared across 18 unrelated customers within a 7-day window. This device profile is identified as SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080. The total exposure identified in this matter is $74.96. An evidence request for customer validation yielded no reply within the 24-hour window, leaving the fraud probability unchanged at 0.61. Case HHG-014 resulted in a fraud verdict based on these findings. Related prior investigations reviewed as case memory include CC-0078, CC-0247, CC-0178, CC-0815, and CC-0488. The final actions taken include MONITOR_CARD, DECLINE_TRANSACTION, CREATE_CASE, FILE_REPORT, and MONITOR_CONNECTED_CARDS.",
     "subjects": [
       "C13487",
       "C13487-K1",
@@ -248,7 +304,7 @@
     ]
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.61 (fraud); further steps are unlikely to change the decision.",
-  "tool_calls": 7,
-  "tokens": 4549,
-  "latency_s": 8.349
+  "tool_calls": 9,
+  "tokens": 9824,
+  "latency_s": 43.388
 }

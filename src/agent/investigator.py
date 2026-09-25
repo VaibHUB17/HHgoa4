@@ -184,13 +184,22 @@ _ASSESS_SYSTEM = (
     "You are a fraud investigator deciding whether to keep gathering evidence from a graph "
     "database or stop and hand off to the bank's policy engine, which alone decides the "
     "verdict, probability and action. You never state a verdict or probability yourself. "
-    "Reply with ONLY a JSON object, no prose, no markdown fences.\n\n"
+    "This is an uncertainty check on the raw signals only -- like a single-pass confidence "
+    "classifier ahead of a deterministic decision, not a decision itself: low confidence "
+    "means 'keep looking', not 'lean fraud' or 'lean legitimate'. Reply with ONLY a JSON "
+    "object, no prose, no markdown fences.\n\n"
+    "Every reply carries a confidence field: \"low\" (evidence is thin, contradictory, or "
+    "you are largely guessing), \"medium\" (a reasonable case either way, but a gap "
+    "remains), or \"high\" (the picture is clear and further digging would not change it).\n\n"
     "If the evidence gathered so far is enough for a human analyst to reach a defensible "
     "conclusion, reply:\n"
-    '{"decision": "CONCLUDE", "reasoning": "<why this is enough>"}\n\n'
+    '{"decision": "CONCLUDE", "confidence": "<low|medium|high>", "reasoning": "<why this is enough>"}\n\n'
     "Otherwise, reply:\n"
-    '{"decision": "CONTINUE", "entity": "<card id, device id, customer id or region code '
-    'to look at next>", "question": "<the specific thing you still need to know>"}'
+    '{"decision": "CONTINUE", "confidence": "<low|medium|high>", "entity": "<card id, device '
+    'id, customer id or region code to look at next>", "question": "<the specific thing you '
+    'still need to know>"}\n\n'
+    "A CONCLUDE with confidence \"low\" is a contradiction -- if you are not confident, "
+    "CONTINUE instead unless you are already at the investigation's depth limit."
 )
 
 _PLAN_SYSTEM = (
@@ -282,6 +291,17 @@ def investigate(
         if assess.get("decision") == "CONCLUDE":
             result.stop_reason = assess.get("reasoning", "model concluded evidence is sufficient")
             result.depth_reached = depth
+            # Advisory-only confidence read on the raw evidence, recorded as evidence (not a
+            # decision): it can only ever have already influenced CONTINUE-vs-CONCLUDE above
+            # -- the policy engine still computes probability/verdict/action from
+            # result.evidence alone, exactly as it would with this entry absent.
+            result.evidence.append({
+                "claim": f"Confidence check on gathered evidence: {assess.get('confidence', 'unstated')} "
+                         f"-- {result.stop_reason}",
+                "source": "graph",
+                "ref": f"llm_decision:confidence_gate(case={case_id}, depth={depth})",
+                "entity_ids": [],
+            })
             return result
         if assess.get("decision") != "CONTINUE":
             # Malformed/unexpected reply: stop rather than loop on garbage forever.
@@ -336,18 +356,56 @@ def _assess(
         return {"decision": "CONCLUDE", "reasoning": f"assess step failed ({exc}); stopping rather than guessing"}
 
 
+def _known_entity_ids(evidence: list[dict]) -> list[str]:
+    """Real entity ids seen in evidence so far (from actual query results), so the plan
+    step can be told to reuse one of these rather than invent a plausible-looking id.
+
+    Without this, the model has nothing but the dataset's column-name vocabulary in its
+    training/context to draw on when asked for e.g. a device id, and it hallucinates a
+    literal column name like 'id_15' (the raw "New/Found device" flag column) instead of
+    a real device key -- observed on 3 real cases (HHG-005/010/012), all converging on an
+    identical, under-informed fraud_probability because the resulting query correctly
+    returned nothing.
+    """
+    ids: list[str] = []
+    for e in evidence:
+        for eid in e.get("entity_ids", []):
+            if eid and eid not in ids:
+                ids.append(str(eid))
+    return ids
+
+
+# Dataset column names that look superficially like entity values but never are one --
+# id_1..id_38 and device_id_N are the raw "New/Found device"/proxy-flag columns
+# (data/README.md), not device keys. A plan step asking to look up one of these as if it
+# were a real device_id/card_id/customer_id is a hallucination, not a query worth running.
+_COLUMN_NAME_AS_ID = re.compile(r"^(id_\d+|device_id_\d+)$", re.IGNORECASE)
+
+
 def _plan(
     llm: LLMClient, case_id: str, trigger: dict, evidence: list[dict], assess: dict, depth: int
 ) -> dict:
     inventory = "\n".join(f"- {name}({', '.join(params)})" for name, params in INSTALLED_QUERIES.items())
+    known_ids = _known_entity_ids(evidence)
+    known_ids_line = (
+        "Known real identifiers seen in evidence so far (reuse one of these verbatim if it "
+        "fits what you want to look at -- never invent an id, and never use a raw dataset "
+        "column name like 'id_15' as if it were a value): " + ", ".join(known_ids)
+        if known_ids
+        else "No entity identifiers observed yet beyond the case's own card/customer ids above."
+    )
     user = (
         f"Case {case_id}, card {trigger.get('card_id')}, customer {trigger.get('customer_id')}.\n"
         f"Case opened_at (use this exact value for any 'anchor' parameter -- this dataset is "
         f"from 2016, never invent today's date): {trigger.get('opened_at', '')}\n"
+        f"{known_ids_line}\n"
         f"You want to look at: {assess.get('entity', '')}\n"
         f"Because: {assess.get('question', '')}\n\n"
         f"Installed queries:\n{inventory}\n\n"
-        "Choose one query and its parameters, or propose an ad-hoc read-only traversal."
+        "Choose one query and its parameters, or propose an ad-hoc read-only traversal. If "
+        "the identifier you need isn't in the known list above and isn't the case's own "
+        "card/customer id, say so in `reasoning` and pick the closest query that can "
+        "discover it instead of guessing a value."
     )
     try:
         reply = llm.complete(_PLAN_SYSTEM, user)
@@ -370,6 +428,17 @@ def _execute(tools: QueryTools, case_id: str, plan: dict, depth: int) -> tuple[l
             return [{
                 "claim": f"Agent requested unknown query '{name}', refused",
                 "source": "graph", "ref": f"llm_plan:rejected({name})", "entity_ids": [],
+            }], []
+        bad_param = next(
+            (f"{k}={v}" for k, v in params.items() if isinstance(v, str) and _COLUMN_NAME_AS_ID.match(v)),
+            None,
+        )
+        if bad_param:
+            return [{
+                "claim": f"Agent proposed {name}({bad_param}), refused: that looks like a raw "
+                         f"dataset column name, not a real entity id -- running it would waste a "
+                         f"query rather than gather evidence. Full params: {params}",
+                "source": "graph", "ref": f"llm_plan:rejected(column_as_id, depth={depth})", "entity_ids": [],
             }], []
         try:
             rows = tools.run_installed_query(name, params)
@@ -451,9 +520,21 @@ def _rows_to_evidence(name: str, params: dict, rows: Any, depth: int, reasoning:
     if not entity_ids:
         return [], []
 
+    # Same row cap the ad-hoc GSQL guard enforces (MAX_GENERATED_QUERY_ROWS): an installed
+    # query re-run deeper in the loop (e.g. a second, broader customer_baseline call) can
+    # legitimately return thousands of rows for a busy customer -- that's a real result, not
+    # a bug, but citing every one of them as a distinct evidence entity bloats the answer
+    # file without adding information (bug found on HHG-007: 2,794 entity_ids from one
+    # evidence item). Keep the full count in the claim text; cap what's actually cited.
+    total_found = len(entity_ids)
+    truncated = total_found > MAX_GENERATED_QUERY_ROWS
+    entity_ids = entity_ids[:MAX_GENERATED_QUERY_ROWS]
+
     ref = f"query:{name}({', '.join(f'{k}={v}' for k, v in params.items())})" if params else f"query:{name}()"
+    count_note = f" (showing first {MAX_GENERATED_QUERY_ROWS})" if truncated else ""
     evidence = [{
-        "claim": f"{name} returned {len(entity_ids)} connected entities at depth {depth}. Reasoning: {reasoning}",
+        "claim": f"{name} returned {total_found} connected entities at depth {depth}{count_note}. "
+                 f"Reasoning: {reasoning}",
         "source": "graph",
         "ref": ref,
         "entity_ids": entity_ids,

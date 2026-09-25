@@ -4,7 +4,7 @@
     "status": "escalated",
     "verdict": "uncertain",
     "fraud_probability": 0.4601,
-    "pattern": "card_not_present_new_device",
+    "pattern": "out_of_region_use",
     "pattern_description": "",
     "affected_txn_ids": [
       "T3464869"
@@ -31,6 +31,46 @@
         ]
       },
       {
+        "claim": "Precedent (confirming): CC-0469 (confirmed fraud, $104.68 exposure): semantically similar analyst notes (cosine distance 0.28), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0469)",
+        "entity_ids": [
+          "CC-0469"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0698 (confirmed fraud, $450.04 exposure): semantically similar analyst notes (cosine distance 0.28), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0698)",
+        "entity_ids": [
+          "CC-0698"
+        ]
+      },
+      {
+        "claim": "Precedent (confirming): CC-0791 (confirmed fraud, $599.90 exposure): semantically similar analyst notes (cosine distance 0.28), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0791)",
+        "entity_ids": [
+          "CC-0791"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0034 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.22), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0034)",
+        "entity_ids": [
+          "CC-0034"
+        ]
+      },
+      {
+        "claim": "Precedent (disconfirming): CC-0684 (cleared as legitimate): semantically similar analyst notes (cosine distance 0.23), no direct structural overlap",
+        "source": "graph",
+        "ref": "query:prior_case_candidates(case=CC-0684)",
+        "entity_ids": [
+          "CC-0684"
+        ]
+      },
+      {
         "claim": "Fraud Policy R1: Requires customer verification before card block when alert rests on single unconfirmed signal.",
         "source": "document",
         "ref": "policy:R1",
@@ -39,7 +79,7 @@
         ]
       },
       {
-        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with an out-of-region pattern suggests the device may be shared with other compromised cards, warranting a check of the connected neighborhood.",
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with an out-of-region pattern suggests the device may be shared with other compromised cards, warranting a check of the shared-device neighborhood.",
         "source": "graph",
         "ref": "llm_decision:expand_device_neighbourhood(case=HHG-015)",
         "entity_ids": [
@@ -47,97 +87,22 @@
         ]
       },
       {
-        "claim": "Query device_neighbors({'device_id': 'id_15', 'anchor': '2016-11-17 19:03:36', 'hours': 720}) failed: ('Failed to convert user vertex id for parameter device_id', None)",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-11-17 19:03:36', 'hours': 72}",
         "source": "graph",
-        "ref": "query:device_neighbors(depth=1)",
+        "ref": "llm_plan:rejected(column_as_id, depth=1)",
         "entity_ids": []
       },
       {
-        "claim": "customer_baseline returned 80 connected entities at depth 2. Reasoning: To determine if this is a broader account takeover, I need to see the full scope of the customer's activity. The 'customer_baseline' query is the most appropriate installed query to retrieve the set of active cards and associated devices for customer C03042, allowing me to identify other cards that might show similar out-of-region activity or new device markers.",
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-11-17 19:03:36', 'hours': 72}",
         "source": "graph",
-        "ref": "query:customer_baseline(customer_id=C03042)",
-        "entity_ids": [
-          "3063365",
-          "C03042-K1",
-          "3054453",
-          "3034642",
-          "3120994",
-          "3206575",
-          "3302409",
-          "3150821",
-          "3023497",
-          "3092793",
-          "3395339",
-          "3066356",
-          "3034574",
-          "3041946",
-          "3104922",
-          "3247861",
-          "3080252",
-          "3018410",
-          "3006928",
-          "3418766",
-          "3405413",
-          "3032418",
-          "3038759",
-          "3234327",
-          "3054511",
-          "3462404",
-          "3537082",
-          "3113745",
-          "3464869",
-          "3054510",
-          "3099575",
-          "3054463",
-          "3437403",
-          "3468946",
-          "3579649",
-          "3006942",
-          "3374300",
-          "3072772",
-          "3209467",
-          "3258860",
-          "3474270",
-          "3054532",
-          "3023553",
-          "3096343",
-          "3381585",
-          "3579474",
-          "3006493",
-          "3006031",
-          "3087822",
-          "3563052",
-          "3113340",
-          "3563095",
-          "3072040",
-          "3001718",
-          "3085799",
-          "3240881",
-          "3292070",
-          "3487482",
-          "3476179",
-          "3150138",
-          "3063943",
-          "3006117",
-          "3476174",
-          "3085777",
-          "3307015",
-          "3269599",
-          "3462385",
-          "3074143",
-          "3271785",
-          "3024194",
-          "3086802",
-          "3357002",
-          "3444271",
-          "3042227",
-          "3462387",
-          "3051990",
-          "3311263",
-          "3024254",
-          "3011702",
-          "3212410"
-        ]
+        "ref": "llm_plan:rejected(column_as_id, depth=2)",
+        "entity_ids": []
+      },
+      {
+        "claim": "Confidence check on gathered evidence: high -- The evidence presents a clear and defensible picture of potential fraud. The transaction occurred on a new device in a region outside the customer's historical baseline, and critically, the timing (22.9 hours) makes it physically impossible for a single cardholder to be in both regions, strongly indicating a cloned card. This is supported by three confirming precedents of similar fraud. Although two precedents were cleared, the specific 'impossible travel' signal combined with the new device marker is a strong indicator of compromise. The investigation has reached its depth limit (3 of 3), and further queries (like the rejected device neighbor checks) are not viable or necessary given the strength of the current signals. The policy engine can now apply the appropriate action (e.g., customer verification per Policy R1) based on this clear evidence.",
+        "source": "graph",
+        "ref": "llm_decision:confidence_gate(case=HHG-015, depth=3)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -147,7 +112,7 @@
       "CC-0034",
       "CC-0684"
     ],
-    "summary": "Case HHG-015 resulted in an uncertain verdict with a fraud probability of 0.46, driven by transaction T3464869 ($599.94) on card C03042-K1 which originated from a new device in region 327.0, a location outside the cardholder's historical regions and only 22.9 hours after a transaction in region 299.0, suggesting a potential clone. The investigation was hampered by a failed device neighbor query and an expired step-up authentication request, which prevented customer verification and raised the probability from 0.41 to 0.46. Consequently, the final action was ESCALATE_TO_ANALYST (auto, R8), as the initial action remained unchanged due to the inability to confirm the signal. This escalation aligns with Fraud Policy R1, which mandates customer verification before blocking a card when the alert relies on a single unconfirmed signal.",
+    "summary": "Case HHG-015 resulted in an uncertain verdict with a fraud probability of 0.46, driven by transaction T3464869 for $599.94 on card C03042-K1 which occurred on a new device in region 327.0, outside the cardholder's historical regions, and only 22.9 hours after a transaction in region 299.0, creating an impossible travel scenario indicative of a clone. The investigation attempted to expand to the shared-device neighborhood but the proposed device_neighbors query was refused because the parameter device_id_15 appeared to be a raw dataset column name rather than a valid entity ID, and the step-up authentication request expired unanswered within the window. The final action of ESCALATE_TO_ANALYST was chosen via the auto route under rule R8, as the expired authentication response raised the probability from 0.41 to 0.46 and the case could not reach a confident verdict due to the unresolved nature of the out_of_region_use pattern.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-015"
   },
@@ -184,7 +149,7 @@
     "activity_dates": []
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.46 (uncertain); further steps are unlikely to change the decision.",
-  "tool_calls": 7,
-  "tokens": 5351,
-  "latency_s": 12.019
+  "tool_calls": 6,
+  "tokens": 7719,
+  "latency_s": 14.572
 }
