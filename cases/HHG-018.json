@@ -103,6 +103,14 @@
         "entity_ids": [
           "R7"
         ]
+      },
+      {
+        "claim": "Agent declined to expand the investigation beyond this card -- activity looks contained. Reasoning: NO The findings indicate the activity is contained to this specific cardholder, as the behavior is in-character and matches a closed case without evidence of a broader campaign.",
+        "source": "graph",
+        "ref": "llm_decision:decline_expansion(case=HHG-018)",
+        "entity_ids": [
+          "C02354-K2"
+        ]
       }
     ],
     "similar_prior_cases": [
@@ -112,7 +120,7 @@
       "CC-0023",
       "CC-0405"
     ],
-    "summary": "Case HHG-018 resulted in an uncertain verdict with a fraud probability of 0.18, as the investigation into the card_not_present_new_device pattern could not reach a confident conclusion. Key evidence included a customer dispute for a $39.08 charge and two online transactions on card C02354-K2 from a new device, which structurally matched confirmed fraud case CC-4942 but also aligned with the customer's established recurring merchant history. A step-up authentication request was issued but expired unanswered, a factor that raised the fraud probability from 0.15 to 0.18 and influenced the final decision. Consequently, the final actions of CREATE_CASE, VERIFY_WITH_CUSTOMER, and WARN_CUSTOMER were executed, each routed as auto under rule R7, which forbids immediate card blocks when disputed charges match established subscriptions.",
+    "summary": "Case HHG-018 remains uncertain with a fraud probability of 0.18, as the step-up authentication request expired unanswered, which raised the risk score from 0.15 and prevented a definitive conclusion on the card_not_present_new_device pattern. Key evidence includes the customer's dispute of a $39.08 charge and two online transactions totaling $150.06 from a new device, which structurally match confirmed fraud case CC-4942 but also align with the customer's established recurring merchant history and billing region. The final actions of CREATE_CASE, VERIFY_WITH_CUSTOMER, and WARN_CUSTOMER were all executed via the auto route under rule R7, which forbids immediate card blocking when a disputed charge matches an established subscription. Because the investigation could not reach a confident verdict, the case was escalated per policy to resolve the conflicting signals between the new device usage and the customer's normal spending habits.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-018"
   },
@@ -170,6 +178,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.18 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 1263,
-  "latency_s": 12.558
+  "tokens": 1314,
+  "latency_s": 8.144
 }

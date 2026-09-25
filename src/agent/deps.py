@@ -887,6 +887,21 @@ def agentic_deps(data_dir: str | Path = "data") -> NodeDeps:
                 return result
 
             wants_expansion = reply.upper().lstrip().startswith("YES")
+            if not wants_expansion:
+                # The NO branch is a real decision too -- restraint is the point of this
+                # system (README: an agent that blocks everything scores badly). Recording
+                # it means a clean case's trace file shows the LLM was genuinely consulted
+                # and chose not to dig further, instead of looking identical to a case that
+                # never called it at all.
+                result.setdefault("evidence", []).append({
+                    "claim": (
+                        "Agent declined to expand the investigation beyond this card -- "
+                        f"activity looks contained. Reasoning: {reply}"
+                    ),
+                    "source": "graph",
+                    "ref": f"llm_decision:decline_expansion(case={case_id})",
+                    "entity_ids": [trigger["card_id"]],
+                })
             if wants_expansion:
                 from src.graph.algorithms import analyze_device_ring_community
                 community = analyze_device_ring_community(trigger["card_id"])

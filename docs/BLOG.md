@@ -31,7 +31,7 @@ cases plus 3 independent re-runs of one case to rule out run-to-run flakiness.
 
 # Judgement under uncertainty: an agent that knows when not to act
 
-*Built at the TigerGraph Agentic Fraud Investigation Hackathon by Team ORNG. Code: [github.com/VaibHUB17/HHgoa4](https://github.com/VaibHUB17/HHgoa4) — live analyst console: [h-hgoa4.vercel.app](https://h-hgoa4.vercel.app/). We had a lot of help from Devanshu at TigerGraph, who answered our questions in the Discord at midnight and talked us out of at least one genuinely bad idea.*
+*Built at the TigerGraph Agentic Fraud Investigation Hackathon by Team ORNG. Code: [github.com/VaibHUB17/HHgoa4](https://github.com/VaibHUB17/HHgoa4). Live analyst console: [h-hgoa4.vercel.app](https://h-hgoa4.vercel.app/). We had a lot of help from Devanshu at TigerGraph, who answered our questions in the Discord at midnight and talked us out of at least one genuinely bad idea.*
 
 ![Tracewise architecture: the LLM picks where to look; the ledger and policy decide what is true](images/architecture.png)
 
@@ -39,10 +39,9 @@ We built this for a TigerGraph fraud-investigation hackathon: twenty card-fraud 
 database, and an agent that has to decide what happened and what the bank should do about it. The
 interesting part of this brief is not fraud detection. There is no fraud label anywhere in the
 dataset. Half the twenty exam cases are legitimate by construction, and the bank's own risk score is
-wrong in both directions — above 0.7 most flagged transactions turn out fine, and some real fraud
+wrong in both directions. Above 0.7 most flagged transactions turn out fine, and some real fraud
 scores near zero. You cannot train a classifier against a target that doesn't exist. What you can
-build is a system that gathers evidence, states how confident it is and why, and is honest when it
-isn't sure. That reframing drove most of the decisions below.
+build is a system that gathers evidence, states how confident it is and why, and is honest when it isn't sure. That reframing drove most of the decisions below.
 
 ## What we built
 
@@ -52,7 +51,7 @@ customer's baseline, prior closed cases), run it through pattern detectors, scor
 evidence into a probability, decide whether that's enough to stop, and if not, ask for more evidence
 (a simulated customer reply, since the dataset doesn't provide real ones) and go around again. It
 writes three things per case into one JSON file: the case record, a SAR when policy requires one,
-and a next-best-action recommendation — before and after the evidence came back. The case is also
+and a next-best-action recommendation, captured both before and after the evidence came back. The case is also
 written back into the graph as precedent for the next investigation: closing a case on a shared
 device profile makes that profile evidence for whoever gets flagged next.
 
@@ -63,7 +62,7 @@ recommendation that changed between the initial and final snapshot; total LLM sp
 tokens; 89 distinct prior closed cases are cited as memory. Every one of those numbers comes from
 the answer files themselves, not a summary we wrote by hand.
 
-The ten uncertain verdicts deserve a word. Uncertain does not mean the agent gave up. It means the evidence was real but not strong enough to cross either threshold — not enough to close confidently as legitimate, not enough to recommend blocking. Every one of the ten carries a stated probability, a list of the specific signals that pushed it in each direction, and a next action. Uncertain with reasons is a more honest answer than a forced verdict would be in the same situation. A fraud manager reading one of those files knows exactly what the agent found and exactly why it stopped where it did.
+The ten uncertain verdicts deserve a word. Uncertain does not mean the agent gave up. It means the evidence was real but not strong enough to cross either threshold. Not enough to close confidently as legitimate, not enough to recommend blocking. Every one of the ten carries a stated probability, a list of the specific signals that pushed it in each direction, and a next action. Uncertain with reasons is a more honest answer than a forced verdict would be in the same situation. A fraud manager reading one of those files knows exactly what the agent found and exactly why it stopped where it did.
 
 ## The architecture, and the one line we drew through the middle of it
 
@@ -81,11 +80,11 @@ trigger -> investigate -> gather_evidence -> assess -> (gather_more | decide)
 
 `gather_more` loops back to `investigate`. Of those twelve nodes, the LLM participates in exactly three activities: choosing which graph query to run next, classifying returned rows into a fixed vocabulary of evidence keys, and writing prose. The probability comes from a weighted ledger. The verdict comes from thresholds on that probability. The actions come from ten numbered policy rules (R1–R10) in a YAML file, resolving to fourteen exact action identifiers and three approval routes. None of those three are reachable by a model token.
 
-That boundary is what makes the system auditable, and it's enforced by structure rather than by instruction. The prompts do say "you never state a verdict or probability" — but more importantly, there is no code path by which an assess-step reply could reach `compute_probability`. The function signature only accepts ledger keys.
+That boundary is what makes the system auditable, and it's enforced by structure rather than by instruction. The prompts do say "you never state a verdict or probability" but more importantly there is no code path by which an assess step reply could reach `compute_probability`. The function signature only accepts ledger keys.
 
 ### How the agent actually talks to the graph
 
-Graph access goes through **TigerGraph's MCP server** (`tigergraph-mcp`), not raw driver calls. Every installed-query call routes through `mcp_run_installed_query` first, falling back to `pyTigerGraph` with a token-refresh retry only if MCP errors — Savanna tokens expire after about an hour, which produces silent 401s mid-run if you don't wrap for it.
+Graph access goes through **TigerGraph's MCP server** (`tigergraph-mcp`), not raw driver calls. Every installed query call routes through `mcp_run_installed_query` first, falling back to `pyTigerGraph` with a token refresh retry only if MCP errors. Savanna tokens expire after about an hour, which produces silent 401s mid run if you don't wrap for it.
 
 There are six precompiled GSQL queries, and they're exposed to the model as a tool inventory with typed parameters:
 
@@ -97,9 +96,9 @@ prior_cases_for_entities(cards, devs)
 similar_prior_cases(qvec, pool, k)
 ```
 
-This is a deliberate architectural choice worth naming, because the alternative was available and we rejected it. `tigergraph-mcp[llm]` ships `generate_gsql` — natural-language-to-GSQL. It's genuinely impressive, and we do not use it on the graded path. Precompiled queries are pre-vetted, installed, and fast; a generated query is unvalidated GSQL executing against a live graph. For twenty cases that get scored, "the LLM picks from a vetted inventory" is the right risk posture.
+This is a deliberate architectural choice worth naming, because the alternative was available and we rejected it. `tigergraph-mcp[llm]` ships `generate_gsql`, which converts natural language to GSQL. It's genuinely impressive, and we do not use it on the graded path. Precompiled queries are pre-vetted, installed, and fast. A generated query is unvalidated GSQL executing against a live graph. For twenty cases that get scored, "the LLM picks from a vetted inventory" is the right risk posture.
 
-But we didn't want to lose the open-ended capability entirely, so the model can propose an ad-hoc read-only traversal when nothing in the inventory fits — and every such request passes a guard before touching the database:
+But we didn't want to lose the open-ended capability entirely, so the model can propose an ad hoc read only traversal when nothing in the inventory fits. Every such request passes a guard before touching the database:
 
 - Statement allowlist: must begin with `SELECT`, or an `INTERPRET QUERY (...) FOR GRAPH ... { }` wrapper whose body does
 - Keyword blocklist, whole-word: `INSERT UPDATE DELETE DROP CREATE ALTER GRANT REVOKE TRUNCATE REPLACE`
@@ -112,29 +111,29 @@ And the part we're most pleased with: **a rejected query is logged verbatim into
 
 One hop dressed up as reasoning is not an investigation. `investigate()` runs a bounded **Assess → Plan → Execute → Integrate** cycle:
 
-1. **Assess** — given evidence so far, is this enough for a defensible conclusion, or what specifically is missing? Returns `CONTINUE` with a target entity and a question, or `CONCLUDE`.
+1. **Assess**: given evidence so far, is this enough for a defensible conclusion, or what specifically is missing? Returns `CONTINUE` with a target entity and a question, or `CONCLUDE`.
 2. **Plan** — pick a query and its parameters, or propose a guarded traversal.
 3. **Execute** — run it through MCP.
 4. **Integrate** — flatten rows into `{claim, source, ref, entity_ids}` and fold them in.
 
-Then reassess. It terminates on `CONCLUDE`, on `max_depth`, or — the condition that matters most in practice — on an **evidence fingerprint** showing the last query returned nothing new. Re-running a deterministic query against an unchanged snapshot cannot change the picture, so detecting that and stopping is the difference between an agent and a while-loop burning tokens.
+Then reassess. It terminates on `CONCLUDE`, on `max_depth`, or on an **evidence fingerprint** showing the last query returned nothing new. That last one matters the most in practice. Running a deterministic query against an unchanged snapshot cannot change the picture, so detecting that and stopping is the difference between an agent and a while loop burning tokens.
 
-When the LLM is unavailable, the loop does not quietly run a fixed query sequence and call it agentic. It runs one grounding query, sets `llm_available=False`, and writes the reason into `stop_reason`. A degraded run is visible in the output rather than disguised as reasoning — we hit exactly this when we exhausted a daily token quota mid-verification, and the honest failure mode is why we noticed immediately instead of shipping twenty quietly-worse case files.
+When the LLM is unavailable, the loop does not quietly run a fixed query sequence and call it agentic. It runs one grounding query, sets `llm_available=False`, and writes the reason into `stop_reason`. A degraded run is visible in the output rather than disguised as reasoning. We hit exactly this when we exhausted a daily token quota mid verification, and the honest failure mode is why we noticed immediately instead of shipping twenty quietly worse case files.
 
 ### GraphRAG: filter on the graph, then rank by vector
 
 The case-memory retrieval is the piece we'd point at first if asked what's technically interesting here, because it's a hybrid rather than a bolted-on vector store.
 
-Both `ClosedCase.notesEmb` and `PolicyChunk.textEmb` are native TigerGraph vector attributes — 1536-dimensional, HNSW-indexed, cosine metric — so the vectors live *on the vertices*, inside the same database as the edges. That makes the interesting query shape possible: **narrow to a structurally-relevant candidate set by traversing the graph, then rank within that set by vector similarity.**
+Both `ClosedCase.notesEmb` and `PolicyChunk.textEmb` are native TigerGraph vector attributes (1536 dimensional, HNSW indexed, cosine metric) so the vectors live *on the vertices*, inside the same database as the edges. That makes the interesting query shape possible: **narrow to a structurally relevant candidate set by traversing the graph, then rank within that set by vector similarity.**
 
 ```gsql
 v = vectorSearch({ClosedCase.notesEmb}, qvec, k,
                  {candidate_set: cand, distance_map: @@dist});
 ```
 
-`cand` is the output of a graph traversal. A pure vector store can give you "notes that read similarly." This gives you "notes that read similarly *among cases that share an entity with this alert*" — and it's one query, not a round trip between two systems.
+`cand` is the output of a graph traversal. A pure vector store can give you "notes that read similarly." This gives you "notes that read similarly *among cases that share an entity with this alert*" and it's one query, not a round trip between two systems.
 
-The embedding path is `gemini-embedding-001` at `output_dimensionality=1536` to match the schema exactly, with `task_type` correctly split between `RETRIEVAL_DOCUMENT` at index time and `RETRIEVAL_QUERY` at search time (and the cache key folds in the task type, so a document vector can never be served back as a query vector for identical text). One non-obvious gotcha cost us real time: **Gemini embeddings are not unit-norm at any dimensionality below 3072.** We measured 0.6935. Cosine distance against un-normalized vectors silently produces garbage rankings — no error, just quietly wrong neighbours. We L2-normalize explicitly before upsert.
+The embedding path is `gemini-embedding-001` at `output_dimensionality=1536` to match the schema exactly, with `task_type` correctly split between `RETRIEVAL_DOCUMENT` at index time and `RETRIEVAL_QUERY` at search time (the cache key folds in the task type, so a document vector can never be served back as a query vector for identical text). One gotcha cost us real time: **Gemini embeddings are not unit norm at any dimensionality below 3072.** We measured 0.6935. Cosine distance against vectors that are not normalized silently produces garbage rankings. No error, just quietly wrong neighbours. We L2 normalize explicitly before upsert.
 
 Scoring blends all three signals rather than trusting any one: `0.4 × semantic + 0.4 × structural + 0.2 × pattern_match`, where structural is `min(1, shared_entities / 3)` and semantic is `1 - cosine_distance / 2`.
 
@@ -170,14 +169,14 @@ vertices, six installed GSQL queries, and TigerGraph's `tg_wcc` community detect
 
 ![Graph schema](images/graph-schema.png)
 
-## Two-pool memory retrieval, and a pattern the labels missed
+## Two pool memory retrieval, and a pattern the labels missed
 
-`closed_cases_history.csv` has 5,565 closed investigations: 4,665 confirmed fraud, 900 cleared —
-the agent's only source of ground truth, and the thing that will quietly bias it if retrieved
+`closed_cases_history.csv` has 5,565 closed investigations: 4,665 confirmed fraud and 900 cleared.
+That is the agent's only source of ground truth, and the thing that will quietly bias it if retrieved
 carelessly. Run one similarity search over the whole history and take the top five, and you get
 five confirmed-fraud cases almost every time, not because they're better matches but because there
 are more than five of them competing for every ranking slot. The agent then only sees precedent that
-argues for fraud, and drifts toward blocking — the failure mode that costs the most points given
+argues for fraud, and drifts toward blocking. That is the failure mode that costs the most points given
 that half the exam cases are legitimate. The retrieval layer splits the candidate pool by outcome
 before ranking, not after: a handful of top matches from the confirmed-fraud pool, a couple from the
 cleared pool, independently sorted, never merged before truncation. The agent sees "this looked like
@@ -187,12 +186,12 @@ a recurring subscription charge," and has to reconcile them.
 Nine rows in that file carry `pattern == undocumented` — the label pipeline that tagged the other
 5,556 rows had no name for whatever these were. The brief scores finding a pattern the labels
 missed, and the mechanism is readable directly in the analyst's own words once you read all nine
-notes by hand rather than expect a model to summarize them. Five of the nine — CC-3748, CC-3841,
-CC-3907, CC-4086, CC-4124 — describe the same shape: several online purchases on one card within
+notes by hand rather than expect a model to summarize them. Five of the nine (CC-3748, CC-3841,
+CC-3907, CC-4086, CC-4124) describe the same shape: several online purchases on one card within
 about half an hour, each priced just under $500. The notes name it themselves: amounts chosen to
 stay under a $500 authorization ceiling that would otherwise trigger stronger verification. That's
-authorization-threshold structuring, not one of the five documented patterns in the brief. We wrote
-a detector for it — three or more online purchases within an hour, each between $450 and $500 — and
+authorization threshold structuring, not one of the five documented patterns in the brief. We wrote
+a detector for it (three or more online purchases within an hour, each between $450 and $500) and
 cited the five historical cases wherever it fires. It fires on HHG-006 in the exam set (four online
 purchases in thirty minutes: $478.95, $456.96, $488.04, $482.12), and the live evidence cites all
 five precedent case IDs plus FinCEN guidance on structured transactions designed to evade
@@ -203,7 +202,7 @@ authorization thresholds.
 ## The before/after mechanic
 
 The clearest way to show judgement under uncertainty is to show it changing over an investigation,
-not just render a single verdict. HHG-014 is the live worked example — a card transaction from a
+not just render a single verdict. HHG-014 is the live worked example. A card transaction from a
 device marked new for that account, which the agent's own investigation escalates into a confirmed
 18-customer shared-device ring, corroborated independently by TigerGraph's `tg_wcc` community
 detection algorithm. What `tg_wcc` actually returned was a single connected component spanning 18 different customer accounts, all linked by sharing the same physical device at some point. The algorithm does not know anything about fraud. It just finds groups of nodes that are connected to each other and labels them. In this case the group it found happened to be a ring of accounts all touched by the same compromised device, which is exactly the kind of signal you cannot see by looking at one transaction at a time. The agent used that finding as hard evidence under policy rule R6, which covers shared device activity, and it changed the recommended actions accordingly.
@@ -224,10 +223,10 @@ both states, and stating what changed and why, is worth a quarter of the grade u
 next-best-action criterion. It's also the honest thing to do independent of scoring: a fraud
 investigation is a sequence of decisions under changing information, not a single classification.
 In the current live run 4 of 20 cases change between initial and final; the other 16 correctly stay
-put, because a case that was never in doubt shouldn't manufacture a change to look busy — and that
+put, because a case that was never in doubt shouldn't manufacture a change to look busy. That
 count itself moved when we fixed a bug (below) that had been inflating it with a false positive.
 
-## Why confidence is a config file, not an LLM opinion
+## Why confidence is a config file and not an LLM opinion
 
 `fraud_probability` never comes from the model asking itself how confident it feels. It comes from
 a fixed list of evidence keys, each with a weight in a config file, summed and passed through a
@@ -237,9 +236,9 @@ someone asks where a probability came from, the answer is "open the weights file
 felt strongly about it."
 
 The bias constant matters more than it looks. Early on there was none, so zero evidence landed at
-`sigmoid(0) = 0.5` — a coin flip. That's harmless-looking until you notice the stopping rule: stop
+`sigmoid(0) = 0.5`, which is a coin flip. That looks harmless until you notice the stopping rule: stop
 at or above 0.85 probability or at or below 0.15. With no bias term every realistic sum of weights
-compressed into a narrow middle band, so those thresholds were mathematically unreachable — the
+compressed into a narrow middle band, so those thresholds were mathematically unreachable. The
 agent could never confidently close a case either way, not because the evidence was ambiguous but
 because the arithmetic made confidence impossible to express. A negative bias term fixed it: zero
 evidence now reads as a weak prior toward "probably fine," and the brief's worked example lands
@@ -252,8 +251,8 @@ actions that need a team lead, and actions that always need a fraud manager (fil
 blocking a card above a dollar threshold). The agent recommends every action but executes only the
 ones it's allowed to take alone; blocking a card, declining a transaction, or filing a report is
 recommended with its route stated and left for a human. This is enforced at one place in code, not
-requested in a prompt — an action needing approval that reaches that function comes back marked
-not-executed no matter what any upstream component decided, and the graph node that would act on it
+requested in a prompt. An action needing approval that reaches that function comes back marked
+not executed no matter what any upstream component decided, and the graph node that would act on it
 pauses and waits. We didn't want "don't block cards without approval" to be a sentence in a prompt a
 confident-sounding model turn could talk itself past; it's a structural chokepoint.
 
@@ -263,11 +262,11 @@ confident-sounding model turn could talk itself past; it's a structural chokepoi
 
 Halfway through the build we had a question nobody on the team could answer cleanly. The pattern detectors give you signals. The scorer turns those signals into a number. But how does the agent decide whether it has *enough* signal to hand off, versus needing to go dig further first? Thresholding the probability alone is mechanical, and it misses the case where signals are contradictory rather than merely weak.
 
-The idea we wanted came from [jevlike](https://github.com/vinnylarouge/jevlike): a single-pass uncertainty classification that runs *before* you apply deterministic rules. Instead of asking "is the probability past the threshold," you first ask "are these input signals coherent enough that the threshold means what I think it means." We pitched it to Devanshu in the Discord, and his answer shaped the design: good fit, just keep it advisory — let it decide whether to act or gather more, and let the graph evidence drive the verdict.
+The idea we wanted came from [jevlike](https://github.com/vinnylarouge/jevlike): a single pass uncertainty classification that runs *before* you apply deterministic rules. Instead of asking "is the probability past the threshold," you first ask "are these input signals coherent enough that the threshold means what I think it means." We pitched it to Devanshu in the Discord, and his answer shaped the design: good fit, just keep it advisory. Let it decide whether to act or gather more, and let the graph evidence drive the verdict.
 
-What we shipped is that pattern implemented directly in our own assess step, not the library itself. Being straight about this, because it's the more interesting engineering outcome: once we'd written down what we actually needed — one bounded LLM call, returning `{decision: CONTINUE|CONCLUDE, confidence: low|medium|high, reasoning}`, structurally unable to touch the verdict — it was a JSON contract on a prompt we already had, not a new dependency. So the agent's assess step now carries an explicit confidence field, a `CONCLUDE` at low confidence is treated as a contradiction (it continues instead, unless it's hit the depth limit), and every stop decision is recorded as an `llm_decision:confidence_gate` evidence entry so it shows up in the trace file rather than vanishing into a log line.
+What we shipped is that pattern implemented directly in our own assess step, not the library itself. Being straight about this, because it's the more interesting engineering outcome: once we'd written down what we actually needed (one bounded LLM call, returning `{decision: CONTINUE|CONCLUDE, confidence: low|medium|high, reasoning}`, structurally unable to touch the verdict) it was a JSON contract on a prompt we already had, not a new dependency. So the agent's assess step now carries an explicit confidence field, a `CONCLUDE` at low confidence is treated as a contradiction (it continues instead, unless it's hit the depth limit), and every stop decision is recorded as an `llm_decision:confidence_gate` evidence entry so it shows up in the trace file rather than vanishing into a log line.
 
-The advisory boundary isn't a convention, it's structural: the probability function only ever reads the evidence ledger's weighted keys, and the confidence entry deliberately contributes no ledger key. It can change *how long the agent investigates*. It cannot move the number by even one decimal place. We verified that rather than asserting it — running the same twenty cases with the gate active produced byte-identical verdicts and probabilities to the run without it.
+The advisory boundary isn't a convention, it's structural: the probability function only ever reads the evidence ledger's weighted keys, and the confidence entry deliberately contributes no ledger key. It can change *how long the agent investigates*. It cannot move the number by even one decimal place. We verified that rather than asserting it. Running the same twenty cases with the gate active produced byte identical verdicts and probabilities compared to the run without it.
 
 ## What we learned
 
@@ -279,13 +278,13 @@ governs whether you may block, not which evidence to ask for, so the two rules t
 customer's reply could never trigger; the investigation loop re-ran deduplicated detector queries up
 to its cap, and a deterministic query against unchanged data can't produce new evidence by
 definition; and a follow-up reply, when requested, wasn't folded back into the evidence ledger at
-all. Green tests told us nothing about whether the most important behaviour worked — we only found
+all. Green tests told us nothing about whether the most important behaviour worked. We only found
 it by running real cases end to end and diffing the snapshots by eye.
 
 The second was a silent degradation, worse than a crash because nothing tells you it happened.
 `GEMINI_API_KEY` was set correctly, but the embedding SDK it depends on wasn't installed.
 `embed_query()` raised, retrieval caught the exception, and silently fell back to a cruder path that
-returned confirmed-fraud neighbours where the working path returns cleared ones — every case still
+returned confirmed fraud neighbours where the working path returns cleared ones. Every case still
 produced valid output, no error anywhere in the logs. One case shows it cleanly: with the same
 evidence, the broken path matched a confirmed-fraud precedent and landed at `uncertain` (p=0.169);
 once the SDK was installed, the same case matched a cleared precedent and landed at `legitimate`
@@ -293,32 +292,36 @@ once the SDK was installed, the same case matched a cleared precedent and landed
 missing dependency that degrades quietly instead of erroring out is the dangerous kind, because
 every downstream signal looks internally consistent and is simply wrong.
 
-The third cost us a model choice, and we only caught it because we tested for it specifically rather than trusting a benchmark. Our first pick for prose generation was `gpt-oss-120b` on Groq — bigger, strong numbers. Then a narrative came back with a card ID that looked right and wasn't. The model silently substitutes **Unicode non-breaking hyphens (U+2011) for ASCII hyphens (U+002D)**. Every card ID in this dataset has the shape `C07297-K1`. Rendered in a SAR narrative, `C07297‑K1` is visually identical and byte-wise a different string — which means it trips our own hallucinated-ID guard, because that ID genuinely does not exist in the source data. We confirmed it with a direct "repeat this string exactly" test. The same model also burns hidden reasoning tokens (155 of 370 completion tokens in one trial) and returns empty strings if `max_tokens` is set below its reasoning budget. We switched to `qwen/qwen3.8-27b`: no hyphen corruption, roughly half the latency, no hidden reasoning overhead, equivalent narrative quality. A model that quietly corrupts identifiers is disqualifying for a system whose entire value proposition is that every ID traces back to source data.
+The third cost us a model choice, and we only caught it because we tested for it specifically rather than trusting a benchmark. Our first pick for prose generation was `gpt-oss-120b` on Groq, bigger with strong benchmark numbers. Then a narrative came back with a card ID that looked right and wasn't. The model silently substitutes Unicode non breaking hyphens (U+2011) for ASCII hyphens (U+002D). Every card ID in this dataset has the shape `C07297-K1`. Rendered in a SAR narrative, the corrupted version is visually identical but byte wise a different string, which means it trips our own hallucinated ID guard because that ID genuinely does not exist in the source data. We confirmed it with a direct "repeat this string exactly" test. The same model also burns hidden reasoning tokens (155 of 370 completion tokens in one trial) and returns empty strings if `max_tokens` is set below its reasoning budget. We switched to `qwen/qwen3.8-27b`: no identifier corruption, roughly half the latency, no hidden reasoning overhead, equivalent narrative quality. A model that quietly corrupts identifiers is disqualifying for a system whose entire value proposition is that every ID traces back to source data.
 
 A smaller bug: an out-of-region detector for card cloning fired when home-region activity went
-*quiet*, rather than when it *continued alongside* new-region activity — the actual clone signal,
+*quiet*, rather than when it *continued alongside* new region activity. That is the actual clone signal,
 since one card can't be in two places at once. As written it would have cleared genuine cloning and
 flagged every customer who went on holiday.
 
-Three more surfaced in a late verification pass, all in the same family: output that was structurally valid and semantically wrong. Pattern classification used "whichever detector fires first," so a confirmed 18-customer device ring got labelled with a generic single-card pattern instead of the `undocumented` category it actually earned — fixed with an explicit priority ranking rather than a special case for that one card. The plan step, asked to look up a device, would sometimes hallucinate a plausible-looking identifier out of a raw dataset *column name* it had seen in context (`id_15`, the "New/Found device" flag column, used as though it were a device key) — the query correctly returned nothing and the row was correctly discarded, so it corrupted nothing, but it burned a step; fixed by listing the real entity IDs seen so far in the prompt and guarding the parameter shape before it reaches the database. And one found in a `git diff --stat` thirty seconds before committing: a case file's diff was 2,869 lines when it should have been a few dozen, because an installed query re-run at depth had flattened a busy customer's entire transaction history into 2,794 entity IDs on a single evidence item. Valid data, valid JSON, passing tests, useless as evidence. Capped at the same 200-row limit the ad-hoc guard already enforced, with the true count preserved in the claim text so nothing is silently dropped.
+Three more surfaced in a late verification pass, all in the same family: output that was structurally valid and semantically wrong. Pattern classification used "whichever detector fires first," so a confirmed 18 customer device ring got labelled with a generic single card pattern instead of the `undocumented` category it actually earned. Fixed with an explicit priority ranking rather than a special case for that one card. The plan step, asked to look up a device, would sometimes hallucinate a plausible looking identifier out of a raw dataset *column name* it had seen in context (`id_15`, the "New/Found device" flag column, used as though it were a device key). The query correctly returned nothing and the row was correctly discarded, so it corrupted nothing, but it burned a step. Fixed by listing the real entity IDs seen so far in the prompt and guarding the parameter shape before it reaches the database. One more was found in a `git diff --stat` thirty seconds before committing: a case file's diff was 2,869 lines when it should have been a few dozen, because an installed query re run at depth had flattened a busy customer's entire transaction history into 2,794 entity IDs on a single evidence item. Valid data, valid JSON, passing tests, useless as evidence. Capped at the same 200 row limit the ad hoc guard already enforced, with the true count preserved in the claim text so nothing is silently dropped.
 
-The through-line in every one of them: **not a single one was a crash, and the test suite was green for all of them.** 194 tests pass and a schema validator reports zero violations across all twenty case files — both necessary, neither remotely sufficient. Each bug was found by running real cases end to end against the live graph and reading the output the way a reviewer would. Which is also why the last thing we built was the trace file: if the failure mode of this system is "plausible and wrong," then the artifact that matters most is the one that makes every step legible enough to argue with.
+The pattern across every one of them: **not a single one was a crash, and the test suite was green for all of them.** 194 tests pass and a schema validator reports zero violations across all twenty case files. Both necessary, neither remotely sufficient. Each bug was found by running real cases end to end against the live graph and reading the output the way a reviewer would. Which is also why the last thing we built was the trace file. If the failure mode of this system is "plausible and wrong," then the artifact that matters most is the one that makes every step legible enough to argue with.
 
 ## What we'd improve with more time
 
 Fraud probability is calibrated against one anchor — the brief's worked example plus rough base
 rates from the closed-case history — and should be fit against a proper held-out split of the 5,565
-closed cases instead, respecting the same time boundary as the exam split (never a random split: the closed cases run July–October and the exam cases November–December, so a random split leaks the future).
+closed cases instead, respecting the same time boundary as the exam split. Never a random split: the closed cases run July through October and the exam cases November through December, so a random split leaks the future.
 
 Ring detection runs as hand-written windowed queries plus `tg_wcc` when the model decides a case
-warrants widening. TigerGraph ships Louvain community detection, PageRank, and Jaccard similarity as first-class GSQL calls, and we wired only weakly-connected-components. Louvain in particular would likely separate a genuine coordinated ring from an artifact of shared infrastructure — a corporate proxy, a device fingerprint generic enough that two strangers collide on it — which is precisely the distinction our windowed queries handle with a hand-tuned threshold instead.
+warrants widening. TigerGraph ships Louvain community detection, PageRank, and Jaccard similarity as first class GSQL calls, and we wired only weakly connected components. Louvain in particular would likely separate a genuine coordinated ring from an artifact of shared infrastructure (a corporate proxy, a device fingerprint generic enough that two strangers collide on it) which is precisely the distinction our windowed queries handle with a hand tuned threshold instead.
 
 We also under-built the document side. Policy and regulatory text is embedded and retrieved through `PolicyChunk.textEmb` and genuinely cited in the case files, but it's a flat chunk index over three sources. The version we designed and didn't ship had typed `RegChunk` and `Pattern` vertices with `GOVERNS`/`PRESCRIBES`/`CITES` edges, so a pattern classification could traverse directly to the rules that govern it rather than relying on vector proximity to surface the right chunk. The simpler thing works and is cited; the richer thing would have been defensible as graph-native document grounding rather than RAG sitting next to a graph.
 
-## The human part
+## Honestly, the most interesting part was a conversation at midnight
 
-This was a real hackathon sprint with real infrastructure chaos. We missed our first submission window because a data load failed halfway through. The graph schema went through three rewrites. One of us was debugging a silent embedding failure at 2am while the other was reverse engineering the bank's card ID numbering scheme from 20 rows of ground truth data.
+At 2am, one of us was chasing a silent embedding failure that was flipping verdicts without triggering a single error. The other was reverse engineering a bank card ID format from 20 rows of ground truth data because the dataset just does not tell you how card IDs are built. The graph schema had been rewritten three times. We had already missed our first submission window because a load job failed halfway through.
 
-The Discord with Devanshu was genuinely useful in a way that documentation almost never is. When we asked about using a GNN he did not just say no, he explained precisely why it would give us a score that would not help us score the investigation, and told us what to use instead. When we asked about jevlike he read the GitHub link and gave us a one sentence answer that told us exactly how to fit it in without overengineering it. That kind of feedback in real time during a build is hard to come by.
+Somewhere in the middle of all that we were in the Discord asking Devanshu about jevlike, a library from Typesafe AI by Jev (vinnylarouge) that does single pass uncertainty classification. We pitched the idea: use it as a confidence gate before the policy rules fire, so the agent knows when its signals are contradictory enough that it should go collect more evidence instead of acting. Devanshu read the GitHub link and came back with one sentence: good fit, just keep it advisory.
 
-If you want to see the actual output, every one of the 20 case files is in the repo under `cases/`, along with a `cases/traces/` trace file that shows the step-by-step reasoning for each one — labelled by which mechanism produced each piece of evidence, so you don't have to take any of the above on faith. The full build is at [github.com/VaibHUB17/HHgoa4](https://github.com/VaibHUB17/HHgoa4), and the analyst console that reads those files is deployed at [h-hgoa4.vercel.app](https://h-hgoa4.vercel.app/).
+That one sentence shaped the whole design. The confidence gate we shipped does exactly what he described and nothing more. It cannot move the fraud probability by a single decimal place. It only decides whether the agent has collected enough to act on. The boundary is in the code, not in the prompt. And because it contributes no ledger key, you can run the same twenty cases with and without it and get byte identical verdicts every time, which we did, because we wanted to be sure we were not fooling ourselves.
+
+That is the kind of feedback you almost never get from documentation. It turned a half formed idea into a clean architectural decision in about thirty seconds.
+
+If you want to see what the whole thing actually produced, every one of the 20 case files lives in the repo under `cases/`, and there is a trace file for each one in `cases/traces/` that labels every piece of evidence by the mechanism that produced it: agentic reasoning, graph query, vector search, graph algorithm, or document grounding. Nothing is asserted. Everything is shown. The full build is at [github.com/VaibHUB17/HHgoa4](https://github.com/VaibHUB17/HHgoa4) and the live analyst console is at [h-hgoa4.vercel.app](https://h-hgoa4.vercel.app/).

@@ -67,6 +67,70 @@
         "entity_ids": [
           "T3506725"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The new device marker suggests a potential shared device that could be linked to other compromised cards or customers.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-010)",
+        "entity_ids": [
+          "C10434-K1"
+        ]
+      },
+      {
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-12-02 18:18:27', 'hours': 720}",
+        "source": "graph",
+        "ref": "llm_plan:rejected(column_as_id, depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "customer_baseline returned 37 connected entities at depth 2. Reasoning: The goal is to understand the customer's historical device usage pattern and identify recent changes in device fingerprint or location. The 'customer_baseline' query is the most appropriate installed query to retrieve the historical baseline for customer C10434, which will reveal typical devices and locations, allowing us to spot anomalies like the 'New' device flag.",
+        "source": "graph",
+        "ref": "query:customer_baseline(customer_id=C10434)",
+        "entity_ids": [
+          "3306585",
+          "C10434-K1",
+          "3082326",
+          "3094730",
+          "3075894",
+          "3351935",
+          "3087486",
+          "3397310",
+          "3078052",
+          "3053503",
+          "3082968",
+          "3217858",
+          "3411190",
+          "3157522",
+          "3282542",
+          "3139246",
+          "3492086",
+          "3197356",
+          "3237387",
+          "3350771",
+          "3237339",
+          "3193185",
+          "3292160",
+          "3121617",
+          "3197666",
+          "3475344",
+          "3016377",
+          "3506725",
+          "3519858",
+          "3070986",
+          "3091950",
+          "3329022",
+          "3577244",
+          "3076736",
+          "3282661",
+          "3392418",
+          "3419055"
+        ]
+      },
+      {
+        "claim": "Confidence check on gathered evidence: medium -- The investigation has reached its maximum depth limit (3 of 3). The evidence presents a mixed signal: a high real-time risk score (0.90) and a new device flag are counterbalanced by the transaction matching the customer's established product and billing region history, as well as the presence of both confirming and disconfirming precedent cases with no direct structural overlap. While the new device is a risk factor, the lack of geographic or behavioral anomaly relative to the baseline, combined with the depth limit, means no further evidence can be gathered. The policy engine must weigh the high model score against the benign baseline characteristics.",
+        "source": "graph",
+        "ref": "llm_decision:confidence_gate(case=HHG-010, depth=3)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -76,7 +140,7 @@
       "CC-0675",
       "CC-0567"
     ],
-    "summary": "Case HHG-010 was reviewed after a real-time model scored transaction 3506725 for $1,000.03 at a high risk of 0.90, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that while the transaction originated from a device marked 'New' for card C10434-K1, the product category and billing region align with the customer's established history, and no direct structural overlap was found with similar prior cases. No evidence request was issued, and the initial action of CLOSE_NO_FRAUD (auto, R0: policy default, settled low, no rule triggered) was retained as the final action because nothing changed during the review.",
+    "summary": "Case HHG-010 was reviewed after a real-time model scored transaction 3506725 for $1,000.03 at a high risk of 0.90, but the final verdict is legitimate with a fraud probability of 0.12. The key evidence indicates that while the transaction originated from a device marked as new, the product category and billing region align with the customer's established history, and the agent's request to expand the investigation to the shared-device neighborhood was refused because the provided parameter appeared to be a raw dataset column name rather than a valid entity ID. The final action of CLOSE_NO_FRAUD was selected via the auto route under rule R0, which serves as the policy default for settled low-risk cases where no specific rule is triggered.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-010"
   },
@@ -107,7 +171,7 @@
     "activity_dates": []
   },
   "stop_reason": "Probability 0.12 with at least two independent evidence sources supporting no fraud; stopping per policy §6.",
-  "tool_calls": 6,
-  "tokens": 1009,
-  "latency_s": 7.023
+  "tool_calls": 7,
+  "tokens": 6170,
+  "latency_s": 31.321
 }

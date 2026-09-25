@@ -61,6 +61,14 @@
         "entity_ids": [
           "T3478782"
         ]
+      },
+      {
+        "claim": "Agent declined to expand the investigation beyond this card -- activity looks contained. Reasoning: NO The findings are limited to a single risk score trigger without evidence of shared devices or broader campaign activity.",
+        "source": "graph",
+        "ref": "llm_decision:decline_expansion(case=HHG-002)",
+        "entity_ids": [
+          "C11891-K1"
+        ]
       }
     ],
     "similar_prior_cases": [
@@ -70,7 +78,7 @@
       "CC-0678",
       "CC-0702"
     ],
-    "summary": "Case HHG-002 resulted in an uncertain verdict with a fraud probability of 0.17, as the real-time model score of 0.79 on transaction 3478782 was not corroborated by other signals and the customer failed to reply within the 24-hour validation window. The evidence presents mixed signals, including three confirming precedents (CC-0712, CC-0783, CC-0762) and two disconfirming precedents (CC-0678, CC-0702), which prevented a definitive classification. Consequently, the final actions include VERIFY_WITH_CUSTOMER (auto, R1), STEP_UP_AUTH (auto, R1), MONITOR_CARD (auto, R4), and DECLINE_TRANSACTION (L1, R4). The DECLINE_TRANSACTION action is recommended under rule R4 via route L1, awaiting approval, while the other actions remain unchanged from the initial recommendation due to the lack of new information.",
+    "summary": "Case HHG-002 regarding transaction 3478782 on card C11891-K1 resulted in an uncertain verdict with a fraud probability of 0.17, as the real-time model score of 0.79 was not corroborated by other signals and the customer did not reply to the validation request within the 24-hour window. The evidence presented mixed signals, including three confirming precedents (CC-0712, CC-0783, CC-0762) and two disconfirming precedents (CC-0678, CC-0702), all lacking direct structural overlap. Consequently, the final actions include VERIFY_WITH_CUSTOMER (auto, R1), STEP_UP_AUTH (auto, R1), MONITOR_CARD (auto, R4), and DECLINE_TRANSACTION (L1, R4), with the latter recommended under rule R4 via route L1 pending approval. The investigation remains unresolved due to the lack of definitive evidence linking the activity to a broader fraud campaign or shared devices.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-002"
   },
@@ -128,6 +136,6 @@
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.17 (uncertain); further steps are unlikely to change the decision.",
   "tool_calls": 6,
-  "tokens": 1102,
-  "latency_s": 1.816
+  "tokens": 1154,
+  "latency_s": 5.785
 }

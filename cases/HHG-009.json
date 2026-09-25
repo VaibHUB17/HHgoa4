@@ -91,6 +91,44 @@
         "entity_ids": [
           "R7"
         ]
+      },
+      {
+        "claim": "Agent elected to expand the investigation to the shared-device neighbourhood. Reasoning: YES The presence of a new device marker combined with in-character activity suggests a potential shared device compromise that could extend to other cards.",
+        "source": "graph",
+        "ref": "llm_decision:expand_device_neighbourhood(case=HHG-009)",
+        "entity_ids": [
+          "C08299-K1"
+        ]
+      },
+      {
+        "claim": "Agent proposed device_neighbors(device_id=device_id_15), refused: that looks like a raw dataset column name, not a real entity id -- running it would waste a query rather than gather evidence. Full params: {'device_id': 'device_id_15', 'anchor': '2016-12-28 17:10:53', 'hours': 72}",
+        "source": "graph",
+        "ref": "llm_plan:rejected(column_as_id, depth=1)",
+        "entity_ids": []
+      },
+      {
+        "claim": "card_window returned 11 connected entities at depth 2. Reasoning: The specific device_id_15 is not in the known identifiers list. To find the device associated with the 'New' marker for card C08299-K1, I must first retrieve the transaction history for this card around the case anchor. The card_window query will surface the relevant transactions, allowing me to identify the specific device ID before potentially running device_neighbors.",
+        "source": "graph",
+        "ref": "query:card_window(card_id=C08299-K1, anchor=2016-12-28 17:10:53, hours=72)",
+        "entity_ids": [
+          "3588859",
+          "3587043",
+          "3586980",
+          "3576079",
+          "3588876",
+          "3588919",
+          "3587042",
+          "3581141",
+          "3588950",
+          "3588874",
+          "3588905"
+        ]
+      },
+      {
+        "claim": "Confidence check on gathered evidence: medium -- The investigation has reached its depth limit (3 of 3). The evidence presents a clear conflict: the customer disputes the charge, and a new device marker is present (risk factors), but the transaction perfectly matches the customer's established recurring subscription pattern and baseline history (strong legitimacy indicators). Policy R7 explicitly forbids blocking in this scenario. While the 'new device' signal is unexplained, the depth limit prevents further verification of the device neighborhood. The policy engine can now apply the deterministic rules regarding recurring subscriptions and customer disputes to make the final verdict.",
+        "source": "graph",
+        "ref": "llm_decision:confidence_gate(case=HHG-009, depth=3)",
+        "entity_ids": []
       }
     ],
     "similar_prior_cases": [
@@ -100,7 +138,7 @@
       "CC-0182",
       "CC-0281"
     ],
-    "summary": "Case HHG-009 was closed with a verdict of legitimate and a fraud probability of 0.09, as the disputed $30.02 charge on card C08299-K1 matched the customer's established recurring merchant and billing history. Although a step-up authentication request expired unanswered, which raised the probability from 0.07 to 0.09, the lack of structural overlap with confirmed fraud precedents and the presence of disconfirming legitimate precedents supported the final determination. The final actions of CREATE_CASE, VERIFY_WITH_CUSTOMER, and WARN_CUSTOMER were selected via the auto route under rule R7, which forbids immediate card blocks for charges matching established subscriptions.",
+    "summary": "Case HHG-009 was closed with a verdict of legitimate and a fraud probability of 0.09, as the disputed $30.02 charge on card C08299-K1 matched the customer's established recurring merchant and amount patterns despite a new device marker. The key evidence included the customer's dispute message and the alignment of the transaction with their baseline history, which triggered Fraud Policy R7 to forbid an immediate card block. An evidence request for step-up authentication expired unanswered, which raised the fraud probability from 0.07 to 0.09 and influenced the final recommended actions. The final actions consisted of CREATE_CASE (auto, R7), VERIFY_WITH_CUSTOMER (auto, R7), and WARN_CUSTOMER (auto, R7), reflecting the policy-driven response to a recurring subscription dispute without corroborating fraud.",
     "written_to_graph": true,
     "graph_case_id": "CASE-HHG-009"
   },
@@ -157,7 +195,7 @@
     "activity_dates": []
   },
   "stop_reason": "Evidence request settled the question: probability reached 0.09 (legitimate); further steps are unlikely to change the decision.",
-  "tool_calls": 6,
-  "tokens": 1142,
-  "latency_s": 3.937
+  "tool_calls": 7,
+  "tokens": 6602,
+  "latency_s": 11.327
 }
