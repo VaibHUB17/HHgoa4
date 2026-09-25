@@ -36,7 +36,7 @@ export function TopNav() {
     <header ref={headerRef} className="nav-seam px-6 py-3.5">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         <Link href="/" className="flex items-baseline gap-2">
-          <span className="font-display text-lg text-bright">HHGoa</span>
+          <span className="font-display text-lg text-bright">Tracewise</span>
           <span className="readout text-xs uppercase tracking-widest text-ink-faint">
             Case Console
           </span>

@@ -25,9 +25,37 @@ const displaySerif = Instrument_Serif({
    default and reads as the unconsidered choice. */
 
 export const metadata: Metadata = {
-  title: "Case Console — Fraud Investigation",
+  title: {
+    default: "Tracewise — Agentic Fraud Investigation on TigerGraph",
+    template: "%s | Tracewise",
+  },
   description:
-    "Analyst console for an agentic fraud investigation: evidence, graph relationships, recommendation history and the approval gate.",
+    "Autonomous, auditable fraud investigation agent powered by TigerGraph Savanna. Detects multi-hop device rings, reasons under uncertainty, and enforces deterministic policy rules.",
+  keywords: [
+    "Tracewise",
+    "TigerGraph",
+    "Fraud Investigation",
+    "Graph Database",
+    "Agentic AI",
+    "GraphRAG",
+    "GSQL",
+    "Hacker House Goa",
+  ],
+  authors: [{ name: "Tracewise Team" }],
+  openGraph: {
+    title: "Tracewise — Agentic Fraud Investigation on TigerGraph",
+    description:
+      "Autonomous, auditable fraud investigation agent powered by TigerGraph Savanna. Detects multi-hop device rings, reasons under uncertainty, and enforces deterministic policy rules.",
+    url: "https://h-hgoa4.vercel.app",
+    siteName: "Tracewise",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Tracewise — Agentic Fraud Investigation on TigerGraph",
+    description:
+      "Autonomous fraud investigation on connected graph data. GSQL queries, community detection, and auditable policy gates.",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

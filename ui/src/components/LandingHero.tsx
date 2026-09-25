@@ -65,7 +65,7 @@ export function LandingHero() {
           transition={{ duration: 0.5 }}
         >
           <span className="seal readout bg-bed px-3 py-1 text-[0.62rem] uppercase tracking-[0.18em] text-ink-dim">
-            case file · hacker house goa
+            tracewise · hacker house goa
           </span>
           <span className="readout pill border border-seam px-3 py-1 text-[0.62rem] uppercase tracking-[0.16em] text-phosphor">
             agentic fraud investigation
