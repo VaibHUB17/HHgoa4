@@ -33,8 +33,7 @@ cases plus 3 independent re-runs of one case to rule out run-to-run flakiness.
 
 *Built at the TigerGraph Agentic Fraud Investigation Hackathon by Team ORNG. Code: [github.com/VaibHUB17/HHgoa4](https://github.com/VaibHUB17/HHgoa4) — live analyst console: [h-hgoa4.vercel.app](https://h-hgoa4.vercel.app/). We had a lot of help from Devanshu at TigerGraph, who answered our questions in the Discord at midnight and talked us out of at least one genuinely bad idea.*
 
-<!-- IMAGE: place the system architecture overview image here, right below the intro paragraph -->
-<!-- PROMPT: "Clean dark-mode technical architecture diagram. Flow from left to right: a box labeled 'LangGraph State Machine' with arrows going to a box labeled 'TigerGraph Savanna (590k transactions)', then to a box labeled 'Pattern Detectors + Confidence Scorer', then to a box labeled 'JSON Case File'. Below the main flow, a smaller feedback arrow from the Case File back to TigerGraph labeled 'written back as precedent'. Minimalist, dark background, teal and white labels, no photos, diagram style only." -->
+![Tracewise architecture: the LLM picks where to look; the ledger and policy decide what is true](images/architecture.png)
 
 We built this for a TigerGraph fraud-investigation hackathon: twenty card-fraud alerts, a graph
 database, and an agent that has to decide what happened and what the bank should do about it. The
@@ -77,6 +76,8 @@ trigger -> investigate -> gather_evidence -> assess -> (gather_more | decide)
         -> snapshot_initial -> request_evidence -> reassess -> snapshot_final
         -> policy_gate -> explain -> write_case -> emit
 ```
+
+![The investigation loop: twelve LangGraph nodes](images/agent-flow.png)
 
 `gather_more` loops back to `investigate`. Of those twelve nodes, the LLM participates in exactly three activities: choosing which graph query to run next, classifying returned rows into a fixed vocabulary of evidence keys, and writing prose. The probability comes from a weighted ledger. The verdict comes from thresholds on that probability. The actions come from ten numbered policy rules (R1–R10) in a YAML file, resolving to fourteen exact action identifiers and three approval routes. None of those three are reachable by a model token.
 
@@ -145,8 +146,7 @@ First, we extracted only the columns that mean something structurally: transacti
 
 The card ID reconstruction was its own adventure. The dataset gives you card1 through card6 as separate fields but no actual card identifier. The bank's own case files use a format like C07297-K1. We spent a meaningful amount of time figuring out the ranking rule: it turned out to be ascending transaction count per customer, fewest transactions gets K1. We verified it against all 20 known card IDs in the exam set and got 19 of 20 right. The one exception is a customer with two cards almost identical in usage count, which no simple rule handles cleanly, and we documented that clearly rather than pretending it works perfectly.
 
-<!-- IMAGE: place a data pipeline flow image here, after the loading section -->
-<!-- PROMPT: "Clean technical flow diagram on dark background. Three labeled boxes in a row: 'transactions.csv (590k rows, 400+ cols)' arrow to 'slice: keep structural columns only' arrow to 'txn_slim.csv'. Below that row, a branch arrow labeled 'V1-V339 columns' going to a box labeled 'Parquet sidecar (local, never in graph)'. Then from txn_slim.csv, an arrow to a box labeled 'GSQL LOADING JOB' and then to 'TigerGraph Savanna graph'. Minimalist, dark mode, teal and white, diagram only." -->
+![Loading 590,742 transactions into TigerGraph with a GSQL loading job](images/data-pipeline.png)
 
 ## Why a graph and not a table
 
@@ -168,8 +168,7 @@ what an unlabelled feature means, those stay out of the graph entirely. Fully lo
 Transaction, 14,780 Card, 13,553 Customer, 9,704 DeviceProfile, 5,565 ClosedCase, and 56 PolicyChunk
 vertices, six installed GSQL queries, and TigerGraph's `tg_wcc` community detection algorithm.
 
-<!-- IMAGE: place the graph schema diagram here -->
-<!-- PROMPT: "Graph database schema diagram, dark background, node-and-edge style. Nodes labeled: Customer, Card, Transaction, DeviceProfile, BillingRegion, EmailDomain, ProductCategory, ClosedCase. Directed edges between them labeled: OWNS (Customer to Card), MADE (Card to Transaction), FROM_DEVICE (Transaction to DeviceProfile), BILLED_IN (Transaction to BillingRegion), PURCHASER_EMAIL and RECIPIENT_EMAIL (Transaction to EmailDomain), IN_CATEGORY (Transaction to ProductCategory), INVOLVES (ClosedCase to Transaction). Minimalist, teal nodes on dark background, white edge labels." -->
+![Graph schema](images/graph-schema.png)
 
 ## Two-pool memory retrieval, and a pattern the labels missed
 
@@ -199,8 +198,7 @@ purchases in thirty minutes: $478.95, $456.96, $488.04, $482.12), and the live e
 five precedent case IDs plus FinCEN guidance on structured transactions designed to evade
 authorization thresholds.
 
-<!-- IMAGE: place an image here showing the undocumented pattern -->
-<!-- PROMPT: "Timeline chart showing 4 online transactions on one card within 30 minutes. Each transaction shown as a dot on a horizontal timeline with the amount labeled: $478.95, $456.96, $488.04, $482.12. A horizontal red dashed line at $500 labeled 'authorization ceiling'. Below the chart, text: 'Authorization threshold structuring: amounts chosen to stay just under the limit'. Dark background, teal and red accents, clean infographic style." -->
+![HHG-006: four purchases in 30 minutes, each just under $500](images/hhg006-structuring.png)
 
 ## The before/after mechanic
 
@@ -210,8 +208,7 @@ device marked new for that account, which the agent's own investigation escalate
 18-customer shared-device ring, corroborated independently by TigerGraph's `tg_wcc` community
 detection algorithm. What `tg_wcc` actually returned was a single connected component spanning 18 different customer accounts, all linked by sharing the same physical device at some point. The algorithm does not know anything about fraud. It just finds groups of nodes that are connected to each other and labels them. In this case the group it found happened to be a ring of accounts all touched by the same compromised device, which is exactly the kind of signal you cannot see by looking at one transaction at a time. The agent used that finding as hard evidence under policy rule R6, which covers shared device activity, and it changed the recommended actions accordingly.
 
-<!-- IMAGE: place a ring visualization here -->
-<!-- PROMPT: "Graph visualization showing 18 circular nodes, each labeled 'Customer', arranged in a loose ring. All 18 nodes connect through edges to a central node labeled 'DeviceProfile (shared device)'. The central node is highlighted in red. The surrounding customer nodes are in teal. Edges are thin white lines. Background is dark. Title text at top: 'tg_wcc found: 18-customer shared device ring'. Clean, node-link diagram style." -->
+![HHG-014: one device fingerprint shared by 18 cardholders in 7 days](images/hhg014-device-ring.png)
 
 ```
 initial   p=0.61   CREATE_CASE (auto, R6), FILE_REPORT (L2, R6), MONITOR_CONNECTED_CARDS (auto, R6)
@@ -260,8 +257,7 @@ not-executed no matter what any upstream component decided, and the graph node t
 pauses and waits. We didn't want "don't block cards without approval" to be a sentence in a prompt a
 confident-sounding model turn could talk itself past; it's a structural chokepoint.
 
-<!-- IMAGE: place the permission routing diagram here -->
-<!-- PROMPT: "Flowchart on dark background. At the top: a box labeled 'Agent recommends action'. Arrow goes down to a diamond labeled 'What route?'. Three arrows branch out: left arrow labeled 'auto' goes to a green box 'Execute immediately'. Middle arrow labeled 'L1 (team lead)' goes to a yellow box 'Pause, wait for approval'. Right arrow labeled 'L2 (fraud manager)' goes to an orange box 'Pause, wait for approval'. All three paths end with a box labeled 'Result written to case file'. Minimalist flowchart, dark mode, teal and green and orange accents." -->
+![Approval routing: auto, L1, L2](images/approval-routing.png)
 
 ## The confidence gate: we took the idea and not the dependency
 

@@ -43,7 +43,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_DEFAULT_README = _REPO_ROOT / "README.md"
+_DEFAULT_README = _REPO_ROOT / "docs" / "DATASET_README.md"  # organizers' dataset README: policy R1-R10 + patterns
 
 _HTTP_TIMEOUT_S = 20
 _USER_AGENT = "Mozilla/5.0 (compatible; HHgoa4-fraud-agent/1.0)"

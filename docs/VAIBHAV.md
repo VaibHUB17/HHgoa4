@@ -539,7 +539,7 @@ investigations that continue past a defensible decision. `final == initial` with
 
 ## Part 4 — the answer file
 
-Exact shape is in README.md's "Answer Format" section. Missing fields score zero for that
+Exact shape is in docs/DATASET_README.md's "Answer Format" section. Missing fields score zero for that
 part. Read it directly; don't work from memory.
 
 Write `src/answer/validator.py` and run it over all 20 before submitting. It must check:
