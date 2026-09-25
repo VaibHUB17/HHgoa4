@@ -33,6 +33,8 @@ regenerated with these fixes plus two new features (below) and re-validated: 0 v
 
 # Demo video script
 
+> **See also:** [END_TO_END_PIPELINE_VIDEO_SCRIPT.md](END_TO_END_PIPELINE_VIDEO_SCRIPT.md) for the complete dual-track (Audio narration + Split-screen Video/Terminal/Architecture cues) master production script.
+
 Target length: 4-5 minutes. Order is deliberate — it front-loads the thing most teams won't do
 (show the agent doing nothing on a legitimate case) before the thing every team will do (show it
 blocking a card).
