@@ -45,10 +45,10 @@ function CaseChip({ id, kind, delay, reduce }: { id: string; kind: Kind; delay: 
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 280, damping: 24, delay }}
-      className={`flex items-center justify-between gap-2 rounded border px-3 py-2 ${styleFor[kind]}`}
+      className={`flex items-center justify-between gap-1.5 rounded border px-2.5 py-1.5 min-w-0 ${styleFor[kind]}`}
     >
-      <span className="readout text-sm">{id}</span>
-      <span className="readout text-[10px] uppercase tracking-wide">{labelFor[kind]}</span>
+      <span className="readout text-xs shrink-0">{id}</span>
+      <span className="readout text-[9px] uppercase tracking-wider shrink-0 whitespace-nowrap">{labelFor[kind]}</span>
     </motion.li>
   );
 }
@@ -71,30 +71,30 @@ export function SimilarCases({ caseAnswer }: { caseAnswer: CaseAnswer }) {
   // a hairline, rather than interleaved in one grid — the opposition is a structural split,
   // not just a color difference between adjacent chips.
   return (
-    <div>
-      <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
-        <div>
+    <div className="min-w-0">
+      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 min-w-0">
+        <div className="min-w-0">
           <p className="mb-1.5 readout text-[10px] uppercase tracking-wide text-fraud/80">
             Confirming precedent
           </p>
           {confirming.length === 0 ? (
             <p className="text-xs text-ink-faint">None</p>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="space-y-1.5 min-w-0">
               {confirming.map((c, i) => (
                 <CaseChip key={c.id} id={c.id} kind={c.kind} delay={i * 0.05} reduce={reduce} />
               ))}
             </ul>
           )}
         </div>
-        <div className="border-t border-seam pt-2 sm:border-t-0 sm:border-l sm:pl-4 sm:pt-0">
+        <div className="border-t border-seam pt-3 sm:border-t-0 sm:border-l sm:pl-4 sm:pt-0 min-w-0">
           <p className="mb-1.5 readout text-[10px] uppercase tracking-wide text-clear/80">
             Disconfirming precedent
           </p>
           {disconfirming.length === 0 ? (
             <p className="text-xs text-ink-faint">None</p>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="space-y-1.5 min-w-0">
               {disconfirming.map((c, i) => (
                 <CaseChip key={c.id} id={c.id} kind={c.kind} delay={i * 0.05} reduce={reduce} />
               ))}
@@ -103,7 +103,7 @@ export function SimilarCases({ caseAnswer }: { caseAnswer: CaseAnswer }) {
         </div>
       </div>
       {neutral.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-1.5 border-t border-seam pt-2.5">
+        <ul className="mt-3 flex flex-wrap gap-1.5 border-t border-seam pt-2.5 min-w-0">
           {neutral.map((c, i) => (
             <CaseChip key={c.id} id={c.id} kind={c.kind} delay={i * 0.03} reduce={reduce} />
           ))}

@@ -21,10 +21,16 @@ from __future__ import annotations
 
 import argparse
 import csv
+import logging
 import re
 import sys
 import time
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+logging.getLogger("pyTigerGraph").setLevel(logging.ERROR)
 
 from src.agent.deps import live_deps, offline_deps
 from src.agent.graph import build_graph

@@ -118,22 +118,13 @@ def mcp_run_installed_query(
     target_graph = graph_name or os.environ.get("TG_GRAPH", "") or os.environ.get("TG_GRAPHNAME", "")
 
     formatted_params = dict(params or {})
+    _vertex_queries = ("card_window", "customer_baseline", "device_neighbors")
     for k, v in list(formatted_params.items()):
-        if k in ("card_id", "customer_id", "device_id") and isinstance(v, str):
+        if query_name in _vertex_queries and k in ("card_id", "customer_id", "device_id") and isinstance(v, str):
             formatted_params[k] = (v,)
 
     coro = run_installed_query(query_name, params=formatted_params, graph_name=target_graph)
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            res = executor.submit(asyncio.run, coro).result()
-    else:
-        res = asyncio.run(coro)
+    res = _run_mcp_coro(coro)
 
     if not res or not hasattr(res[0], "text"):
         raise RuntimeError(f"tigergraph-mcp returned empty response for query {query_name}")
@@ -150,20 +141,36 @@ def mcp_run_installed_query(
     return data.get("data", {}).get("result", [])
 
 
+async def _execute_with_cleanup(coro: Any) -> Any:
+    try:
+        return await coro
+    finally:
+        try:
+            from tigergraph_mcp.tools.query_tools import get_connection
+            conn = get_connection()
+            if hasattr(conn, "_async_client") and conn._async_client and not conn._async_client.closed:
+                await conn._async_client.close()
+                conn._async_client = None
+                await asyncio.sleep(0.05)
+        except Exception:
+            pass
+
+
 def _run_mcp_coro(coro: Any) -> Any:
     """Shared async-dispatch: run an MCP tool coroutine from sync code whether or not an
     event loop is already running (tests import this module under pytest-asyncio and
     plain sync callers both hit this path)."""
     import concurrent.futures
 
+    wrapped = _execute_with_cleanup(coro)
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
     if loop and loop.is_running():
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            return executor.submit(asyncio.run, coro).result()
-    return asyncio.run(coro)
+            return executor.submit(asyncio.run, wrapped).result()
+    return asyncio.run(wrapped)
 
 
 def mcp_run_generated_query(

@@ -85,8 +85,6 @@ def get_conn(force_new: bool = False) -> tg.TigerGraphConnection:
         secret = os.environ.get("TG_SECRET")
         api_token = os.environ.get("TG_API_TOKEN")
 
-        # With a GSQL secret, pyTigerGraph authenticates both GSQL statements (DDL, query
-        # installs) and REST++ calls from the secret alone -- no username/password needed.
         conn = tg.TigerGraphConnection(
             host=host,
             graphname=graphname,
@@ -101,11 +99,10 @@ def get_conn(force_new: bool = False) -> tg.TigerGraphConnection:
         elif secret:
             try:
                 token = conn.getToken(secret)
-            except Exception as exc:  # noqa: BLE001 - we re-raise unless it is a suspend
+            except Exception as exc:  
                 if not _is_suspended_error(exc):
                     raise
-                # The workspace was asleep. Ask it to wake, wait for it, then retry once
-                # rather than failing a whole batch run on the first call of the session.
+                
                 logger.warning("workspace appears suspended; waking it")
                 if not wake_workspace():
                     raise
@@ -178,6 +175,9 @@ def wake_workspace(timeout_s: float = 180.0, poll_s: float = 6.0) -> bool:
     return False
 
 
+logging.getLogger("pyTigerGraph").setLevel(logging.ERROR)
+
+
 def run_query(name: str, case_id: str | None = None, params: dict | None = None, **kw: Any) -> Any:
     """Run an installed GSQL query by name. Routes through official tigergraph-mcp
     (tigergraph__run_installed_query tool) as required by the brief, falling back
@@ -186,7 +186,16 @@ def run_query(name: str, case_id: str | None = None, params: dict | None = None,
     Increments the per-case tool-call counter for `case_id` if given, so instrumentation
     reflects real graph calls rather than a fabricated constant.
     """
-    params = {**(params or {}), **kw}
+    raw_params = {**(params or {}), **kw}
+    params = {}
+    for k, v in raw_params.items():
+        if name in ("card_window", "customer_baseline", "device_neighbors") and k in ("card_id", "customer_id", "device_id") and isinstance(v, str):
+            params[k] = (v,)
+        elif name == "write_case_to_graph" and k in ("card_id", "customer_id", "device_id") and isinstance(v, (tuple, list)):
+            params[k] = v[0] if v else ""
+        else:
+            params[k] = v
+
     result = None
     use_mcp = os.environ.get("USE_TIGERGRAPH_MCP", "1") != "0"
 

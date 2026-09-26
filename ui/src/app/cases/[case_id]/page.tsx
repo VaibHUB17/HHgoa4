@@ -137,8 +137,33 @@ export default async function CaseDetailPage(props: PageProps<"/cases/[case_id]"
 
         {/* ── Supporting record ─────────────────────────────────────────────── */}
         <div className="mb-6 grid gap-6 lg:grid-cols-2">
-          <EvidenceList evidence={c.case.evidence} />
-          <SimilarCases caseAnswer={c} />
+          <section className="instrument min-w-0 overflow-hidden" aria-label="Evidence ledger">
+            <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-seam px-4 py-2.5">
+              <span className="readout text-[0.68rem] uppercase tracking-[0.14em] text-ink-dim">
+                evidence ledger &middot; {c.case.evidence.length} item{c.case.evidence.length === 1 ? "" : "s"}
+              </span>
+              <span className="readout text-[0.64rem] text-ink-faint">
+                provenance &amp; signals
+              </span>
+            </header>
+            <div className="p-4 sm:p-5">
+              <EvidenceList evidence={c.case.evidence} />
+            </div>
+          </section>
+
+          <section className="instrument min-w-0 overflow-hidden" aria-label="Similar cases">
+            <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-seam px-4 py-2.5">
+              <span className="readout text-[0.68rem] uppercase tracking-[0.14em] text-ink-dim">
+                prior cases &middot; memory
+              </span>
+              <span className="readout text-[0.64rem] text-ink-faint">
+                {c.case.similar_prior_cases.length} cited
+              </span>
+            </header>
+            <div className="p-4 sm:p-5">
+              <SimilarCases caseAnswer={c} />
+            </div>
+          </section>
         </div>
 
         {c.sar.file && (

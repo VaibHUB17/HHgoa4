@@ -39,10 +39,10 @@ export function VerdictBadge({ verdict }: { verdict: Verdict }) {
       initial={reduce ? undefined : { opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 16, mass: 0.6 }}
-      className={`badge-shine relative inline-flex items-center gap-1.5 overflow-hidden rounded border-2 px-2.5 py-1 font-data text-xs font-medium uppercase tracking-wide ${verdictStyle[verdict]}`}
+      className={`badge-shine relative inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 overflow-hidden rounded border-2 px-2.5 py-1 font-data text-xs font-medium uppercase tracking-wide ${verdictStyle[verdict]}`}
     >
-      <span className="h-1.5 w-1.5 bg-current" aria-hidden />
-      {verdict}
+      <span className="h-1.5 w-1.5 shrink-0 bg-current" aria-hidden />
+      <span className="shrink-0 whitespace-nowrap">{verdict}</span>
     </motion.span>
   );
 }
@@ -56,7 +56,7 @@ const statusLabel: Record<CaseStatus, string> = {
 
 export function StatusBadge({ status }: { status: CaseStatus }) {
   return (
-    <span className="inline-flex items-center rounded border border-seam-hi bg-deck px-2 py-0.5 font-body text-xs text-ink-dim">
+    <span className="inline-flex shrink-0 whitespace-nowrap items-center rounded border border-seam-hi bg-deck px-2 py-0.5 font-body text-xs text-ink-dim">
       {statusLabel[status]}
     </span>
   );
@@ -91,10 +91,10 @@ export function SourceBadge({ source }: { source: EvidenceSource }) {
     <span
       ref={ref}
       onPointerMove={onPointerMove}
-      className={`badge-shine relative inline-flex items-center gap-1 overflow-hidden rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${sourceStyle[source]}`}
+      className={`badge-shine relative inline-flex shrink-0 whitespace-nowrap items-center gap-1 overflow-hidden rounded border px-2 py-0.5 font-data text-[10px] uppercase tracking-wide ${sourceStyle[source]}`}
     >
-      <span aria-hidden>{sourceGlyph[source]}</span>
-      {sourceLabel[source]}
+      <span aria-hidden className="shrink-0">{sourceGlyph[source]}</span>
+      <span className="shrink-0 whitespace-nowrap">{sourceLabel[source]}</span>
     </span>
   );
 }
@@ -117,9 +117,9 @@ export function RouteBadge({ route }: { route: ApprovalRoute }) {
     <span
       ref={ref}
       onPointerMove={onPointerMove}
-      className={`badge-shine relative inline-flex items-center overflow-hidden rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${routeStyle[route]}`}
+      className={`badge-shine relative inline-flex shrink-0 whitespace-nowrap items-center overflow-hidden rounded border px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wide ${routeStyle[route]}`}
     >
-      {routeLabel[route]}
+      <span className="shrink-0 whitespace-nowrap">{routeLabel[route]}</span>
     </span>
   );
 }

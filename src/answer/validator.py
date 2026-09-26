@@ -54,9 +54,9 @@ def _customer_response_kinds(evidence_requests: list[dict]) -> set[str]:
     return kinds
 
 
-# --- rule -> action set the policy actually allows (README R1-R10 / config/fraud_policy.yaml)
-_R4_FORBIDDEN = {"BLOCK_CARD"}  # R4 (no-reply) produces MONITOR_CARD/DECLINE_TRANSACTION, never a block
-_R7_FORBIDDEN = {"BLOCK_CARD", "DECLINE_TRANSACTION", "FILE_REPORT"}  # engine.py rule_r7_forbidden_actions
+
+_R4_FORBIDDEN = {"BLOCK_CARD"}  
+_R7_FORBIDDEN = {"BLOCK_CARD", "DECLINE_TRANSACTION", "FILE_REPORT"} 
 
 
 def validate(

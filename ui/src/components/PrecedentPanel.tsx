@@ -68,11 +68,11 @@ function PrecedentChip({ c, delay, reduce }: { c: Classified; delay: number; red
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 26, delay }}
-      className="flex items-center justify-between gap-2 rounded border border-seam-hi bg-deck px-3 py-2"
+      className="flex items-center justify-between gap-1.5 rounded border border-seam-hi bg-deck px-2.5 py-1.5 min-w-0"
     >
-      <span className="readout text-sm text-ink">{c.id}</span>
+      <span className="readout text-xs text-ink shrink-0">{c.id}</span>
       {c.ground && (
-        <span className="readout text-[0.64rem] uppercase tracking-wide text-ink-faint">{c.ground}</span>
+        <span className="readout text-[0.62rem] uppercase tracking-wide text-ink-faint shrink-0 whitespace-nowrap">{c.ground}</span>
       )}
     </motion.li>
   );
@@ -92,7 +92,7 @@ function Column({
   emptyNote: string;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className={`mb-1.5 readout text-[0.68rem] uppercase tracking-wide ${glow === "fraud" ? "text-fraud" : "text-clear"}`}>
         {title}
         <span className="ml-1.5 text-ink-faint">({items.length})</span>
@@ -100,7 +100,7 @@ function Column({
       {items.length === 0 ? (
         <p className="text-xs text-ink-faint">{emptyNote}</p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="space-y-1.5 min-w-0">
           {items.map((c, i) => (
             <PrecedentChip key={c.id} c={c} delay={i * 0.06} reduce={reduce} />
           ))}
@@ -155,7 +155,7 @@ export function PrecedentPanel({
           transition={reduce ? { duration: 0 } : { duration: 0.4, ease: EASE }}
           className="px-4 py-4 sm:px-6"
         >
-          <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+          <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 min-w-0">
             <Column
               title="Confirming precedent"
               glow="fraud"
@@ -163,7 +163,7 @@ export function PrecedentPanel({
               reduce={reduce}
               emptyNote="None retrieved in the confirming pool."
             />
-            <div className="border-t border-seam pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+            <div className="border-t border-seam pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0 min-w-0">
               <Column
                 title="Exonerating precedent"
                 glow="clear"

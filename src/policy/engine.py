@@ -12,7 +12,6 @@ from typing import Literal
 
 Route = Literal["auto", "L1", "L2"]
 
-# --- action routes, per README §2 --------------------------------------------------------
 _AUTO_ACTIONS = {
     "ALLOW_TRANSACTION",
     "MONITOR_CARD",
@@ -30,12 +29,11 @@ _L2_FIXED_ACTIONS = {"BLOCK_ALL_CARDS", "FILE_REPORT"}
 
 ALL_ACTIONS = _AUTO_ACTIONS | _L1_FIXED_ACTIONS | _L2_FIXED_ACTIONS | {"BLOCK_CARD"}
 
-# Probability thresholds, straight from the brief. Named so the policy's numbers appear
-# once each and a reader can grep for where a decision boundary comes from.
-R1_BLOCK_GUARD = 0.70           # R1: below this on a single signal, verify before blocking
-CASE_CREATION_THRESHOLD = 0.30  # §3a: open a case at or above this
-STOP_HIGH = 0.85                # §6: stop, with >= 2 independent evidence pieces
-STOP_LOW = 0.15                 # §6: stop, with >= 2 independent evidence pieces
+
+R1_BLOCK_GUARD = 0.70            
+CASE_CREATION_THRESHOLD = 0.30  
+STOP_HIGH = 0.85                
+STOP_LOW = 0.15                 
 assert len(ALL_ACTIONS) == 14, "the policy defines exactly 14 action identifiers"
 
 

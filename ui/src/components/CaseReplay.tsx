@@ -140,11 +140,11 @@ export function CaseReplay({
           <ul className="space-y-2">
             {evidenceSoFar.map((s, i) => (
               <li key={i} className="border-b border-seam px-1 py-2 last:border-b-0">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm text-ink">{s.evidence!.claim}</p>
+                <div className="flex items-start justify-between gap-3 min-w-0">
+                  <p className="text-sm text-ink min-w-0 flex-1 break-words">{s.evidence!.claim}</p>
                   <SourceBadge source={s.evidence!.source} />
                 </div>
-                <p className="readout mt-1 text-[11px] text-ink-faint">{s.evidence!.ref}</p>
+                <p className="readout mt-1 text-[11px] text-ink-faint truncate max-w-full" title={s.evidence!.ref}>{s.evidence!.ref}</p>
               </li>
             ))}
           </ul>
